@@ -15,7 +15,8 @@ USE_MPI = y
 BOOST_DIR = /usr/local/boost
 TIFF_LIB_DIR = /usr/local/lib
 #OPENCV_DIR = /usr
-WOO_DIR = /home/asarje
+#WOO_DIR = /home/asarje
+WOO_DIR = src/woo
 ifeq ($(USE_MPI), y)
 MPI_DIR = /usr/local/openmpi
 endif
