@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 27 Jan 2013 07:05:25 PM PST
+  *  Modified: Mon 28 Jan 2013 03:27:07 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -25,8 +25,10 @@ namespace hir {
 										// any benefit of using vectors for below instead? ...
 			unsigned int* in_mask_;		// the input mask
 			unsigned int in_mask_len_;	// size of input mask
+			real_t* mask_mat_;			// mask matrix of 1 and 0
 			unsigned int num_tiles_;	// total number of tiles
 			Tile* tiles_;				// the tiles -- temp
+			woo::Matrix2D<complex_t> vandermonde_mat_;
 
 			// extract raw data from image
 			bool pre_init(unsigned int, unsigned int, char*, unsigned int, real_t*);
@@ -47,10 +49,12 @@ namespace hir {
 		in_pattern_(rows, cols),
 		in_mask_(NULL),
 		in_mask_len_(0),
+		mask_mat_(NULL),
 		num_tiles_(num_tiles),
-		tiles_(NULL) {
+		tiles_(NULL),
+		vandermonde_mat_(std::max(rows, cols), std::max(rows, cols)) {
 
-		if(!pre_init(rows, cols, img_file, num_tiles, loading)) {
+		if(!pre_init(rows, cols, img_file, loading)) {
 			std::cerr << "error: failed to pre-initialize RMC object" << std::endl;
 			exit(1);
 		} // if
@@ -60,14 +64,14 @@ namespace hir {
 	template <typename real_t>
 	RMC<real_t>::~RMC() {
 		if(in_mask_ != NULL) delete[] in_mask_;
-		if(loading_factors_ != NULL) delete[] loading_factors_;
+		if(mask_mat_ != NULL) delete[] mask_mat_;
+		if(tiles_ != NULL) delete[] tiles_;
 	} // RMC::~RMC()
 
 
 	// idea is that this can be replaced easily for other types of raw inputs (not image)
 	template <typename real_t>
-	bool RMC<real_t>::pre_init(unsigned int rows, unsigned int cols, char* img_file,
-								unsigned int num_tiles, real_t* loading) {
+	bool RMC<real_t>::pre_init(unsigned int rows, unsigned int cols, char* img_file, real_t* loading) {
 		// TODO: opencv usage is temporary. improve with something else...
 		cv::Mat img = cv::imread(img_file, 0);	// grayscale only for now ...
 		// extract the input image raw data (grayscale values)
@@ -85,7 +89,7 @@ namespace hir {
 
 		// TODO: take a subimage of the input
 
-		if(!init(rows, cols, img_data, mask_count, mask_data, num_tiles, loading)) {
+		if(!init(rows, cols, img_data, mask_count, mask_data, loading)) {
 			std::cerr << "error: failed to initialize RMC object" << std::endl;
 			delete[] img_data;
 			return false;
@@ -100,9 +104,12 @@ namespace hir {
 	template <typename real_t>
 	bool RMC<real_t>::init(unsigned int rows, unsigned int cols, real_t* pattern,
 							unsigned int mask_len, unsigned int* mask,
-							unsigned int num_tiles, real_t* loading) {
+							real_t* loading) {
 		// for now only square patterns are considered
 		if(rows != cols) return false;
+
+		unsigned int size = std::max(rows, cols);
+		unsigned int size2 = size * size;
 
 		in_pattern_.populate(pattern);
 		// create mask and loading arays
@@ -111,16 +118,46 @@ namespace hir {
 		if(in_mask_ == NULL) return false;
 		memcpy(in_mask_, mask, mask_len * sizeof(unsigned int));
 
-		// initialize tiles
+		// generate mask matrix
+		mask_mat_ = new (std::nothrow) real_t[size2](1.0);
+		for(unsigned int i = 0; i < in_mask_len_; ++ i) mask_mat_[inmask_[i]] = 0.0;
 
-		unsigned int size = std::max(rows, cols);
-		unsigned int size2 = size * size;
+		// compute base norm
+		real_t base_norm = 0.0;		// why till size/2 only ???
+		for(unsigned int i = 0; i < size / 2; ++ i) {
+			for(unsigned int j = 0; j < size / 2; ++ j) {
+				base_norm += in_pattern_(i, j) * (j + 1);	// skipping creation of Y matrix
+			} // for
+		} // for
+
+		// initialize tiles
 		// create array of random indices
 		std::vector<unsigned int> indices;
 		for(unsigned int i = 0; i < size2; ++ i) indices.push_back(i);
 		std::random_shuffle(indices.begin(), indices.end());
-		tiles_ = new (std::nothrow) Tile[num_tiles](size, size, indices);
-		for(unsigned int i = 0; i < num_tiles; ++ i) tiles_[i].init(loading[i]);
+		tiles_ = new (std::nothrow) Tile[num_tiles_](size, size, indices);
+		for(unsigned int i = 0; i < num_tiles_; ++ i) tiles_[i].init(loading[i], base_norm, in_pattern_);
+
+		// compute vandermonde matrix
+		// generate 1st order power (full 360 deg rotation in polar coords)
+		std::vector<complex_t> first_pow;
+		for(unsigned int i = 0; i < size; ++ i) {
+			real_t temp_r = cos(2.0 * PI_ - (2.0 * PI_ * ((real_t)i / size)));
+			real_t temp_i = sin(2.0 * PI_ - (2.0 * PI_ * ((real_t)i / size)));
+			temp_r = abs(temp_r) < ZERO_LIMIT_ ? 0.0 : temp_r;
+			temp_i = abs(temp_i) < ZERO_LIMIT_ ? 0.0 : temp_i;
+			first_pow.push_back(complex_t(temp_r, temp_i));
+		} // for
+		// initialize first column
+		woo::Matrix2D<complex_t>::col_iterator citer = vandermonde_mat_.column(0);
+		for(unsigned int i = 0; i < citer.size(); ++ i) citer[i] = complex_t(1.0, 0.0);
+		// compute rest of the matrix
+		woo::Matrix2D<complex_t>::col_iterator curr_citer = vandermonde_mat_.begin_col();
+		woo::Matrix2D<complex_t>::col_iterator prev_citer = vandermonde_mat_.begin_col();
+		++ curr_citer;
+		for(curr_citer != vandermonde_mat_.end_col(); ++ curr_citer, ++ prev_citer) {
+			for(unsigned int i = 0; i < size; ++ i) curr_citer[i] = prev_citer[i] * first_pow[i];
+		} // while
 
 		return true;
 	} // RMC::init()
@@ -128,23 +165,16 @@ namespace hir {
 
 	// simulate RMC
 	template <typename real_t>
-	bool RMC<real_t>::simulate(int num_steps) {
+	bool RMC<real_t>::simulate(int num_steps, real_t tstar, unsigned int rate) {
 
-		unsigned int size = std::max(rows, cols);
-		unsigned int size2 = size * size;
-
-		// compute base norm
-		real_t base_norm = 0.0;		// why till size/2 ???
-		for(unsigned int i = 0; i < size / 2; ++ i) {
-			for(unsigned int j = 0; j < size / 2; ++ j) {
-				base_norm += in_pattern_(i, j) * (j + 1);
+		for(unsigned int step = 0; step < num_steps; ++ step) {
+			for(unsigned int i = 0; i < num_tiles_; ++ i) {
+				tiles_[i].simulate_step(in_pattern_, vandermonde_mat_, tstar);
+				if(step % rate == 0) tiles_[i].update_model();
 			} // for
 		} // for
 
-		// generate mask matrix
-		// TODO ...
-
-		return false;
+		return true;
 	} // RMC::simulate()
 
 
