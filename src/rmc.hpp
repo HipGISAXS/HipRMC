@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 27 Jan 2013 01:16:00 PM PST
+  *  Modified: Sun 27 Jan 2013 07:05:25 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -14,20 +14,19 @@
 #include <opencv2/opencv.hpp>
 #include <woo/matrix/matrix.hpp>
 
+#include "tile.hpp"
+
 namespace hir {
 
 	template <typename real_t>
 	class RMC {
 		private:
-			//unsigned int in_rows_;	// number of rows in input pattern
-			//unsigned int in_cols_;	// number of columns in input pattern
-			//real_t* in_pattern_;		// the input pattern
 			woo::Matrix2D<real_t> in_pattern_;	// input pattern and related matrix info
-			// any benefit of using vectors instead? ...
+										// any benefit of using vectors for below instead? ...
 			unsigned int* in_mask_;		// the input mask
-			real_t* loading_factors_;	// array of loading factor of each tile
 			unsigned int in_mask_len_;	// size of input mask
 			unsigned int num_tiles_;	// total number of tiles
+			Tile* tiles_;				// the tiles -- temp
 
 			// extract raw data from image
 			bool pre_init(unsigned int, unsigned int, char*, unsigned int, real_t*);
@@ -47,9 +46,9 @@ namespace hir {
 					unsigned int num_tiles, real_t* loading) :
 		in_pattern_(rows, cols),
 		in_mask_(NULL),
-		loading_factors_(NULL),
 		in_mask_len_(0),
-		num_tiles_(num_tiles) {
+		num_tiles_(num_tiles),
+		tiles_(NULL) {
 
 		if(!pre_init(rows, cols, img_file, num_tiles, loading)) {
 			std::cerr << "error: failed to pre-initialize RMC object" << std::endl;
@@ -109,10 +108,19 @@ namespace hir {
 		// create mask and loading arays
 		in_mask_len_ = mask_len;
 		in_mask_ = new (std::nothrow) unsigned int[mask_len];
-		loading_factors_ = new (std::nothrow) real_t[num_tiles];
-		if(in_mask_ == NULL || loading_factors_ == NULL) return false;
+		if(in_mask_ == NULL) return false;
 		memcpy(in_mask_, mask, mask_len * sizeof(unsigned int));
-		memcpy(loading_factors_, loading, num_tiles * sizeof(real_t));
+
+		// initialize tiles
+
+		unsigned int size = std::max(rows, cols);
+		unsigned int size2 = size * size;
+		// create array of random indices
+		std::vector<unsigned int> indices;
+		for(unsigned int i = 0; i < size2; ++ i) indices.push_back(i);
+		std::random_shuffle(indices.begin(), indices.end());
+		tiles_ = new (std::nothrow) Tile[num_tiles](size, size, indices);
+		for(unsigned int i = 0; i < num_tiles; ++ i) tiles_[i].init(loading[i]);
 
 		return true;
 	} // RMC::init()
@@ -121,6 +129,20 @@ namespace hir {
 	// simulate RMC
 	template <typename real_t>
 	bool RMC<real_t>::simulate(int num_steps) {
+
+		unsigned int size = std::max(rows, cols);
+		unsigned int size2 = size * size;
+
+		// compute base norm
+		real_t base_norm = 0.0;		// why till size/2 ???
+		for(unsigned int i = 0; i < size / 2; ++ i) {
+			for(unsigned int j = 0; j < size / 2; ++ j) {
+				base_norm += in_pattern_(i, j) * (j + 1);
+			} // for
+		} // for
+
+		// generate mask matrix
+		// TODO ...
 
 		return false;
 	} // RMC::simulate()
