@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Tue 29 Jan 2013 02:01:09 PM PST
+  *  Modified: Thu 31 Jan 2013 03:01:16 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -11,8 +11,18 @@
 #ifndef __TILE_HPP__
 #define __TILE_HPP__
 
+#include <vector>
+#include <complex>
+#include <random>
+#include <cuda.h>
+#include <cufft.h>
+#include <cuda_runtime.h>
+#include <cuComplex.h>
+#include <fftw3.h>
 #include <opencv2/opencv.hpp>
 #include <woo/matrix/matrix.hpp>
+
+#include "temp.hpp"
 
 namespace hir {
 
@@ -20,73 +30,111 @@ namespace hir {
 	class Tile {
 		private:
 			// following define a tile
-			unsigned int size_;						// num rows = num cols = size
-			woo::Matrix2D<real_t> a_mat_;		// A
-			woo::Matrix2D<complex_t> f_mat_[2];		// F buffers
-			unsigned int f_mat_i_;					// current buffer index
-			woo::Matrix2D<real_t> mod_f_mat_[2];	// auto_F buffers
-			unsigned int mod_f_mat_i_;				// current buffer index
-			real_t loading_factor_;					// loading factor
-			unsigned int num_particles_;
-			std::vector<unsigned int> indices_;		// NOTE: the first num_particles_ entries
-													// in indices_ are 'filled', rest are 'empty'
-			real_t model_norm_;
-			real_t c_factor_;
+			unsigned int size_;									// num rows = num cols = size
+			woo::Matrix2D<real_t> a_mat_;						// A
+			std::vector<woo::Matrix2D<complex_t> > f_mat_;		// F buffers
+			std::vector<woo::Matrix2D<real_t> > mod_f_mat_;		// auto_F buffers
+			std::vector<unsigned int> indices_;					// NOTE: the first num_particles_ entries
+																// in indices_ are 'filled', rest are 'empty'
+			unsigned int f_mat_i_;								// current f buffer index
+			unsigned int mod_f_mat_i_;							// current mod_f buffer index
+			real_t loading_factor_;								// loading factor
+			unsigned int num_particles_;						// number of particles (duh!)
+			real_t model_norm_;									// norm of current model
+			real_t c_factor_;									// c factor
 
 			// buffers for device
-			cucomplex_t* a_mat_d_;
+			cucomplex_t* a_mat_d_;								// not really needed
 			cucomplex_t* f_mat_d_;
 
 			// following are used during simulation
 			real_t prev_chi2_;
 			real_t curr_chi2_;
+
 			// indices produced on virtually moving a particle
 			unsigned int old_pos_;
 			unsigned int new_pos_;
 			unsigned int old_index_;
 			unsigned int new_index_;
 
+			// for random number generation
+			std::mt19937_64 ms_rand_gen_;
+
 			// functions
+			bool compute_fft_mat_cpu();
 			bool compute_fft_mat_cuda();
-			bool execute_cufft(cuFloatComplex_t*&, cuFloatComplex_t*&);
-			bool execute_cufft(cuDoubleComplex_t*&, cuDoubleComplex_t*&);
-			bool compute_mod_mat();
-			bool compute_model_norm();
-			bool compute_chi2(const woo::Matrix2D<real_t>&, const woo::Matrix2D<real_t>&, real_t);
+			bool execute_fftw(fftw_complex*, fftw_complex*);
+			bool execute_cufft(cuFloatComplex*, cuFloatComplex*);
+			bool execute_cufft(cuDoubleComplex*, cuDoubleComplex*);
+			bool compute_mod_mat(const woo::Matrix2D<complex_t>&);
+			bool compute_model_norm(const woo::Matrix2D<real_t>&);
+			real_t compute_chi2(const woo::Matrix2D<real_t>&, const woo::Matrix2D<real_t>&, real_t);
 			bool virtual_move_random_particle();
 			bool move_particle();
-			bool compute_dft2(const woo::Matrix2D<complex_t>&, woo::Matrix2D<complex_t>&);
-			bool update_fft_mat(const woo::Matrix2D<complex_t>&, const woo::Matrix2D<complex_t>&,
+			bool compute_dft2(woo::Matrix2D<complex_t>&, woo::Matrix2D<complex_t>&);
+			bool update_fft_mat(woo::Matrix2D<complex_t>&, woo::Matrix2D<complex_t>&,
 								woo::Matrix2D<complex_t>&);
 			bool mask_mat(const unsigned int*&, const woo::Matrix2D<real_t>&);
 
 		public:
-			Tile(unsigned int, unsigned int, const std::vector<unsigned int>&, const woo::Matrix2D<real_t>&);
+			Tile(unsigned int, unsigned int, const std::vector<unsigned int>&);
+			Tile(const Tile&);
 			~Tile();
 
 			// initialize with raw data
 			bool init(real_t, real_t, const woo::Matrix2D<real_t>&);
-			bool simulate_step(const woo::Matrix2D<real_t>&, const woo::Matrix2D<real_t>&,
-								unsigned int*&, real_t);
+			bool simulate_step(const woo::Matrix2D<real_t>&, woo::Matrix2D<complex_t>&,
+								const unsigned int*, real_t);
 			bool update_model(const woo::Matrix2D<real_t>& pattern, real_t base_norm);
-			bool finalize();
+			bool finalize_result(real_t&, woo::Matrix2D<real_t>&);
 
 	}; // class Tile
 
 
 	template <typename real_t, typename complex_t, typename cucomplex_t>
 	Tile<real_t, complex_t, cucomplex_t>::Tile(unsigned int rows, unsigned int cols,
-									const std::vector<unsigned int>& indices) :
+												const std::vector<unsigned int>& indices) :
 		a_mat_(rows, cols),
-		f_mat_[0](rows, cols), f_mat_[1](rows, cols), f_mat_i_(0),
-		mod_f_mat_[0](rows, cols), mod_f_mat_[1](rows, cols), mod_f_mat_i_(0),
+		f_mat_i_(0),
+		mod_f_mat_i_(0),
 		indices_(indices) {
 
 		size_ = std::max(rows, cols);
+		// two buffers each
+		f_mat_.push_back(woo::Matrix2D<complex_t>(size_, size_));
+		f_mat_.push_back(woo::Matrix2D<complex_t>(size_, size_));
+		mod_f_mat_.push_back(woo::Matrix2D<real_t>(size_, size_));
+		mod_f_mat_.push_back(woo::Matrix2D<real_t>(size_, size_));
 		cudaMalloc((void**) &a_mat_d_, size_ * size_ * sizeof(cucomplex_t));
 		cudaMalloc((void**) &f_mat_d_, size_ * size_ * sizeof(cucomplex_t));
 	} // Tile::Tile()
 
+
+	// copy constructor
+	template <typename real_t, typename complex_t, typename cucomplex_t>
+	Tile<real_t, complex_t, cucomplex_t>::Tile(const Tile<real_t, complex_t, cucomplex_t>& tile):
+		size_(tile.size_),
+		a_mat_(tile.a_mat_),
+		f_mat_(tile.f_mat_),
+		mod_f_mat_(tile.mod_f_mat_),
+		indices_(tile.indices_),
+		f_mat_i_(tile.f_mat_i_),
+		mod_f_mat_i_(tile.mod_f_mat_i_),
+		loading_factor_(tile.loading_factor_),
+		num_particles_(tile.num_particles_),
+		model_norm_(tile.model_norm_),
+		c_factor_(tile.c_factor_),
+		a_mat_d_(NULL),
+		f_mat_d_(NULL),
+		prev_chi2_(tile.prev_chi2_),
+		curr_chi2_(tile.curr_chi2_),
+		old_pos_(tile.old_pos_),
+		new_pos_(tile.new_pos_),
+		old_index_(tile.old_index_),
+		new_index_(tile.new_index_) {
+		cudaMalloc((void**) &a_mat_d_, size_ * size_ * sizeof(cucomplex_t));
+		cudaMalloc((void**) &f_mat_d_, size_ * size_ * sizeof(cucomplex_t));
+	} // Tile::Tile()
 
 	template <typename real_t, typename complex_t, typename cucomplex_t>
 	Tile<real_t, complex_t, cucomplex_t>::~Tile() {
@@ -100,10 +148,14 @@ namespace hir {
 	bool Tile<real_t, complex_t, cucomplex_t>::init(real_t loading, real_t base_norm,
 													const woo::Matrix2D<real_t>& pattern) {
 		srand(time(NULL));
+		unsigned seed = time(NULL); //std::chrono::system_clock::now().time_since_epoch().count();
+		ms_rand_gen_.seed(seed);
+
 		loading_factor_ = loading;
 		unsigned int cols = a_mat_.num_cols(), rows = a_mat_.num_rows();
 		num_particles_ = ceil(loading * rows * cols);
 		// NOTE: the first num_particles_ entries in indices_ are filled, rest are empty
+		std::cout << "++ num_particles: " << num_particles_ << std::endl;
 
 		// fill a_mat_ with particles
 		a_mat_.fill(0.0);
@@ -112,46 +164,155 @@ namespace hir {
 			unsigned int y = indices_[i] % cols;
 			a_mat_(x, y) = 1.0;
 		} // for
+		//print_matrix("a_mat", a_mat_.data(), rows, cols);
 
 		// compute fft of a_mat_ into fft_mat_ and other stuff
-		compute_fft_mat_cuda();
-		compute_mod_mat();
-		compute_model_norm();
+		//compute_fft_mat_cuda();
+		compute_fft_mat_cpu();
+		compute_mod_mat(f_mat_[f_mat_i_]);
+		mod_f_mat_[mod_f_mat_i_].populate(mod_f_mat_[1 - mod_f_mat_i_].data());
+		compute_model_norm(mod_f_mat_[1 - mod_f_mat_i_]);
 		c_factor_ = base_norm / model_norm_;
-		prev_chi2_ = compute_chi2(pattern, f_mod_mat_[1 - f_mod_mat_i_], c_factor_);
+		std::cout << "++++ c_factor: " << c_factor_ << std::endl;
+		prev_chi2_ = compute_chi2(pattern, mod_f_mat_[1 - mod_f_mat_i_], c_factor_);
 		return true;
 	} // Tile::init()
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
+	bool Tile<real_t, complex_t, cucomplex_t>::simulate_step(const woo::Matrix2D<real_t>& pattern,
+												woo::Matrix2D<complex_t>& vandermonde,
+												const unsigned int* mask,
+												real_t tstar) {
+		std::cout << "++ simulate_step" << std::endl;
+		// do all computations in scratch buffers
+		unsigned int f_scratch_i = 1 - f_mat_i_;
+		unsigned int mod_f_scratch_i = 1 - mod_f_mat_i_;
+
+		woo::Matrix2D<complex_t> dft_mat(size_, size_);
+
+		virtual_move_random_particle();
+		// merge the following two: ...
+		compute_dft2(vandermonde, dft_mat);
+		update_fft_mat(dft_mat, f_mat_[f_mat_i_], f_mat_[f_scratch_i]);
+		//print_cmatrix("f_mat_[f_scratch_i]", f_mat_[f_scratch_i].data(), size_, size_);
+		compute_mod_mat(f_mat_[f_scratch_i]);
+		mask_mat(mask, mod_f_mat_[mod_f_scratch_i]);
+		curr_chi2_ = compute_chi2(pattern, mod_f_mat_[mod_f_scratch_i], c_factor_);
+		real_t diff_chi2 = prev_chi2_ - curr_chi2_;
+		std::cout << "++++ chi2 diff: " << diff_chi2 << std::endl;
+		real_t p = std::min(1.0, exp(diff_chi2 / tstar));
+		//real_t prand = (real_t)rand() / RAND_MAX;
+		real_t prand = (real_t) (ms_rand_gen_() - ms_rand_gen_.min()) /
+								(ms_rand_gen_.max() - ms_rand_gen_.min());
+		std::cout << "++++ p: " << p << ", prand: " << prand << std::endl;
+		if(prand <= p) {	// accept the move
+			std::cout << "++++ accepting move..." << std::endl;
+			// update to newly computed stuff
+			// make scratch as current
+			move_particle();
+		} // if
+
+		return true;
+	} // Tile::simulate_step()
+
+
+	template<typename real_t, typename complex_t, typename cucomplex_t>
+	bool Tile<real_t, complex_t, cucomplex_t>::compute_fft_mat_cpu() {
+		std::cout << "++ compute_fft_mat_cpu" << std::endl;
+
+		unsigned int size2 = size_ * size_;
+		fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
+		fftw_complex* mat_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
+		real_t* orig_a_mat = a_mat_.data();
+		for(int i = 0; i < size2; ++ i) {
+			mat_in[i][0] = orig_a_mat[i];
+			mat_in[i][1] = 0.0;
+			mat_out[i][0] = 0.0;
+			mat_out[i][1] = 0.0;
+		} // for
+		//print_fftwcmatrix("mat_in", mat_in, size_, size_);
+		// execute fft
+		execute_fftw(mat_in, mat_out);
+		for(unsigned int i = 0; i < size_; ++ i) {
+			for(unsigned int j = 0; j < size_; ++ j) {
+				f_mat_[f_mat_i_](i, j) = complex_t(mat_out[size_ * i + j][0], mat_out[size_ * i + j][1]);
+			}
+		} // for
+
+		//print_fftwcmatrix("mat_out", mat_out, size_, size_);
+		//print_cmatrix("f_mat_[f_mat_i_]", f_mat_[f_mat_i_].data(), size_, size_);
+
+		fftw_free(mat_out);
+		fftw_free(mat_in);
+		return true;
+	} // Tile::compute_fft_mat_cpu()
+
+
+	template<typename real_t, typename complex_t, typename cucomplex_t>
+	bool Tile<real_t, complex_t, cucomplex_t>::execute_fftw(fftw_complex* input,
+															fftw_complex* output) {
+		// create fft plan
+		fftw_plan plan;
+		plan = fftw_plan_dft_2d(size_, size_, input, output, FFTW_FORWARD, FFTW_ESTIMATE);
+		fftw_execute(plan);
+		// destroy fft plan
+		fftw_destroy_plan(plan);
+		return true;
+	} // Tile::execute_cufft()
+
+
+	template<typename real_t, typename complex_t, typename cucomplex_t>
 	bool Tile<real_t, complex_t, cucomplex_t>::compute_fft_mat_cuda() {
+		std::cout << "++ compute_fft_mat_cuda" << std::endl;
+
 		unsigned int size2 = size_ * size_;
 		cucomplex_t* temp_mat = new (std::nothrow) cucomplex_t[size2];
 		real_t* orig_a_mat = a_mat_.data();
 		for(int i = 0; i < size2; ++ i) {
-			temp_a_mat[i].x = orig_a_mat[i];
-			temp_a_mat[i].y = 0.0;
+			temp_mat[i].x = orig_a_mat[i];
+			temp_mat[i].y = 0.0;
 		} // for
+		//print_cucmatrix("temp_mat", temp_mat, size_, size_);
 		// copy data to device
 		cudaMemcpy(a_mat_d_, temp_mat, size2 * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
 		// execute fft
 		execute_cufft(a_mat_d_, f_mat_d_);
 		// copy data to host, reuse the temp_mat buffer
+		//cucomplex_t* temp_mat2 = new (std::nothrow) cucomplex_t[size2];
 		cudaMemcpy(temp_mat, f_mat_d_, size2 * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
-		f_mat_[f_mat_i_].populate(temp_mat);
+		for(unsigned int i = 0; i < size_; ++ i) {
+			for(unsigned int j = 0; j < size_; ++ j) {
+				f_mat_[f_mat_i_](i, j) = complex_t(temp_mat[size_ * i + j].x, temp_mat[size_ * i + j].y);
+				//f_mat_[f_mat_i_].populate(temp_mat);
+			}
+		} // for
 
+		//print_cucmatrix("temp_mat", temp_mat, size_, size_);
+		//print_cmatrix("f_mat_[f_mat_i_]", f_mat_[f_mat_i_].data(), size_, size_);
+
+		//delete[] temp_mat2;
 		delete[] temp_mat;
 		return true;
 	} // Tile::compute_fft_mat_cuda()
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile<real_t, complex_t, cucomplex_t>::execute_cufft(cuFloatComplex_t* &input,
-															cuFloatComplex_t* &output) {
+	bool Tile<real_t, complex_t, cucomplex_t>::execute_cufft(cuFloatComplex* input,
+															cuFloatComplex* output) {
 		// create fft plan
 		cufftHandle plan;
-		cufftPlan2d(&plan, size_, size_, CUFFT_C2C);
-		cufftExecC2C(plan, input, output, CUFFT_FORWARD);
+		cufftResult res;
+		res = cufftPlan2d(&plan, size_, size_, CUFFT_C2C);
+		if(res != CUFFT_SUCCESS) {
+			std::cerr << "error: " << res << ": fft plan could not be created" << std::endl;
+			return false;
+		} // if
+		res = cufftExecC2C(plan, input, output, CUFFT_FORWARD);
+		if(res != CUFFT_SUCCESS) {
+			std::cerr << "error: " << res << ": fft could not be executed" << std::endl;
+			return false;
+		} // if
 		cudaThreadSynchronize();
 		// destroy fft plan
 		cufftDestroy(plan);
@@ -160,8 +321,8 @@ namespace hir {
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile<real_t, complex_t, cucomplex_t>::execute_cufft(cuDoubleComplex_t* &input,
-															cuDoubleComplex_t* &output) {
+	bool Tile<real_t, complex_t, cucomplex_t>::execute_cufft(cuDoubleComplex* input,
+															cuDoubleComplex* output) {
 		// create fft plan
 		cufftHandle plan;
 		cufftPlan2d(&plan, size_, size_, CUFFT_Z2Z);
@@ -174,26 +335,30 @@ namespace hir {
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile<real_t, complex_t, cucomplex_t>::compute_mod_mat() {
+	bool Tile<real_t, complex_t, cucomplex_t>::compute_mod_mat(const woo::Matrix2D<complex_t>& mat) {
+		std::cout << "++ compute_mod_mat" << std::endl;
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
-				complex_t temp_f = f_mat_[f_mat_i_](i, j);
+				complex_t temp_f = mat(i, j);
 				mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp_f.real() * temp_f.real() +
 													temp_f.imag() * temp_f.imag();
 			} // for
 		} // for
+		//print_matrix("mod_f_mat_[1 - mod_f_mat_i_]", mod_f_mat_[1 - mod_f_mat_i_].data(), size_, size_);
 		return true;
 	} // Tile::compute_mod_mat()
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile<real_t, complex_t, cucomplex_t>::compute_model_norm() {
+	bool Tile<real_t, complex_t, cucomplex_t>::compute_model_norm(const woo::Matrix2D<real_t>& mod_mat) {
+		std::cout << "++ compute_model_norm" << std::endl;
 		model_norm_ = 0.0;
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
-				model_norm_ += mod_f_mat_[mod_f_mat_i_](i, j) * (j + 1);
+				model_norm_ += mod_mat(i, j) * (j + 1);
 			} // for
 		} // for
+		std::cout << "++++ model_norm: " << model_norm_ << std::endl;
 		return true;
 	} // Tile::compute_model_norm()
 
@@ -202,6 +367,7 @@ namespace hir {
 	real_t Tile<real_t, complex_t, cucomplex_t>::compute_chi2(const woo::Matrix2D<real_t>& pattern,
 															const woo::Matrix2D<real_t>& mod_f,
 															real_t c_factor) {
+		std::cout << "++ compute_chi2" << std::endl;
 		real_t chi2 = 0.0;
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
@@ -209,70 +375,50 @@ namespace hir {
 				chi2 += temp * temp;
 			} // for
 		} // for
+		std::cout << "++++ chi2: " << chi2 << std::endl;
 		return chi2;
 	} // Tile::compute_chi2()
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile<real_t, complex_t, cucomplex_t>::simulate_step(const woo::Matrix2D<real_t>& pattern,
-												const woo::Matrix2D<real_t>& vandermonde,
-												unsigned int* &mask,
-												real_t tstar) {
-		// do all computations in scratch buffers
-		f_scratch_i = 1 - f_mat_i_;
-		mod_f_scratch_i = 1 - mod_f_mat_i_;
-
-		woo::Matrix2D<complex_t> dft_mat(size_, size_);
-
-		virtual_move_random_particle();
-		// merge the following two: ...
-		compute_dft2(vandermonde, dft_mat);
-		update_fft_mat(dft_mat, f_mat_[f_mat_i_], f_mat_[f_scratch_i_]);
-		compute_mod_mat();
-		mask_mat(mask, mod_f_mat_[mod_f_scratch_i_]);
-		curr_chi2_ = compute_chi2(pattern, mod_f_mat_[mod_f_scratch_i_], c_factor_);
-		real_t diff_chi2 = prev_chi2_ - curr_chi2_;
-		real_t p = std::min(1, exp(diff_chi2 / tstar));
-		real_t prand = (real_t)rand() / RAND_MAX;
-		if(prand <= p) {	// accept the move
-			// update to newly computed stuff
-			// make scratch as current
-			move_particle();
-		} // if
-
-		return true;
-	} // Tile::simulate_step()
-
-
-	template<typename real_t, typename complex_t, typename cucomplex_t>
 	bool Tile<real_t, complex_t, cucomplex_t>::update_model(const woo::Matrix2D<real_t>& pattern,
 															real_t base_norm) {
-		compute_model_norm();
+		std::cout << "++ update_model" << std::endl;
+		compute_model_norm(mod_f_mat_[mod_f_mat_i_]);
 		c_factor_ = base_norm / model_norm_;
-		prev_chi2_ = compute_chi2(pattern);
+		prev_chi2_ = compute_chi2(pattern, mod_f_mat_[mod_f_mat_i_], c_factor_);
 		return true;
 	} // Tile::update_model()
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
 	bool Tile<real_t, complex_t, cucomplex_t>::virtual_move_random_particle() {
-		old_pos_ = floor(((real_t)rand() / RAND_MAX) * num_particles_);
-		new_pos_ = floor(((real_t)rand() / RAND_MAX) * (size_ * size_ - num_particles_)) +
-									num_particles_;
+		std::cout << "++ virtual_move_random_particle" << std::endl;
+		//old_pos_ = floor(((real_t)rand() / RAND_MAX) * num_particles_);
+		//new_pos_ = floor(((real_t)rand() / RAND_MAX) * (size_ * size_ - num_particles_)) +
+		old_pos_ = floor(((real_t) (ms_rand_gen_() - ms_rand_gen_.min()) /
+									(ms_rand_gen_.max() - ms_rand_gen_.min())) *
+									num_particles_);
+		new_pos_ = floor(((real_t) (ms_rand_gen_() - ms_rand_gen_.min()) /
+									(ms_rand_gen_.max() - ms_rand_gen_.min())) *
+									(size_ * size_ - num_particles_)) + num_particles_;
 		old_index_ = indices_[old_pos_];
 		new_index_ = indices_[new_pos_];
+		std::cout << "++++ old_pos,new_pos: " << old_pos_ << "," << new_pos_
+					<< ", old_index,new_index: " << old_index_ << "," << new_index_ << std::endl;
 		return true;
 	} // Tile::virtual_move_random_particle()
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
 	bool Tile<real_t, complex_t, cucomplex_t>::move_particle() {
+		std::cout << "++ move_particle and swap buffers" << std::endl;
 		// to swap buffers
-		f_mat_i_ = 1 - f_mat_i;
-		mod_f_mat_i_ = 1 - mod_f_mat_i;
+		f_mat_i_ = 1 - f_mat_i_;
+		mod_f_mat_i_ = 1 - mod_f_mat_i_;
 		prev_chi2_ = curr_chi2_;
 
-		// to swap indices
+		// to swap indices (moving the particle)
 		indices_[old_pos_] = new_index_;
 		indices_[new_pos_] = old_index_;
 
@@ -281,30 +427,32 @@ namespace hir {
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile<real_t, complex_t, cucomplex_t>::compute_dft2(const woo::Matrix2D<complex_t> &vandermonde_mat,
+	bool Tile<real_t, complex_t, cucomplex_t>::compute_dft2(woo::Matrix2D<complex_t> &vandermonde_mat,
 															woo::Matrix2D<complex_t> &dft_mat) {
+		std::cout << "++ compute_dft2" << std::endl;
 		unsigned int old_row = old_index_ % size_;
 		unsigned int old_col = old_index_ / size_;
 		unsigned int new_row = new_index_ % size_;
 		unsigned int new_col = new_index_ / size_;
-		woo::Matrix2D<complex_t>::row_iterator old_row_iter = vandermonde_mat.row(old_row);
-		woo::Matrix2D<complex_t>::col_iterator old_col_iter = vandermonde_mat.col(old_col);
-		woo::Matrix2D<complex_t>::row_iterator new_row_iter = vandermonde_mat.row(new_row);
-		woo::Matrix2D<complex_t>::col_iterator new_col_iter = vandermonde_mat.col(new_col);
+		typename woo::Matrix2D<complex_t>::row_iterator old_row_iter = vandermonde_mat.row(old_row);
+		typename woo::Matrix2D<complex_t>::col_iterator old_col_iter = vandermonde_mat.column(old_col);
+		typename woo::Matrix2D<complex_t>::row_iterator new_row_iter = vandermonde_mat.row(new_row);
+		typename woo::Matrix2D<complex_t>::col_iterator new_col_iter = vandermonde_mat.column(new_col);
 		for(unsigned int row = 0; row < size_; ++ row) {
 			for(unsigned int col = 0; col < size_; ++ col) {
 				complex_t new_temp = new_col_iter[row] * new_row_iter[col];
 				complex_t old_temp = old_col_iter[row] * old_row_iter[col];
-				dft_mat(row, col) = (new_temp - old_temp) / num_particles_;
+				dft_mat(row, col) = (new_temp - old_temp) / (real_t)num_particles_;
 			} // for
 		} // for
+		//print_cmatrix("dft_mat", dft_mat.data(), size_, size_);
 		return true;
 	} // Tile::compute_dft2()
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile<real_t, complex_t, cucomplex_t>::update_fft_mat(const woo::Matrix2D<complex_t> &dft_mat,
-																const woo::Matrix2D<complex_t> &f_mat,
+	bool Tile<real_t, complex_t, cucomplex_t>::update_fft_mat(woo::Matrix2D<complex_t> &dft_mat,
+																woo::Matrix2D<complex_t> &f_mat,
 																woo::Matrix2D<complex_t> &new_f_mat) {
 		return woo::matrix_add(dft_mat, f_mat, new_f_mat);	// matrix operation
 	} // Tile::update_fft_mat()
@@ -323,7 +471,7 @@ namespace hir {
 
 
 	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile<real_t, complex_t, cucomplex_t>::finalize(real_t& chi2, woo::Matrix2D<real_t>& a) {
+	bool Tile<real_t, complex_t, cucomplex_t>::finalize_result(real_t& chi2, woo::Matrix2D<real_t>& a) {
 		// populate a_mat_
 		a_mat_.fill(0.0);
 		for(unsigned int i = 0; i < num_particles_; ++ i) {

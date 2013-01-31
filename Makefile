@@ -11,21 +11,22 @@
 ## base directories
 #BOOST_DIR = /usr/local/boost_1_49_0
 #MPI_DIR = /usr/local/openmpi-1.6
-#CUDA_DIR = /usr/local/cuda-5.0
+CUDA_DIR = /usr/local/cuda
 #HDF5_DIR = /usr/local/hdf5-1.8.9
 #Z_DIR = /usr/local/zlib-1.2.7
 #SZ_DIR = /usr/local/szip-2.1
 #TIFF_LIB_DIR = /usr/local/lib
 OPENCV_DIR = /usr/local/opencv
 WOO_DIR = $(HOME)
+FFTW_DIR = /usr/local/fftw-3.3.2
 
 ## compilers
 CXX = g++
 #H5CC = $(HDF5_DIR)/bin/h5pcc
-#NVCC = $(CUDA_DIR)/bin/nvcc
+NVCC = $(CUDA_DIR)/bin/nvcc
 
 ## compiler flags
-CXX_FLAGS = -std=c++0x -Wall -Wextra #-lgsl -lgslcblas -lm
+CXX_FLAGS = -std=c++0x #-Wall -Wextra #-lgsl -lgslcblas -lm
 ## gnu c++ compilers >= 4.3 support -std=c++0x [requirement for hipgisaxs 4.3.x <= g++ <= 4.6.x]
 ## gnu c++ compilers >= 4.7 also support -std=c++11, but they are not supported by cuda
 
@@ -44,18 +45,17 @@ CXX_FLAGS = -std=c++0x -Wall -Wextra #-lgsl -lgslcblas -lm
 #MPI_LIBS = -L $(MPI_DIR)/lib -lmpi_cxx -lmpi
 
 ## cuda
-#CUDA_INCL = -I$(CUDA_DIR)/include
-#CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft
-#NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64
-#NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
-#NVCC_FLAGS += -gencode=arch=compute_20,code=compute_20
-#NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
-#NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
-#NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
+CUDA_INCL = -I$(CUDA_DIR)/include
+CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft
+NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64
+NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
+NVCC_FLAGS += -gencode=arch=compute_20,code=compute_20
+NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
+NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
+NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
 #NVCC_FLAGS += -Xptxas -v -Xcompiler -v -Xlinker -v --ptxas-options="-v"
-#NVCC_FLAGS += -DGPUR -DFF_ANA_GPU #-G #-DFINDBLOCK #-DAXIS_ROT
 #NVLIB_FLAGS = -Xlinker -lgomp
-#NVLIB_FLAGS += -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
+NVLIB_FLAGS += -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
 
 ## libtiff
 #TIFF_LIBS = -L $(TIFF_LIB_DIR) -ltiff
@@ -66,6 +66,10 @@ OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui
 
 ## woo
 WOO_INCL = -I $(WOO_DIR)
+
+## fftw
+FFTW_INCL = -I $(FFTW_DIR)/include
+FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3
 
 ## miscellaneous
 MISC_INCL =
@@ -82,10 +86,10 @@ PREC_FLAG =			# leave empty for single precision
 
 
 ## all includes
-ALL_INCL = $(OPENCV_INCL) $(WOO_INCL)
+ALL_INCL = $(OPENCV_INCL) $(WOO_INCL) $(CUDA_INCL) $(FFTW_INCL)
 
 ## all libraries
-ALL_LIBS = $(OPENCV_LIBS)
+ALL_LIBS = $(OPENCV_LIBS) $(CUDA_LIBS) $(FFTW_LIBS)
 
 
 PREFIX = $(PWD)
