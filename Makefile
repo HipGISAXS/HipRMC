@@ -9,7 +9,7 @@
 ##
 
 ## base directories
-#BOOST_DIR = /usr/local/boost_1_49_0
+BOOST_DIR = /usr/local/boost_1_49_0
 #MPI_DIR = /usr/local/openmpi-1.6
 CUDA_DIR = /usr/local/cuda
 #HDF5_DIR = /usr/local/hdf5-1.8.9
@@ -26,13 +26,13 @@ CXX = g++
 NVCC = $(CUDA_DIR)/bin/nvcc
 
 ## compiler flags
-CXX_FLAGS = -std=c++0x #-Wall -Wextra #-lgsl -lgslcblas -lm
+CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
 ## gnu c++ compilers >= 4.3 support -std=c++0x [requirement for hipgisaxs 4.3.x <= g++ <= 4.6.x]
 ## gnu c++ compilers >= 4.7 also support -std=c++11, but they are not supported by cuda
 
 ## boost
-#BOOST_INCL = -I $(BOOST_DIR)
-#BOOST_LIBS = -L $(BOOST_DIR)/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
+BOOST_INCL = -I $(BOOST_DIR)
+BOOST_LIBS = -L /usr/local/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
 
 ## parallel hdf5
 #HDF5_INCL = -I$(HDF5_DIR)/include -I$(SZ_DIR)/include -I$(Z_DIR)/include
@@ -54,7 +54,7 @@ NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
 NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
 NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
 #NVCC_FLAGS += -Xptxas -v -Xcompiler -v -Xlinker -v --ptxas-options="-v"
-#NVLIB_FLAGS = -Xlinker -lgomp
+NVLIB_FLAGS = -Xlinker -lgomp
 NVLIB_FLAGS += -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
 
 ## libtiff
@@ -77,8 +77,8 @@ MISC_INCL =
 #MISC_FLAGS = -DFF_ANA_GPU
 
 ## choose optimization levels, debug flags, gprof flag, etc
-OPT_FLAGS = -g -DDEBUG #-v #-pg
-#OPT_FLAGS = -O3 -DNDEBUG #-v
+#OPT_FLAGS = -g -DDEBUG #-v #-pg
+OPT_FLAGS = -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
 PREC_FLAG =			# leave empty for single precision
@@ -86,10 +86,10 @@ PREC_FLAG =			# leave empty for single precision
 
 
 ## all includes
-ALL_INCL = $(OPENCV_INCL) $(WOO_INCL) $(CUDA_INCL) $(FFTW_INCL)
+ALL_INCL = $(OPENCV_INCL) $(WOO_INCL) $(CUDA_INCL) $(FFTW_INCL) $(BOOST_INCL)
 
 ## all libraries
-ALL_LIBS = $(OPENCV_LIBS) $(CUDA_LIBS) $(FFTW_LIBS)
+ALL_LIBS = $(OPENCV_LIBS) $(CUDA_LIBS) $(FFTW_LIBS) $(BOOST_LIBS)
 
 
 PREFIX = $(PWD)
