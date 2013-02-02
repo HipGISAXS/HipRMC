@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 02 Feb 2013 01:42:09 PM PST
+  *  Modified: Sat 02 Feb 2013 01:57:06 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -107,14 +107,27 @@ namespace hir {
 		indices_(indices),
 		dft_mat_(rows, cols) {
 
+		woo::BoostChronoTimer mytimer;
+
 		size_ = std::max(rows, cols);
 		// two buffers each
+		mytimer.start();
 		f_mat_.push_back(woo::Matrix2D<complex_t>(size_, size_));
 		f_mat_.push_back(woo::Matrix2D<complex_t>(size_, size_));
+		mytimer.stop();
+		std::cout << "***** f_mat_: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		mytimer.start();
 		mod_f_mat_.push_back(woo::Matrix2D<real_t>(size_, size_));
 		mod_f_mat_.push_back(woo::Matrix2D<real_t>(size_, size_));
-		cudaMalloc((void**) &a_mat_d_, size_ * size_ * sizeof(cucomplex_t));
-		cudaMalloc((void**) &f_mat_d_, size_ * size_ * sizeof(cucomplex_t));
+		mytimer.stop();
+		std::cout << "***** mod_f_mat_: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		// device memory allocation takes all the time
+		mytimer.start();
+		unsigned int d_size = size_ * size_ * sizeof(cucomplex_t);
+		cudaMalloc((void**) &a_mat_d_, d_size);
+		cudaMalloc((void**) &f_mat_d_, d_size);
+		mytimer.stop();
+		std::cout << "***** device mem: " << mytimer.elapsed_msec() << " ms." << std::endl;
 	} // Tile::Tile()
 
 
