@@ -3,15 +3,15 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 03 Feb 2013 08:39:00 PM PST
+  *  Modified: Mon 04 Feb 2013 11:33:09 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
 //#ifdef USE_GPU
-#include <cuda.h>
-#include <cufft.h>
-#include <cuda_runtime.h>
+//#include <cuda.h>
+//#include <cufft.h>
+//#include <cuda_runtime.h>
 //#else
 #ifdef _OPENMP
 #include <omp.h>
@@ -25,14 +25,6 @@
 #include "temp.hpp"
 
 namespace hir {
-
-/*#ifdef USE_GPU
-	extern bool compute_mod_mat_cuda(cucomplex_t*, unsigned int, real_t*,
-										unsigned int, unsigned int, unsigned int, unsigned int);
-	extern bool normalize_fft_mat_cuda(cucomplex_t*, unsigned int, unsigned int, 
-										unsigned int, unsigned int, unsigned int, unsigned int);
-#endif // USE_GPU
-*/
 
 	// constructor
 	Tile::Tile(unsigned int rows, unsigned int cols, const std::vector<unsigned int>& indices) :
@@ -58,7 +50,7 @@ namespace hir {
 		std::cout << "***** mod_f_mat_: " << mytimer.elapsed_msec() << " ms." << std::endl;
 #ifdef USE_GPU
 		// device memory allocation takes all the time
-		mytimer.start();
+/*		mytimer.start();
 		unsigned int size2 = size_ * size_;
 		complex_buffer_h_ = new (std::nothrow) cucomplex_t[size2];
 		real_buffer_h_ = new (std::nothrow) real_t[size2];
@@ -69,14 +61,13 @@ namespace hir {
 		cudaMalloc((void**) &mod_f_mat_d_[1], size2 * sizeof(real_t));
 		mytimer.stop();
 		std::cout << "***** device mem: " << mytimer.elapsed_msec() << " ms." << std::endl;
+*/
 #endif // USE_GPU
 	} // Tile::Tile()
 
 
 	// copy constructor
-//	template <typename real_t, typename complex_t, typename cucomplex_t>
 	Tile::Tile(const Tile& tile):
-//	Tile<real_t, complex_t, cucomplex_t>::Tile(const Tile<real_t, complex_t, cucomplex_t>& tile):
 		size_(tile.size_),
 		a_mat_(tile.a_mat_),
 		f_mat_(tile.f_mat_),
@@ -95,7 +86,7 @@ namespace hir {
 		old_index_(tile.old_index_),
 		new_index_(tile.new_index_) {
 #ifdef USE_GPU
-		unsigned int size2 = size_ * size_;
+/*		unsigned int size2 = size_ * size_;
 		complex_buffer_h_ = new (std::nothrow) cucomplex_t[size2];
 		real_buffer_h_ = new (std::nothrow) real_t[size2];
 		cudaMalloc((void**) &a_mat_d_, size2 * sizeof(cucomplex_t));
@@ -103,6 +94,7 @@ namespace hir {
 		cudaMalloc((void**) &f_mat_d_[1], size2 * sizeof(cucomplex_t));
 		cudaMalloc((void**) &mod_f_mat_d_[0], size2 * sizeof(real_t));
 		cudaMalloc((void**) &mod_f_mat_d_[1], size2 * sizeof(real_t));
+*/
 #endif // USE_GPU
 	} // Tile::Tile()
 
@@ -110,23 +102,21 @@ namespace hir {
 	Tile::~Tile() {
 //	Tile<real_t, complex_t, cucomplex_t>::~Tile() {
 #ifdef USE_GPU
-		cudaFree(mod_f_mat_d_[1]);
+/*		cudaFree(mod_f_mat_d_[1]);
 		cudaFree(mod_f_mat_d_[0]);
 		cudaFree(f_mat_d_[1]);
 		cudaFree(f_mat_d_[0]);
 		cudaFree(a_mat_d_);
 		delete[] real_buffer_h_;
 		delete[] complex_buffer_h_;
+*/
 #endif // USE_GPU
 	} // Tile::~Tile()
 
 
 	// initialize with raw data
-//	template <typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile::init(real_t loading, real_t base_norm,
-//	bool Tile<real_t, complex_t, cucomplex_t>::init(real_t loading, real_t base_norm,
-													const woo::Matrix2D<real_t>& pattern,
-													const unsigned int* mask) {
+	bool Tile::init(real_t loading, real_t base_norm, const woo::Matrix2D<real_t>& pattern,
+					const unsigned int* mask) {
 		woo::BoostChronoTimer mytimer;
 		//srand(time(NULL));
 		unsigned seed = time(NULL); //std::chrono::system_clock::now().time_since_epoch().count();
@@ -139,13 +129,14 @@ namespace hir {
 		std::cout << "++ num_particles: " << num_particles_ << std::endl;
 
 #ifdef USE_GPU
-		block_x_ = CUDA_BLOCK_SIZE_X_;
-		block_y_ = CUDA_BLOCK_SIZE_Y_;
-		grid_x_ = (unsigned int) ceil((real_t) size_ / block_x_);
-		grid_y_ = (unsigned int) ceil((real_t) size_ / block_y_);
+		unsigned int block_x = CUDA_BLOCK_SIZE_X_;
+		unsigned int block_y = CUDA_BLOCK_SIZE_Y_;
+		//grid_x_ = (unsigned int) ceil((real_t) size_ / block_x_);
+		//grid_y_ = (unsigned int) ceil((real_t) size_ / block_y_);
+		//gtile_.block_dims_ = dim3(block_x_, block_y_, 1);
+		//gtile_.grid_dims_ = dim3(grid_x_, grid_y_, 1);
 
-//		gtile_.block_dims_ = dim3(block_x_, block_y_, 1);
-//		gtile_.grid_dims_ = dim3(grid_x_, grid_y_, 1);
+		gtile_.init(size_, block_x, block_y);
 #endif // USE_GPU
 
 		// fill a_mat_ with particles
@@ -156,12 +147,12 @@ namespace hir {
 			unsigned int y = indices_[i] % cols;
 			a_mat_(x, y) = 1.0;
 		} // for
-#ifdef USE_GPU
-		// a_mat is copied in compute_fft_mat()
-#endif // USE_GPU
 		mytimer.stop();
 		std::cout << "**** A fill time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		//print_matrix("a_mat", a_mat_.data(), rows, cols);
+#ifdef USE_GPU
+		// a_mat is copied in compute_fft_mat()
+#endif // USE_GPU
 
 		// compute fft of a_mat_ into fft_mat_ and other stuff
 		mytimer.start();
@@ -169,7 +160,7 @@ namespace hir {
 		mytimer.stop();
 		std::cout << "**** FFT time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		mytimer.start();
-		compute_mod_mat(f_mat_[f_mat_i_]);
+		compute_mod_mat(f_mat_i_);
 		mytimer.stop();
 		std::cout << "**** mod F time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		mytimer.start();
@@ -190,12 +181,10 @@ namespace hir {
 	} // Tile::init()
 
 
-//	template<typename real_t, typename complex_t, typename cucomplex_t>
 	bool Tile::simulate_step(const woo::Matrix2D<real_t>& pattern,
-//	bool Tile<real_t, complex_t, cucomplex_t>::simulate_step(const woo::Matrix2D<real_t>& pattern,
-												woo::Matrix2D<complex_t>& vandermonde,
-												const unsigned int* mask,
-												real_t tstar, real_t base_norm) {
+							woo::Matrix2D<complex_t>& vandermonde,
+							const unsigned int* mask,
+							real_t tstar, real_t base_norm) {
 		//std::cout << "++ simulate_step" << std::endl;
 		// do all computations in scratch buffers
 		unsigned int f_scratch_i = 1 - f_mat_i_;
@@ -206,7 +195,7 @@ namespace hir {
 		compute_dft2(vandermonde, dft_mat_);
 		update_fft_mat(dft_mat_, f_mat_[f_mat_i_], f_mat_[f_scratch_i]);
 		//print_cmatrix("f_mat_[f_scratch_i]", f_mat_[f_scratch_i].data(), size_, size_);
-		compute_mod_mat(f_mat_[f_scratch_i]);
+		compute_mod_mat(f_scratch_i);
 		mask_mat(mask, mod_f_mat_[mod_f_scratch_i]);
 		// this should be here i think ...
 		compute_model_norm(mod_f_mat_[mod_f_scratch_i]);
@@ -251,10 +240,7 @@ namespace hir {
 	} // Tile::simulate_step()
 
 
-//	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile::update_model(const woo::Matrix2D<real_t>& pattern,
-//	bool Tile<real_t, complex_t, cucomplex_t>::update_model(const woo::Matrix2D<real_t>& pattern,
-															real_t base_norm) {
+	bool Tile::update_model(const woo::Matrix2D<real_t>& pattern, real_t base_norm) {
 		//std::cout << "++ update_model" << std::endl;
 		//compute_model_norm(mod_f_mat_[mod_f_mat_i_]);
 		//c_factor_ = base_norm / model_norm_;
@@ -266,9 +252,7 @@ namespace hir {
 
 
 #ifndef USE_GPU // use CPU
-//	template<typename real_t, typename complex_t, typename cucomplex_t>
 	bool Tile::compute_fft_mat() {
-//	bool Tile<real_t, complex_t, cucomplex_t>::compute_fft_mat() {
 		std::cout << "++ compute_fft_mat" << std::endl;
 
 		unsigned int size2 = size_ * size_;
@@ -308,10 +292,7 @@ namespace hir {
 	} // Tile::compute_fft_mat_cpu()
 
 
-//	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile::execute_fftw(fftw_complex* input,
-//	bool Tile<real_t, complex_t, cucomplex_t>::execute_fftw(fftw_complex* input,
-															fftw_complex* output) {
+	bool Tile::execute_fftw(fftw_complex* input, fftw_complex* output) {
 		// create fft plan
 		fftw_plan plan;
 		plan = fftw_plan_dft_2d(size_, size_, input, output, FFTW_FORWARD, FFTW_ESTIMATE);
@@ -323,29 +304,27 @@ namespace hir {
 
 #else // use GPU
 
-//	template<typename real_t, typename complex_t, typename cucomplex_t>
 	bool Tile::compute_fft_mat() {
-//	bool Tile<real_t, complex_t, cucomplex_t>::compute_fft_mat() {
 		std::cout << "++ compute_fft_mat_cuda" << std::endl;
 
 		unsigned int size2 = size_ * size_;
-		//cucomplex_t* temp_mat = new (std::nothrow) cucomplex_t[size2];
 		real_t* orig_a_mat = a_mat_.data();
-		for(int i = 0; i < size2; ++ i) {
-			//temp_mat[i].x = orig_a_mat[i];
-			//temp_mat[i].y = 0.0;
+		gtile_.set_a_mat(orig_a_mat);
+		gtile_.compute_fft_mat(1 - f_mat_i_);
+		gtile_.normalize_fft_mat(1 - f_mat_i_, num_particles_);
+
+/*		for(int i = 0; i < size2; ++ i) {
 			complex_buffer_h_[i].x = orig_a_mat[i];
 			complex_buffer_h_[i].y = 0.0;
 		} // for
-		//print_cucmatrix("temp_mat", temp_mat, size_, size_);
-		// copy data to device
-		cudaMemcpy(a_mat_d_, complex_buffer_h_, size2 * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
-		// execute fft
-		execute_cufft(a_mat_d_, f_mat_d_[1 - f_mat_i_]);
-		normalize_fft_mat(f_mat_d_[1 - f_mat_i_], num_particles_);	// divide all by num_particles
+		// copy a_mat_ data to device
+		cudaMemcpy(gtile_.a_mat_, complex_buffer_h_, size2 * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
+*/		// execute fft
+//		execute_cufft(a_mat_d_, f_mat_d_[1 - f_mat_i_]);
+//		normalize_fft_mat(f_mat_d_[1 - f_mat_i_], num_particles_);	// divide all by num_particles
 		// copy data to host, reuse the temp_mat buffer
 		// this is not really required ...
-		cudaMemcpy(complex_buffer_h_, f_mat_d_[1 - f_mat_i_],
+/*		cudaMemcpy(complex_buffer_h_, f_mat_d_[1 - f_mat_i_],
 					size2 * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
 		#pragma omp parallel for
 		for(unsigned int i = 0; i < size_; ++ i) {
@@ -354,20 +333,15 @@ namespace hir {
 													complex_buffer_h_[size_ * i + j].y);
 			}
 		} // for
-
+*/
 		//print_cucmatrix("temp_mat", temp_mat, size_, size_);
 		//print_cmatrix("f_mat_[f_mat_i_]", f_mat_[f_mat_i_].data(), size_, size_);
 
-		//delete[] temp_mat2;
-		//delete[] temp_mat;
 		return true;
 	} // Tile::compute_fft_mat_cuda()
 
 
-//	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile::execute_cufft(cuFloatComplex* input,
-//	bool Tile<real_t, complex_t, cucomplex_t>::execute_cufft(cuFloatComplex* input,
-															cuFloatComplex* output) {
+/*	bool Tile::execute_cufft(cuFloatComplex* input, cuFloatComplex* output) {
 		// create fft plan
 		cufftHandle plan;
 		cufftResult res;
@@ -386,12 +360,9 @@ namespace hir {
 		cufftDestroy(plan);
 		return true;
 	} // Tile::execute_cufft()
+*/
 
-
-//	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile::execute_cufft(cuDoubleComplex* input,
-//	bool Tile<real_t, complex_t, cucomplex_t>::execute_cufft(cuDoubleComplex* input,
-															cuDoubleComplex* output) {
+/*	bool Tile::execute_cufft(cuDoubleComplex* input, cuDoubleComplex* output) {
 		// create fft plan
 		cufftHandle plan;
 		cufftPlan2d(&plan, size_, size_, CUFFT_Z2Z);
@@ -401,24 +372,18 @@ namespace hir {
 		cufftDestroy(plan);
 		return true;
 	} // Tile::execute_cufft()
+*/
 
-
-//	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile::normalize_fft_mat(cucomplex_t* f_mat,
-//	bool Tile<real_t, complex_t, cucomplex_t>::normalize_fft_mat(cucomplex_t* f_mat,
-																	unsigned int num_particles) {
-		//return normalize_fft_mat_cuda<real_t, cucomplex_t>(f_mat, num_particles, size_, 
+/*	bool Tile::normalize_fft_mat(cucomplex_t* f_mat, unsigned int num_particles) {
 		return normalize_fft_mat_cuda(f_mat, num_particles, size_, 
 															block_x_, block_y_, grid_x_, grid_y_);
 	} // normalize_ff_mat()
-
+*/
 #endif // USE_GPU
 
 
 #ifdef USE_GPU
-//	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile::compute_mod_mat(const woo::Matrix2D<complex_t>& mat) {
-//	bool Tile<real_t, complex_t, cucomplex_t>::compute_mod_mat(const woo::Matrix2D<complex_t>& mat) {
+	bool Tile::compute_mod_mat(unsigned int f_i) {
 		//std::cout << "++ compute_mod_mat" << std::endl;
 		// copy mat to f_mat_d_ buffer (have to use intermediate buffer too!)
 		/*#pragma omp parallel for collapse(2)
@@ -433,25 +398,21 @@ namespace hir {
 		*/
 		// call function and compute mod into mod_f_mat_d_ buffer
 		//compute_mod_mat_cuda<real_t, cucomplex_t>(f_mat_d_[1 - f_mat_i_], size_,
-		compute_mod_mat_cuda(f_mat_d_[1 - f_mat_i_], size_,
-													mod_f_mat_d_[1 - mod_f_mat_i_],
-													block_x_, block_y_, grid_x_, grid_y_);
+		return gtile_.compute_mod_mat(f_i, 1 - mod_f_mat_i_);
 		// not needed when everything is on gpu ...
 		// copy back to host buffer in mod_f_mat_ (can it be done directly?...)
 		/*cudaMemcpy(real_buffer_h_, mod_f_mat_d_, size_ * size_ * sizeof(real_t), cudaMemcpyDeviceToHost);
 		mod_f_mat_[1 - mod_f_mat_i_].populate(real_buffer_h_);
 		*/
 		//print_matrix("mod_f_mat_[1 - mod_f_mat_i_]", mod_f_mat_[1 - mod_f_mat_i_].data(), size_, size_);
-		return true;
+		//return true;
 	} // Tile::compute_mod_mat()
-#else
-//	template<typename real_t, typename complex_t, typename cucomplex_t>
-	bool Tile::compute_mod_mat(const woo::Matrix2D<complex_t>& mat) {
-//	bool Tile<real_t, complex_t, cucomplex_t>::compute_mod_mat(const woo::Matrix2D<complex_t>& mat) {
+#else // USE CPU
+	bool Tile::compute_mod_mat(unsigned int f_i) {
 		#pragma omp parallel for collapse(2)
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
-				complex_t temp_f = mat(i, j);
+				complex_t temp_f = f_mat_[f_i](i, j);
 				mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp_f.real() * temp_f.real() +
 													temp_f.imag() * temp_f.imag();
 			} // for

@@ -20,7 +20,7 @@ OPENCV_DIR = /usr/local/opencv
 WOO_DIR = $(HOME)
 FFTW_DIR = /usr/local/fftw-3.3.2
 
-USE_GPU = n
+USE_GPU = y
 
 ## compilers
 CXX = g++

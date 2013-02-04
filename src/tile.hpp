@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 03 Feb 2013 08:39:32 PM PST
+  *  Modified: Mon 04 Feb 2013 11:32:31 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -44,7 +44,7 @@ namespace hir {
 
 #ifdef USE_GPU
 			// buffers for device
-			cucomplex_t* a_mat_d_;								// not really needed
+/*			cucomplex_t* a_mat_d_;
 			cucomplex_t* f_mat_d_[2];
 			real_t* mod_f_mat_d_[2];
 			cucomplex_t* complex_buffer_h_;
@@ -54,6 +54,7 @@ namespace hir {
 			unsigned int block_y_;
 			unsigned int grid_x_;
 			unsigned int grid_y_;
+*/
 			// new stuff:
 			GTile gtile_;
 #endif // USE_GPU
@@ -76,10 +77,10 @@ namespace hir {
 #ifndef USE_GPU // use cpu (possibly openmp)
 			bool execute_fftw(fftw_complex*, fftw_complex*);			// cpu
 #else // use cuda
-			bool execute_cufft(cuFloatComplex*, cuFloatComplex*);		// gpu
-			bool execute_cufft(cuDoubleComplex*, cuDoubleComplex*);		// gpu
+//			bool execute_cufft(cuFloatComplex*, cuFloatComplex*);		// gpu
+//			bool execute_cufft(cuDoubleComplex*, cuDoubleComplex*);		// gpu
 #endif
-			bool compute_mod_mat(const woo::Matrix2D<complex_t>&);
+			bool compute_mod_mat(unsigned int);
 			bool compute_model_norm(const woo::Matrix2D<real_t>&);
 			double compute_chi2(const woo::Matrix2D<real_t>&, const woo::Matrix2D<real_t>&, real_t);
 			bool virtual_move_random_particle();
