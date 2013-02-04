@@ -20,6 +20,8 @@ OPENCV_DIR = /usr/local/opencv
 WOO_DIR = $(HOME)
 FFTW_DIR = /usr/local/fftw-3.3.2
 
+USE_GPU = n
+
 ## compilers
 CXX = g++
 #H5CC = $(HDF5_DIR)/bin/h5pcc
@@ -73,8 +75,9 @@ FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3
 
 ## miscellaneous
 MISC_INCL =
-#MISC_FLAGS = -DKERNEL2 -DREDUCTION2 #-DAXIS_ROT
-#MISC_FLAGS = -DFF_ANA_GPU
+ifeq ($(USE_GPU), y)
+MISC_FLAGS = -DUSE_GPU
+endif
 
 ## choose optimization levels, debug flags, gprof flag, etc
 #OPT_FLAGS = -g -DDEBUG #-v #-pg
@@ -99,7 +102,10 @@ OBJ_DIR = $(PREFIX)/obj
 SRC_DIR = $(PREFIX)/src
 
 ## all objects
-OBJECTS_SIM = hiprmc.o
+OBJECTS_SIM = hiprmc.o tile.o
+ifeq ($(USE_GPU), y)
+OBJECTS_SIM += cutile.o
+endif
 
 ## the main binary
 OBJ_BIN_SIM = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SIM))
@@ -116,6 +122,11 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS_CXX)
 
 $(OBJ_DIR)/hiprmc.o: $(SRC_DIR)/hiprmc.cpp $(SRC_DIR)/rmc.hpp
 	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+ifeq ($(USE_GPU), y)
+$(OBJ_DIR)/cutile.o: $(SRC_DIR)/tile.cu
+	$(NVCC) -c $< -o $@ $(OPT_FLAGS) $(NVCC_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+endif
 
 all: hiprmc
 

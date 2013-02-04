@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 01 Feb 2013 07:49:11 PM PST
+  *  Modified: Sun 03 Feb 2013 12:12:51 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -16,12 +16,13 @@
 #include <opencv2/opencv.hpp>
 #include <woo/matrix/matrix.hpp>
 
+#include "typedefs.hpp"
 #include "tile.hpp"
 #include "constants.hpp"
 
 namespace hir {
 
-	template <typename real_t, typename complex_t, typename cucomplex_t>
+//	template <typename real_t, typename complex_t, typename cucomplex_t>
 	class RMC {
 		private:
 			woo::Matrix2D<real_t> in_pattern_;	// input pattern and related matrix info
@@ -33,13 +34,14 @@ namespace hir {
 			unsigned int in_mask_len_;	// size of input mask
 			unsigned int* mask_mat_;	// mask matrix of 1 and 0
 			unsigned int num_tiles_;	// total number of tiles
-			std::vector<Tile<real_t, complex_t, cucomplex_t> > tiles_;	// the tiles -- temp
+//			std::vector<Tile<real_t, complex_t, cucomplex_t> > tiles_;	// the tiles -- temp
+			std::vector<Tile> tiles_;	// the tiles -- temp
 			woo::Matrix2D<complex_t> vandermonde_mat_;
 			real_t base_norm_;			// norm of input
 
-			// extract raw data from image
+			// extracts raw data from image
 			bool pre_init(const char*, real_t*);
-			// initialize with raw data
+			// initializes with raw data
 			bool init(real_t*, unsigned int, unsigned int*, real_t*);
 
 		public:
@@ -49,8 +51,9 @@ namespace hir {
 	}; // class RMC
 
 
-	template <typename real_t, typename complex_t, typename cucomplex_t>
-	RMC<real_t, complex_t, cucomplex_t>::RMC(unsigned int rows, unsigned int cols, const char* img_file,
+//	template <typename real_t, typename complex_t, typename cucomplex_t>
+	RMC::RMC(unsigned int rows, unsigned int cols, const char* img_file,
+//	RMC<real_t, complex_t, cucomplex_t>::RMC(unsigned int rows, unsigned int cols, const char* img_file,
 					unsigned int num_tiles, real_t* loading) :
 		in_pattern_(rows, cols),
 		rows_(rows), cols_(cols), size_(std::max(rows, cols)),
@@ -72,8 +75,9 @@ namespace hir {
 	} // RMC::RMC()
 
 
-	template <typename real_t, typename complex_t, typename cucomplex_t>
-	RMC<real_t, complex_t, cucomplex_t>::~RMC() {
+//	template <typename real_t, typename complex_t, typename cucomplex_t>
+	RMC::~RMC() {
+//	RMC<real_t, complex_t, cucomplex_t>::~RMC() {
 		if(in_mask_ != NULL) delete[] in_mask_;
 		if(mask_mat_ != NULL) delete[] mask_mat_;
 		//if(tiles_ != NULL) delete[] tiles_;
@@ -81,8 +85,9 @@ namespace hir {
 
 
 	// idea is that this can be replaced easily for other types of raw inputs (not image)
-	template <typename real_t, typename complex_t, typename cucomplex_t>
-	bool RMC<real_t, complex_t, cucomplex_t>::pre_init(const char* img_file, real_t* loading) {
+//	template <typename real_t, typename complex_t, typename cucomplex_t>
+	bool RMC::pre_init(const char* img_file, real_t* loading) {
+//	bool RMC<real_t, complex_t, cucomplex_t>::pre_init(const char* img_file, real_t* loading) {
 		//std::cout << "++ pre_init" << std::endl;
 		// TODO: opencv usage is temporary. improve with something else...
 		cv::Mat img = cv::imread(img_file, 0);	// grayscale only for now
@@ -122,8 +127,9 @@ namespace hir {
 
 
 	// initialize with raw data
-	template <typename real_t, typename complex_t, typename cucomplex_t>
-	bool RMC<real_t, complex_t, cucomplex_t>::init(real_t* pattern,
+//	template <typename real_t, typename complex_t, typename cucomplex_t>
+	bool RMC::init(real_t* pattern,
+//	bool RMC<real_t, complex_t, cucomplex_t>::init(real_t* pattern,
 													unsigned int mask_len, unsigned int* mask,
 													real_t* loading) {
 		woo::BoostChronoTimer mytimer;
@@ -144,7 +150,6 @@ namespace hir {
 		for(unsigned int i = 0; i < in_mask_len_; ++ i) mask_mat_[in_mask_[i]] = 0;
 		mytimer.stop();
 		std::cout << "**** Mask creation time: " << mytimer.elapsed_msec() << " ms." << std::endl;
-
 		//print_matrix("mask_mat:", mask_mat_, size_, size_);
 
 		// compute base norm
@@ -179,7 +184,8 @@ namespace hir {
 
 		mytimer.start();
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
-			tiles_.push_back(Tile<real_t, complex_t, cucomplex_t>(size_, size_, indices));
+			tiles_.push_back(Tile(size_, size_, indices));
+			//tiles_.push_back(Tile<real_t, complex_t, cucomplex_t>(size_, size_, indices));
 		mytimer.stop();
 		std::cout << "**** Tiles construction time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		mytimer.start();
@@ -196,8 +202,8 @@ namespace hir {
 			real_t temp = 2.0 * PI_ * (1.0 - ((real_t)i / size_));
 			real_t temp_r = cos(temp);
 			real_t temp_i = sin(temp);
-//			temp_r = abs(temp_r) < ZERO_LIMIT_ ? 0.0 : temp_r;
-//			temp_i = abs(temp_i) < ZERO_LIMIT_ ? 0.0 : temp_i;
+			//temp_r = abs(temp_r) < ZERO_LIMIT_ ? 0.0 : temp_r;
+			//temp_i = abs(temp_i) < ZERO_LIMIT_ ? 0.0 : temp_i;
 			first_pow.push_back(complex_t(temp_r, temp_i));
 		} // for
 		//print_carray("first_pow", reinterpret_cast<complex_t*>(&first_pow[0]), size_);
@@ -220,8 +226,9 @@ namespace hir {
 
 
 	// simulate RMC
-	template <typename real_t, typename complex_t, typename cucomplex_t>
-	bool RMC<real_t, complex_t, cucomplex_t>::simulate(int num_steps, real_t tstar, unsigned int rate) {
+//	template <typename real_t, typename complex_t, typename cucomplex_t>
+	bool RMC::simulate(int num_steps, real_t tstar, unsigned int rate) {
+//	bool RMC<real_t, complex_t, cucomplex_t>::simulate(int num_steps, real_t tstar, unsigned int rate) {
 
 		std::cout << "++ starting simulation ..." << std::endl;
 		for(unsigned int step = 0; step < num_steps; ++ step) {
