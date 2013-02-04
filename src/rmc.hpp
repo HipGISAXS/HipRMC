@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 03 Feb 2013 12:12:51 PM PST
+  *  Modified: Mon 04 Feb 2013 02:18:08 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -165,8 +165,6 @@ namespace hir {
 
 		//std::cout << "++ base_norm: " << base_norm_ << std::endl;
 
-		// initialize tiles
-
 		// create array of random indices
 		mytimer.start();
 		/*std::vector<unsigned int> indices;
@@ -181,18 +179,6 @@ namespace hir {
 		std::cout << "**** Indices creation time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		mytimer.stop();
 		//print_array("indices", (unsigned int*)&indices[0], indices.size());
-
-		mytimer.start();
-		for(unsigned int i = 0; i < num_tiles_; ++ i)
-			tiles_.push_back(Tile(size_, size_, indices));
-			//tiles_.push_back(Tile<real_t, complex_t, cucomplex_t>(size_, size_, indices));
-		mytimer.stop();
-		std::cout << "**** Tiles construction time: " << mytimer.elapsed_msec() << " ms." << std::endl;
-		mytimer.start();
-		for(unsigned int i = 0; i < num_tiles_; ++ i)
-			tiles_[i].init(loading[i], base_norm_, in_pattern_, mask_mat_);
-		mytimer.stop();
-		std::cout << "**** Tiles init time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 
 		// compute vandermonde matrix
 		mytimer.start();
@@ -220,6 +206,19 @@ namespace hir {
 		mytimer.stop();
 		std::cout << "**** Vandermonde time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		//print_cmatrix("vandermonde_mat", vandermonde_mat_.data(), size_, size_);
+
+		// initialize tiles
+		mytimer.start();
+		for(unsigned int i = 0; i < num_tiles_; ++ i)
+			tiles_.push_back(Tile(size_, size_, indices));
+			//tiles_.push_back(Tile<real_t, complex_t, cucomplex_t>(size_, size_, indices));
+		mytimer.stop();
+		std::cout << "**** Tiles construction time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		mytimer.start();
+		for(unsigned int i = 0; i < num_tiles_; ++ i)
+			tiles_[i].init(loading[i], base_norm_, in_pattern_, vandermonde_mat_, mask_mat_);
+		mytimer.stop();
+		std::cout << "**** Tiles init time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 
 		return true;
 	} // RMC::init()

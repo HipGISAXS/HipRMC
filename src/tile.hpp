@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 04 Feb 2013 11:32:31 AM PST
+  *  Modified: Mon 04 Feb 2013 03:22:42 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -55,6 +55,7 @@ namespace hir {
 			unsigned int grid_x_;
 			unsigned int grid_y_;
 */
+			cucomplex_t* cucomplex_buff_;
 			// new stuff:
 			GTile gtile_;
 #endif // USE_GPU
@@ -81,14 +82,15 @@ namespace hir {
 //			bool execute_cufft(cuDoubleComplex*, cuDoubleComplex*);		// gpu
 #endif
 			bool compute_mod_mat(unsigned int);
-			bool compute_model_norm(const woo::Matrix2D<real_t>&);
-			double compute_chi2(const woo::Matrix2D<real_t>&, const woo::Matrix2D<real_t>&, real_t);
+			bool compute_model_norm(unsigned int);
+			double compute_chi2(const woo::Matrix2D<real_t>&, unsigned int, real_t);
 			bool virtual_move_random_particle();
 			bool move_particle(double, real_t);
 			bool compute_dft2(woo::Matrix2D<complex_t>&, woo::Matrix2D<complex_t>&);
 			bool update_fft_mat(woo::Matrix2D<complex_t>&, woo::Matrix2D<complex_t>&,
-								woo::Matrix2D<complex_t>&);
-			bool mask_mat(const unsigned int*&, const woo::Matrix2D<real_t>&);
+								woo::Matrix2D<complex_t>&, unsigned int, unsigned int);
+			bool mask_mat(const unsigned int*&, unsigned int);
+			bool copy_mod_mat(unsigned int);
 #ifdef USE_GPU
 			bool normalize_fft_mat(cucomplex_t*, unsigned int);
 #endif // USE_GPU
@@ -99,11 +101,12 @@ namespace hir {
 			~Tile();
 
 			// initialize with raw data
-			bool init(real_t, real_t, const woo::Matrix2D<real_t>&, const unsigned int*);
-			bool simulate_step(const woo::Matrix2D<real_t>&, woo::Matrix2D<complex_t>&,
+			bool init(real_t, real_t, woo::Matrix2D<real_t>&, woo::Matrix2D<complex_t>&, const unsigned int*);
+			bool simulate_step(woo::Matrix2D<real_t>&, woo::Matrix2D<complex_t>&,
 								const unsigned int*, real_t, real_t);
 			bool update_model(const woo::Matrix2D<real_t>&, real_t);
 			bool finalize_result(double&, woo::Matrix2D<real_t>&);
+			bool update_a_mat();
 
 			// return a random number in (0,1)
 			real_t ms_rand_01() {
