@@ -3,15 +3,15 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 04 Feb 2013 03:36:49 PM PST
+  *  Modified: Mon 04 Feb 2013 04:51:43 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
 //#ifdef USE_GPU
-//#include <cuda.h>
+#include <cuda.h>
 //#include <cufft.h>
-//#include <cuda_runtime.h>
+#include <cuda_runtime.h>
 //#else
 #ifdef _OPENMP
 #include <omp.h>
@@ -115,12 +115,6 @@ namespace hir {
 		// fill a_mat_ with particles
 		mytimer.start();
 		update_a_mat();
-		//a_mat_.fill(0.0);
-		//for(unsigned int i = 0; i < num_particles_; ++ i) {
-		//	unsigned int x = indices_[i] / cols;
-		//	unsigned int y = indices_[i] % cols;
-		//	a_mat_(x, y) = 1.0;
-		//} // for
 		mytimer.stop();
 		std::cout << "**** A fill time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		//print_matrix("a_mat", a_mat_.data(), rows, cols);
@@ -135,6 +129,9 @@ namespace hir {
 			} // for
 		} // for
 		gtile_.init(pattern.data(), cucomplex_buff_, a_mat_.data(), mask, size_, block_x, block_y);
+		//memset(cucomplex_buff_, 0, size_ * size_ * sizeof(cucomplex_t));
+		//cudaMemcpy(cucomplex_buff_, gtile_.vandermonde_, size_ * size_ * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
+		//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
 #endif // USE_GPU
 
 		// compute fft of a_mat_ into fft_mat_ and other stuff
@@ -158,6 +155,7 @@ namespace hir {
 		c_factor_ = base_norm / model_norm_;
 		mytimer.start();
 		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, c_factor_);
+		std::cout << "++++ initial chi2 = " << prev_chi2_ << std::endl;
 		mytimer.stop();
 		std::cout << "**** chi2 time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		return true;
@@ -302,8 +300,8 @@ namespace hir {
 	bool Tile::compute_fft_mat() {
 		std::cout << "++ compute_fft_mat_cuda" << std::endl;
 
-		gtile_.compute_fft_mat(1 - f_mat_i_);
-		gtile_.normalize_fft_mat(1 - f_mat_i_, num_particles_);
+		gtile_.compute_fft_mat(f_mat_i_);
+		gtile_.normalize_fft_mat(f_mat_i_, num_particles_);
 		return true;
 	} // Tile::compute_fft_mat_cuda()
 #endif // USE_GPU
@@ -416,6 +414,8 @@ namespace hir {
 		} // for
 		//print_cmatrix("dft_mat", dft_mat.data(), size_, size_);
 #endif // USE_GPU
+		//cudaMemcpy(cucomplex_buff_, gtile_.dft_mat_, size_ * size_ * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
+		//print_cucmatrix("dft_mat", cucomplex_buff_, size_, size_);
 		return true;
 	} // Tile::compute_dft2()
 

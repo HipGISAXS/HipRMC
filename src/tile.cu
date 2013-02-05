@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Mon 04 Feb 2013 03:32:03 PM PST
+  *  Modified: Mon 04 Feb 2013 04:40:29 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -85,9 +85,9 @@ namespace hir {
 			complex_buff_h_[i].y = 0.0;
 		} // for
 		// copy data to device
+		cudaMemcpy(a_mat_, complex_buff_h_, size2 * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
 		cudaMemcpy(pattern_, pattern, size2 * sizeof(real_t), cudaMemcpyHostToDevice);
 		cudaMemcpy(vandermonde_, vander, size2 * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
-		cudaMemcpy(a_mat_, complex_buff_h_, size2 * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
 		cudaMemcpy(mask_mat_, mask, size2 * sizeof(unsigned int), cudaMemcpyHostToDevice);
 		return true;
 	} // GTile::init()
@@ -183,7 +183,7 @@ namespace hir {
 										unsigned int new_row, unsigned int new_col,
 										unsigned int num_particles) {
 		compute_dft2_kernel <<< grid_dims_, block_dims_ >>> (vandermonde_, size_, old_row, old_col,
-															new_row, new_col, num_particles, vandermonde_);
+															new_row, new_col, num_particles, dft_mat_);
 		cudaThreadSynchronize();
 		return true;
 	} // GTile::compute_dft2()
