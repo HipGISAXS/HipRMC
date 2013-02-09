@@ -9,18 +9,18 @@
 ##
 
 ## base directories
-BOOST_DIR = /usr/local/boost_1_49_0
+BOOST_DIR = /home-2/gtd327/boost_1_51_0
 #MPI_DIR = /usr/local/openmpi-1.6
-CUDA_DIR = /usr/local/cuda
+CUDA_DIR = /shared/apps/cuda/CUDA-v5.0.35/rhel-6.2
 #HDF5_DIR = /usr/local/hdf5-1.8.9
 #Z_DIR = /usr/local/zlib-1.2.7
 #SZ_DIR = /usr/local/szip-2.1
 #TIFF_LIB_DIR = /usr/local/lib
-OPENCV_DIR = /usr/local/opencv
-WOO_DIR = $(HOME)
-FFTW_DIR = /usr/local/fftw-3.3.2
+OPENCV_DIR = /home-2/gtd327/local/opencv-2.4.3
+WOO_DIR = /home-2/gtd327/local
+FFTW_DIR = /shared/apps/rhel-6.2/libs/fftw-3.3.3
 
-USE_GPU = n
+USE_GPU = y
 
 ## compilers
 CXX = g++
@@ -34,7 +34,7 @@ CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
 
 ## boost
 BOOST_INCL = -I $(BOOST_DIR)
-BOOST_LIBS = -L /usr/local/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
+BOOST_LIBS = -L $(BOOST_DIR)/stage/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
 
 ## parallel hdf5
 #HDF5_INCL = -I$(HDF5_DIR)/include -I$(SZ_DIR)/include -I$(Z_DIR)/include
@@ -71,12 +71,13 @@ WOO_INCL = -I $(WOO_DIR)
 
 ## fftw
 FFTW_INCL = -I $(FFTW_DIR)/include
-FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3
+FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3f
 
 ## miscellaneous
 MISC_INCL =
+MISC_FLAGS =
 ifeq ($(USE_GPU), y)
-MISC_FLAGS = -DUSE_GPU
+MISC_FLAGS += -DUSE_GPU
 endif
 
 ## choose optimization levels, debug flags, gprof flag, etc

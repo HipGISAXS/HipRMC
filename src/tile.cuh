@@ -64,6 +64,9 @@ namespace hir {
 	__global__ void compute_dft2_kernel(cucomplex_t*, unsigned int, unsigned int, unsigned int,
 										unsigned int, unsigned int, unsigned int, //cucomplex_t*,
 										cucomplex_t*, cucomplex_t*);
+	__global__ void compute_dft2_kernel_shared(cucomplex_t*, unsigned int, unsigned int, unsigned int,
+										unsigned int, unsigned int, unsigned int, //cucomplex_t*,
+										cucomplex_t*, cucomplex_t*);
 //	__global__ void update_fft_mat_kernel(cucomplex_t*, cucomplex_t*, unsigned int, cucomplex_t*);
 
 } // namespace hir

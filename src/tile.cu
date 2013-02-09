@@ -175,9 +175,8 @@ namespace hir {
 										unsigned int new_row, unsigned int new_col,
 										unsigned int num_particles,
 										unsigned int in_buff_i, unsigned int out_buff_i) {
-		compute_dft2_kernel <<< grid_dims_, block_dims_ >>> (vandermonde_, size_, old_row, old_col,
-															new_row, new_col, num_particles,
-															f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		//compute_dft2_kernel <<< grid_dims_, block_dims_ >>> (vandermonde_, size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		compute_dft2_kernel_shared <<< grid_dims_, block_dims_ >>> (vandermonde_, size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
 		cudaThreadSynchronize();
 		return true;
 	} // GTile::compute_dft2()
@@ -249,11 +248,76 @@ namespace hir {
 												vandermonde[size * new_row + i_x]);
 			cucomplex_t old_temp = complex_mul(vandermonde[size * i_y + old_col],
 												vandermonde[size * old_row + i_x]);
-			//dft_mat[index] = complex_div((complex_sub(new_temp, old_temp)), (real_t)num_particles);
 			cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)), (real_t)num_particles);
 			fout[index] = complex_add(dft_temp, fin[index]);
 		} // if
 	} // compute_dft2_kernel()
+
+
+	__global__ void compute_dft2_kernel_shared(cucomplex_t* vandermonde, unsigned int size,
+							unsigned int old_row, unsigned int old_col,
+							unsigned int new_row, unsigned int new_col,
+							unsigned int num_particles,
+							cucomplex_t* fin, cucomplex_t* fout) {
+		// TODO: try subtiling also
+		// TODO: try dynamic shared memory
+		// TODO: try shared mem for output to coalesce writes
+		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
+		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
+		unsigned int old_x = size * old_row + i_x;
+		unsigned int old_y = size * i_y + old_col;
+		unsigned int new_x = size * new_row + i_x;
+		unsigned int new_y = size * i_y + new_col;
+
+		// this basically makes copies of input vectors so that each thread
+		// access different location in shared mem
+		/*const unsigned int mat_size = CUDA_BLOCK_SIZE_X_ * CUDA_BLOCK_SIZE_Y_;
+		__shared__ cucomplex_t vander_old_row[mat_size];
+		__shared__ cucomplex_t vander_new_row[mat_size];
+		__shared__ cucomplex_t vander_old_col[mat_size];
+		__shared__ cucomplex_t vander_new_col[mat_size];
+		unsigned int in_index = blockDim.x * threadIdx.y + threadIdx.x;
+		if(i_x < size) {
+			vander_old_row[in_index] = vandermonde[old_x];
+			vander_new_row[in_index] = vandermonde[new_x];
+		} // if
+		if(i_y < size) {
+			vander_old_col[in_index] = vandermonde[old_y];
+			vander_new_col[in_index] = vandermonde[new_y];
+		} // if*/
+
+		__shared__ cucomplex_t vander_old_row[CUDA_BLOCK_SIZE_X_];
+		__shared__ cucomplex_t vander_new_row[CUDA_BLOCK_SIZE_X_];
+		__shared__ cucomplex_t vander_old_col[CUDA_BLOCK_SIZE_Y_];
+		__shared__ cucomplex_t vander_new_col[CUDA_BLOCK_SIZE_Y_];
+		// first row of threads load both rows
+		if(threadIdx.y == 0 && i_x < size) {
+			vander_old_row[threadIdx.x] = vandermonde[old_x];
+			vander_new_row[threadIdx.x] = vandermonde[new_x];
+		} // if
+		// first col of threads load both cols
+		if(threadIdx.x == 0 && i_y < size) {
+			vander_old_col[threadIdx.y] = vandermonde[old_y];
+			vander_new_col[threadIdx.y] = vandermonde[new_y];
+		} // if
+
+		__syncthreads();	// make sure all data is available
+
+		unsigned int index = size * i_y + i_x;
+		if(i_x < size && i_y < size) {
+			/*cucomplex_t new_temp = complex_mul(vander_new_col[in_index],
+								vander_new_row[in_index]);
+			cucomplex_t old_temp = complex_mul(vander_old_col[in_index],
+								vander_old_row[in_index]);*/
+			cucomplex_t new_temp = complex_mul(vander_new_col[threadIdx.y],
+								vander_new_row[threadIdx.x]);
+			cucomplex_t old_temp = complex_mul(vander_old_col[threadIdx.y],
+								vander_old_row[threadIdx.x]);
+			cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)),
+								(real_t)num_particles);
+			fout[index] = complex_add(dft_temp, fin[index]);
+		} // if
+	} // compute_dft2_kernel_shared()
 
 
 } // namespace hir
