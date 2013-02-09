@@ -16,8 +16,8 @@ namespace hir {
 	const double ZERO_LIMIT_ = 0.0000001;
 	const double PI_ = 3.14159265358979323846;
 
-	const unsigned int CUDA_BLOCK_SIZE_X_ = 8;
-	const unsigned int CUDA_BLOCK_SIZE_Y_ = 8;
+	const unsigned int CUDA_BLOCK_SIZE_X_ = 16;
+	const unsigned int CUDA_BLOCK_SIZE_Y_ = 16;
 
 } // namespace hir
 

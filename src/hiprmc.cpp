@@ -21,7 +21,7 @@ int main(int narg, char** args) {
 	float *loading = new (std::nothrow) float[2];
 	loading[0] = 0.25;
 	loading[1] = 0.4;
-	std::string img("/home/asarje/hiprmc.git/data/image_02_256x256.tiff");
+	std::string img("data/image_02_256x256.tiff");
 
 	woo::BoostChronoTimer mytimer;
 	mytimer.start();
