@@ -10,8 +10,8 @@
 
 
 #include <iostream>
-#include <complex>
-#include <cuComplex.h>
+//#include <complex>
+//#include <cuComplex.h>
 #include <woo/timer/woo_boostchronotimers.hpp>
 
 #include "rmc.hpp"

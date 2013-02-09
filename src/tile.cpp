@@ -8,15 +8,13 @@
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
-//#ifdef USE_GPU
+#ifdef USE_GPU
 #include <cuda.h>
-//#include <cufft.h>
 #include <cuda_runtime.h>
-//#else
+#endif // USE_GPU
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
-//#endif // USE_GPU
 #include <opencv2/opencv.hpp>
 #include <woo/timer/woo_boostchronotimers.hpp>
 
