@@ -8,24 +8,33 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
+USE_GPU = n
+
 ## base directories
-BOOST_DIR = /home-2/gtd327/boost_1_51_0
+BOOST_DIR = /usr/local/
 #MPI_DIR = /usr/local/openmpi-1.6
-CUDA_DIR = /shared/apps/cuda/CUDA-v5.0.35/rhel-6.2
 #HDF5_DIR = /usr/local/hdf5-1.8.9
 #Z_DIR = /usr/local/zlib-1.2.7
 #SZ_DIR = /usr/local/szip-2.1
 #TIFF_LIB_DIR = /usr/local/lib
-OPENCV_DIR = /home-2/gtd327/local/opencv-2.4.3
-WOO_DIR = /home-2/gtd327/local
-FFTW_DIR = /shared/apps/rhel-6.2/libs/fftw-3.3.3
-
-USE_GPU = y
+OPENCV_DIR = /usr/local/Cellar/opencv/2.4.3
+WOO_DIR = /Users/asarje/work/code
+ifeq ($(USE_GPU), y)
+CUDA_DIR = /Developer/NVIDIA/CUDA-5.0
+FFTW_DIR =
+else
+CUDA_DIR =
+FFTW_DIR = /usr/local/Cellar/fftw/3.3.3
+endif
 
 ## compilers
 CXX = g++
 #H5CC = $(HDF5_DIR)/bin/h5pcc
+ifeq ($(USE_GPU), y)
 NVCC = $(CUDA_DIR)/bin/nvcc
+else
+NVCC =
+endif
 
 ## compiler flags
 CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
@@ -34,7 +43,7 @@ CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
 
 ## boost
 BOOST_INCL = -I $(BOOST_DIR)
-BOOST_LIBS = -L $(BOOST_DIR)/stage/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
+BOOST_LIBS = -L /usr/local/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
 
 ## parallel hdf5
 #HDF5_INCL = -I$(HDF5_DIR)/include -I$(SZ_DIR)/include -I$(Z_DIR)/include
@@ -47,8 +56,9 @@ BOOST_LIBS = -L $(BOOST_DIR)/stage/lib -lboost_system -lboost_filesystem -lboost
 #MPI_LIBS = -L $(MPI_DIR)/lib -lmpi_cxx -lmpi
 
 ## cuda
+ifeq ($(USE_GPU), y)
 CUDA_INCL = -I$(CUDA_DIR)/include
-CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft
+CUDA_LIBS = -L$(CUDA_DIR)/lib -lcudart -lcufft
 NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
 NVCC_FLAGS += -gencode=arch=compute_20,code=compute_20
@@ -58,6 +68,11 @@ NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
 #NVCC_FLAGS += -Xptxas -v -Xcompiler -v -Xlinker -v --ptxas-options="-v"
 NVLIB_FLAGS = -Xlinker -lgomp
 NVLIB_FLAGS += -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
+else
+CUDA_INCL =
+CUDA_LIBS =
+NVCC_FLAGS =
+endif
 
 ## libtiff
 #TIFF_LIBS = -L $(TIFF_LIB_DIR) -ltiff
@@ -70,14 +85,20 @@ OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui
 WOO_INCL = -I $(WOO_DIR)
 
 ## fftw
+ifeq ($(USE_GPU), y)
+FFTW_INCL =
+FFTW_LIBS =
+else
 FFTW_INCL = -I $(FFTW_DIR)/include
-FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3f
+FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3
+endif
 
 ## miscellaneous
 MISC_INCL =
-MISC_FLAGS =
 ifeq ($(USE_GPU), y)
-MISC_FLAGS += -DUSE_GPU
+MISC_FLAGS = -DUSE_GPU
+else
+MISC_FLAGS =
 endif
 
 ## choose optimization levels, debug flags, gprof flag, etc
