@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Mon 04 Feb 2013 04:40:29 PM PST
+  *  Modified: Fri 08 Feb 2013 10:16:49 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -20,7 +20,7 @@ namespace hir {
 
 	__host__ GTile::GTile():
 		size_(0),
-		pattern_(NULL), vandermonde_(NULL), a_mat_(NULL), mask_mat_(NULL), dft_mat_(NULL),
+		pattern_(NULL), vandermonde_(NULL), a_mat_(NULL), mask_mat_(NULL),
 		real_buff_d_(NULL),
 		complex_buff_h_(NULL), real_buff_h_(NULL) {
 
@@ -33,7 +33,6 @@ namespace hir {
 		if(real_buff_h_ != NULL) delete[] real_buff_h_;
 		if(complex_buff_h_ != NULL) delete[] complex_buff_h_;
 		if(real_buff_d_ != NULL) cudaFree(real_buff_d_);
-		if(dft_mat_ != NULL) cudaFree(dft_mat_);
 		if(mask_mat_ != NULL) cudaFree(mask_mat_);
 		if(mod_f_mat_[1] != NULL) cudaFree(mod_f_mat_[1]);
 		if(mod_f_mat_[0] != NULL) cudaFree(mod_f_mat_[0]);
@@ -64,14 +63,13 @@ namespace hir {
 		cudaMalloc((void**) &mod_f_mat_[0], size2 * sizeof(real_t));
 		cudaMalloc((void**) &mod_f_mat_[1], size2 * sizeof(real_t));
 		cudaMalloc((void**) &mask_mat_, size2 * sizeof(unsigned int));
-		cudaMalloc((void**) &dft_mat_, size2 * sizeof(cucomplex_t));
 		cudaMalloc((void**) &real_buff_d_, size2 * sizeof(real_t));
 		complex_buff_h_ = new (std::nothrow) cucomplex_t[size2];
 		real_buff_h_ = new (std::nothrow) real_t[size2];
 		if(pattern_ == NULL || vandermonde_ == NULL || a_mat_ == NULL ||
 				f_mat_[0] == NULL || f_mat_[1] == NULL ||
 				mod_f_mat_[0] == NULL || mod_f_mat_[1] == NULL ||
-				mask_mat_ == NULL || dft_mat_ == NULL || real_buff_d_ == NULL) {
+				mask_mat_ == NULL || real_buff_d_ == NULL) {
 			std::cerr << "error: failed to allocate device memory." << std::endl;
 			return false;
 		} // if
@@ -132,17 +130,11 @@ namespace hir {
 
 
 	__host__ bool GTile::compute_mod_mat(unsigned int src_i, unsigned int dst_i) {
-		compute_mod_mat_kernel <<< grid_dims_, block_dims_ >>> (f_mat_[src_i], size_, mod_f_mat_[dst_i]);
+		compute_mod_mat_kernel <<< grid_dims_, block_dims_ >>> (f_mat_[src_i], mask_mat_, size_,
+																mod_f_mat_[dst_i]);
 		cudaThreadSynchronize();
 		return true;
 	} // GTile::compute_mod_mat()
-
-
-	__host__ bool GTile::mask_mat(unsigned int buff_i) {
-		mask_mat_kernel <<< grid_dims_, block_dims_ >>> (mask_mat_, size_, mod_f_mat_[buff_i]);
-		cudaThreadSynchronize();
-		return true;
-	} // GTile::mask_mat()
 
 
 	__host__ bool GTile::copy_mod_mat(unsigned int src_i) {
@@ -181,20 +173,14 @@ namespace hir {
 
 	__host__ bool GTile::compute_dft2(unsigned int old_row, unsigned int old_col,
 										unsigned int new_row, unsigned int new_col,
-										unsigned int num_particles) {
+										unsigned int num_particles,
+										unsigned int in_buff_i, unsigned int out_buff_i) {
 		compute_dft2_kernel <<< grid_dims_, block_dims_ >>> (vandermonde_, size_, old_row, old_col,
-															new_row, new_col, num_particles, dft_mat_);
+															new_row, new_col, num_particles,
+															f_mat_[in_buff_i], f_mat_[out_buff_i]);
 		cudaThreadSynchronize();
 		return true;
 	} // GTile::compute_dft2()
-
-
-	__host__ bool GTile::update_fft_mat(unsigned int in_buff_i, unsigned int out_buff_i) {
-		update_fft_mat_kernel <<< grid_dims_, block_dims_ >>> (dft_mat_, f_mat_[in_buff_i], size_,
-																f_mat_[out_buff_i]);
-		cudaThreadSynchronize();
-		return true;
-	} // GTile::update_fft_mat()
 
 
 	// ////
@@ -210,28 +196,20 @@ namespace hir {
 			f_mat[size * i_y + i_x] = make_cuComplex(f_mat[size * i_y + i_x].x / num_particles,
 													f_mat[size * i_y + i_x].y / num_particles);
 		} // if
-	} // compute_mod_mat_kernel()
+	} // normalize_fft_mat_kernel()
 
 
-	__global__ void compute_mod_mat_kernel(cucomplex_t* inmat, unsigned int size, real_t* outmat) {
+	__global__ void compute_mod_mat_kernel(cucomplex_t* inmat, unsigned int* mask, unsigned int size,
+											real_t* outmat) {
 		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
 		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
 		if(i_x < size && i_y < size) {
 			unsigned int index = size * i_y + i_x;
 			cucomplex_t temp = inmat[index];
-			outmat[index] = temp.x * temp.x + temp.y * temp.y;
+			//outmat[index] = temp.x * temp.x + temp.y * temp.y;
+			outmat[index] = mask[index] * (temp.x * temp.x + temp.y * temp.y);
 		} // if
 	} // compute_mod_mat_kernel()
-
-
-	__global__ void mask_mat_kernel(unsigned int* mask, unsigned int size, real_t* mat) {
-		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
-		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
-		if(i_x < size && i_y < size) {
-			unsigned int index = size * i_y + i_x;
-			mat[index] *= mask[index];
-		} // if
-	} // mask_mat_kernel()
 
 
 	__global__ void compute_model_norm_kernel(real_t* inmat, unsigned int size,
@@ -261,7 +239,8 @@ namespace hir {
 	__global__ void compute_dft2_kernel(cucomplex_t* vandermonde, unsigned int size,
 										unsigned int old_row, unsigned int old_col,
 										unsigned int new_row, unsigned int new_col,
-										unsigned int num_particles, cucomplex_t* dft_mat) {
+										unsigned int num_particles,
+										cucomplex_t* fin, cucomplex_t* fout) {
 		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
 		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
 		if(i_x < size && i_y < size) {
@@ -270,19 +249,11 @@ namespace hir {
 												vandermonde[size * new_row + i_x]);
 			cucomplex_t old_temp = complex_mul(vandermonde[size * i_y + old_col],
 												vandermonde[size * old_row + i_x]);
-			dft_mat[index] = complex_div((complex_sub(new_temp, old_temp)), (real_t)num_particles);
+			//dft_mat[index] = complex_div((complex_sub(new_temp, old_temp)), (real_t)num_particles);
+			cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)), (real_t)num_particles);
+			fout[index] = complex_add(dft_temp, fin[index]);
 		} // if
 	} // compute_dft2_kernel()
 
-
-	__global__ void update_fft_mat_kernel(cucomplex_t* dft, cucomplex_t* fin, unsigned int size,
-											cucomplex_t* fout) {
-		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
-		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
-		if(i_x < size && i_y < size) {
-			unsigned int index = size * i_y + i_x;
-			fout[index] = complex_add(dft[index], fin[index]);
-		} // if
-	} // update_fft_mat_kernel()
 
 } // namespace hir

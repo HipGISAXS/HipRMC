@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 04 Feb 2013 04:51:43 PM PST
+  *  Modified: Fri 08 Feb 2013 10:30:41 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -144,10 +144,12 @@ namespace hir {
 		mytimer.stop();
 		std::cout << "**** mod F time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		mytimer.start();
+#ifndef USE_GPU
 		mask_mat(mask, 1 - mod_f_mat_i_);
+#endif // USE_GPU
 		copy_mod_mat(1 - mod_f_mat_i_);
 		mytimer.stop();
-		std::cout << "**** Mask time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "**** Mask/copy time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		mytimer.start();
 		compute_model_norm(1 - mod_f_mat_i_);
 		mytimer.stop();
@@ -183,11 +185,15 @@ namespace hir {
 
 		virtual_move_random_particle();
 		// merge the following two: ...
-		compute_dft2(vandermonde, dft_mat_);
+		compute_dft2(vandermonde, f_mat_i_, f_scratch_i);
+#ifndef USE_GPU
 		update_fft_mat(dft_mat_, f_mat_[f_mat_i_], f_mat_[f_scratch_i], f_mat_i_, f_scratch_i);
+#endif // USE_GPU
 		//print_cmatrix("f_mat_[f_scratch_i]", f_mat_[f_scratch_i].data(), size_, size_);
 		compute_mod_mat(f_scratch_i);
+#ifndef USE_GPU
 		mask_mat(mask, mod_f_scratch_i);
+#endif // USE_GPU
 		// this should be here i think ...
 		compute_model_norm(mod_f_scratch_i);
 		double new_c_factor = base_norm / model_norm_;
@@ -205,13 +211,14 @@ namespace hir {
 			if(prand < p) accept = true;
 		} // if-else
 		if(accept) {	// accept the move
-			std::cout << std::endl << "++++ accepting move..., chi2: " << new_chi2 << ", prev: " << prev_chi2_
-						<< ", old cf: " << c_factor_ << std::endl;
+			//std::cout << std::endl << "++++ accepting move..., chi2: " << new_chi2 << ", prev: " << prev_chi2_
+			//			<< ", old cf: " << c_factor_ << std::endl;
 			// update to newly computed stuff
 			// make scratch as current
 			move_particle(new_chi2, base_norm);
-			compute_model_norm(mod_f_mat_i_);
-			c_factor_ = base_norm / model_norm_;
+			//compute_model_norm(mod_f_mat_i_); // not needed
+			//c_factor_ = base_norm / model_norm_;
+			c_factor_ = new_c_factor;
 			//std::cout << "++++ accepted, new cf: " << c_factor_ << std::endl;
 		} // if
 
@@ -282,7 +289,7 @@ namespace hir {
 		fftw_free(mat_out);
 		fftw_free(mat_in);
 		return true;
-	} // Tile::compute_fft_mat_cpu()
+	} // Tile::compute_fft_mat()
 
 
 	bool Tile::execute_fftw(fftw_complex* input, fftw_complex* output) {
@@ -303,7 +310,7 @@ namespace hir {
 		gtile_.compute_fft_mat(f_mat_i_);
 		gtile_.normalize_fft_mat(f_mat_i_, num_particles_);
 		return true;
-	} // Tile::compute_fft_mat_cuda()
+	} // Tile::compute_fft_mat()
 #endif // USE_GPU
 
 
@@ -389,14 +396,16 @@ namespace hir {
 	} // Tile::move_particle()
 
 
-	bool Tile::compute_dft2(woo::Matrix2D<complex_t> &vandermonde_mat, woo::Matrix2D<complex_t> &dft_mat) {
+	bool Tile::compute_dft2(woo::Matrix2D<complex_t> &vandermonde_mat,
+							unsigned int in_buff_i, unsigned int out_buff_i) {
 		//std::cout << "++ compute_dft2" << std::endl;
 		unsigned int old_row = old_index_ / size_;
 		unsigned int old_col = old_index_ % size_;
 		unsigned int new_row = new_index_ / size_;
 		unsigned int new_col = new_index_ % size_;
 #ifdef USE_GPU
-		gtile_.compute_dft2(old_row, old_col, new_row, new_col, num_particles_);
+		gtile_.compute_dft2(old_row, old_col, new_row, new_col, num_particles_,
+							in_buff_i, out_buff_i);
 #else
 		typename woo::Matrix2D<complex_t>::row_iterator old_row_iter = vandermonde_mat.row(old_row);
 		typename woo::Matrix2D<complex_t>::col_iterator old_col_iter = vandermonde_mat.column(old_col);
@@ -409,13 +418,12 @@ namespace hir {
 				complex_t old_temp = old_col_iter[row] * old_row_iter[col];
 				//complex_t new_temp = vandermonde_mat(row, new_col) * vandermonde_mat(new_row, col);
 				//complex_t old_temp = vandermonde_mat(row, old_col) * vandermonde_mat(old_row, col);
-				dft_mat(row, col) = (new_temp - old_temp) / (real_t)num_particles_;
+				dft_mat_(row, col) = (new_temp - old_temp) / (real_t)num_particles_;
 			} // for
 		} // for
 		//print_cmatrix("dft_mat", dft_mat.data(), size_, size_);
 #endif // USE_GPU
-		//cudaMemcpy(cucomplex_buff_, gtile_.dft_mat_, size_ * size_ * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
-		//print_cucmatrix("dft_mat", cucomplex_buff_, size_, size_);
+
 		return true;
 	} // Tile::compute_dft2()
 
@@ -424,7 +432,8 @@ namespace hir {
 								woo::Matrix2D<complex_t> &new_f_mat,
 								unsigned int in_buff_i, unsigned int out_buff_i) {
 #ifdef USE_GPU
-		return gtile_.update_fft_mat(in_buff_i, out_buff_i);
+		// this has been merged into compute_dft2 for gpu
+	//	return gtile_.update_fft_mat(in_buff_i, out_buff_i);
 #else
 		return woo::matrix_add(dft_mat, f_mat, new_f_mat);	// matrix operation
 #endif // USE_GPU
@@ -433,7 +442,8 @@ namespace hir {
 
 	bool Tile::mask_mat(const unsigned int*& mask_mat, unsigned int buff_i) {
 #ifdef USE_GPU
-		gtile_.mask_mat(buff_i);
+		/// this has been merged into compute_mod_mat for gpu
+		//gtile_.mask_mat(buff_i);
 #else
 		#pragma omp parallel for collapse(2) shared(mask_mat)
 		for(unsigned int i = 0; i < size_; ++ i) {

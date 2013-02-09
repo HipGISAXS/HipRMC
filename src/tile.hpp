@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 04 Feb 2013 03:22:42 PM PST
+  *  Modified: Fri 08 Feb 2013 10:28:45 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -31,8 +31,12 @@ namespace hir {
 			// following define a tile
 			unsigned int size_;									// num rows = num cols = size
 			woo::Matrix2D<real_t> a_mat_;						// A
+
+			// buffers used only for cpu version
 			std::vector<woo::Matrix2D<complex_t> > f_mat_;		// F buffers
 			std::vector<woo::Matrix2D<real_t> > mod_f_mat_;		// auto_F buffers
+
+			// used in both cpu and gpu versions
 			std::vector<unsigned int> indices_;					// NOTE: the first num_particles_ entries
 																// in indices_ are 'filled', rest are 'empty'
 			unsigned int f_mat_i_;								// current f buffer index
@@ -43,18 +47,6 @@ namespace hir {
 			double c_factor_;									// c factor
 
 #ifdef USE_GPU
-			// buffers for device
-/*			cucomplex_t* a_mat_d_;
-			cucomplex_t* f_mat_d_[2];
-			real_t* mod_f_mat_d_[2];
-			cucomplex_t* complex_buffer_h_;
-			real_t* real_buffer_h_;
-			// cuda parameters
-			unsigned int block_x_;
-			unsigned int block_y_;
-			unsigned int grid_x_;
-			unsigned int grid_y_;
-*/
 			cucomplex_t* cucomplex_buff_;
 			// new stuff:
 			GTile gtile_;
@@ -75,24 +67,21 @@ namespace hir {
 
 			// functions
 			bool compute_fft_mat();
-#ifndef USE_GPU // use cpu (possibly openmp)
-			bool execute_fftw(fftw_complex*, fftw_complex*);			// cpu
-#else // use cuda
-//			bool execute_cufft(cuFloatComplex*, cuFloatComplex*);		// gpu
-//			bool execute_cufft(cuDoubleComplex*, cuDoubleComplex*);		// gpu
+#ifndef USE_GPU // use cpu
+			bool execute_fftw(fftw_complex*, fftw_complex*);
 #endif
 			bool compute_mod_mat(unsigned int);
 			bool compute_model_norm(unsigned int);
 			double compute_chi2(const woo::Matrix2D<real_t>&, unsigned int, real_t);
 			bool virtual_move_random_particle();
 			bool move_particle(double, real_t);
-			bool compute_dft2(woo::Matrix2D<complex_t>&, woo::Matrix2D<complex_t>&);
+			bool compute_dft2(woo::Matrix2D<complex_t>&, unsigned int, unsigned int);
 			bool update_fft_mat(woo::Matrix2D<complex_t>&, woo::Matrix2D<complex_t>&,
 								woo::Matrix2D<complex_t>&, unsigned int, unsigned int);
 			bool mask_mat(const unsigned int*&, unsigned int);
 			bool copy_mod_mat(unsigned int);
 #ifdef USE_GPU
-			bool normalize_fft_mat(cucomplex_t*, unsigned int);
+			//bool normalize_fft_mat(cucomplex_t*, unsigned int);
 #endif // USE_GPU
 
 		public:

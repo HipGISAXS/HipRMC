@@ -3,7 +3,7 @@
   *
   *  File: hiprmc.cpp
   *  Created: Jan 27, 2013
-  *  Modified: Mon 04 Feb 2013 09:59:51 AM PST
+  *  Modified: Fri 08 Feb 2013 10:30:06 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -30,7 +30,7 @@ int main(int narg, char** args) {
 	mytimer.stop();
 	double init_time = mytimer.elapsed_msec();
 	mytimer.start();
-	my_rmc.simulate(1000, 1, 1000);
+	my_rmc.simulate(10000, 1, 1000);
 	mytimer.stop();
 	std::cout << "Initialization time: " << init_time << " ms." << std::endl;
 	std::cout << "Simulation time: " << mytimer.elapsed_msec() << " ms." << std::endl;
