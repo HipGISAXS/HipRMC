@@ -8,23 +8,23 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = n
+USE_GPU = y
 
 ## base directories
-BOOST_DIR = /usr/local/
+BOOST_DIR = /usr/local/boost_1_49_0
 #MPI_DIR = /usr/local/openmpi-1.6
 #HDF5_DIR = /usr/local/hdf5-1.8.9
 #Z_DIR = /usr/local/zlib-1.2.7
 #SZ_DIR = /usr/local/szip-2.1
 #TIFF_LIB_DIR = /usr/local/lib
-OPENCV_DIR = /usr/local/Cellar/opencv/2.4.3
-WOO_DIR = /Users/asarje/work/code
+OPENCV_DIR = /usr/local/opencv
+WOO_DIR = /home/asarje
 ifeq ($(USE_GPU), y)
-CUDA_DIR = /Developer/NVIDIA/CUDA-5.0
+CUDA_DIR = /usr/local/cuda
 FFTW_DIR =
 else
 CUDA_DIR =
-FFTW_DIR = /usr/local/Cellar/fftw/3.3.3
+FFTW_DIR = /usr/local/fftw-3.3.2
 endif
 
 ## compilers
@@ -58,7 +58,7 @@ BOOST_LIBS = -L /usr/local/lib -lboost_system -lboost_filesystem -lboost_timer -
 ## cuda
 ifeq ($(USE_GPU), y)
 CUDA_INCL = -I$(CUDA_DIR)/include
-CUDA_LIBS = -L$(CUDA_DIR)/lib -lcudart -lcufft
+CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft
 NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
 NVCC_FLAGS += -gencode=arch=compute_20,code=compute_20
