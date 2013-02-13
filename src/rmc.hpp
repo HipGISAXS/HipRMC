@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 04 Feb 2013 02:18:08 PM PST
+  *  Modified: Mon 11 Feb 2013 12:14:44 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -243,6 +243,7 @@ namespace hir {
 			double chi2 = 0.0;
 			woo::Matrix2D<real_t> a(size_, size_);
 			tiles_[i].finalize_result(chi2, a);
+			tiles_[i].print_times();
 		} // for
 
 		return true;

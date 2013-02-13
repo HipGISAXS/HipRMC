@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 08 Feb 2013 10:30:41 PM PST
+  *  Modified: Wed 13 Feb 2013 02:21:43 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -100,7 +100,6 @@ namespace hir {
 	bool Tile::init(real_t loading, real_t base_norm, woo::Matrix2D<real_t>& pattern,
 			woo::Matrix2D<complex_t>& vandermonde, const unsigned int* mask) {
 		woo::BoostChronoTimer mytimer;
-		//srand(time(NULL));
 		unsigned seed = time(NULL); //std::chrono::system_clock::now().time_since_epoch().count();
 		ms_rand_gen_.seed(seed);
 
@@ -127,8 +126,6 @@ namespace hir {
 			} // for
 		} // for
 		gtile_.init(pattern.data(), cucomplex_buff_, a_mat_.data(), mask, size_, block_x, block_y);
-		//memset(cucomplex_buff_, 0, size_ * size_ * sizeof(cucomplex_t));
-		//cudaMemcpy(cucomplex_buff_, gtile_.vandermonde_, size_ * size_ * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
 		//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
 #endif // USE_GPU
 
@@ -181,31 +178,40 @@ namespace hir {
 		unsigned int f_scratch_i = 1 - f_mat_i_;
 		unsigned int mod_f_scratch_i = 1 - mod_f_mat_i_;
 
+		mytimer_.start();
 		virtual_move_random_particle();
-		// merge the following two: ...
+		mytimer_.stop(); vmove_time += mytimer_.elapsed_msec();
+		mytimer_.start();
 		compute_dft2(vandermonde, f_mat_i_, f_scratch_i);
 #ifndef USE_GPU
 		update_fft_mat(dft_mat_, f_mat_[f_mat_i_], f_mat_[f_scratch_i], f_mat_i_, f_scratch_i);
 #endif // USE_GPU
+		mytimer_.stop(); dft2_time += mytimer_.elapsed_msec();
 		//print_cmatrix("f_mat_[f_scratch_i]", f_mat_[f_scratch_i].data(), size_, size_);
+		mytimer_.start();
 		compute_mod_mat(f_scratch_i);
 #ifndef USE_GPU
 		mask_mat(mask, mod_f_scratch_i);
 #endif // USE_GPU
+		mytimer_.stop(); mod_time += mytimer_.elapsed_msec();
 		// this should be here i think ...
+		mytimer_.start();
 		compute_model_norm(mod_f_scratch_i);
+		mytimer_.stop(); norm_time += mytimer_.elapsed_msec();
+		mytimer_.start();
 		double new_c_factor = base_norm / model_norm_;
 		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, new_c_factor);
 		double diff_chi2 = prev_chi2_ - new_chi2;
+		mytimer_.stop(); chi2_time += mytimer_.elapsed_msec();
 		//std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
 		//			<< "\t c_factor: " << new_c_factor << std::endl;
 
+		mytimer_.start();
 		bool accept = false;
 		if(new_chi2 < prev_chi2_) accept = true;
 		else {
 			real_t p = exp(diff_chi2 / tstar);
 			real_t prand = ms_rand_01();
-			//std::cout << "++++ p: " << p << ", prand: " << prand << std::endl;
 			if(prand < p) accept = true;
 		} // if-else
 		if(accept) {	// accept the move
@@ -214,11 +220,9 @@ namespace hir {
 			// update to newly computed stuff
 			// make scratch as current
 			move_particle(new_chi2, base_norm);
-			//compute_model_norm(mod_f_mat_i_); // not needed
-			//c_factor_ = base_norm / model_norm_;
 			c_factor_ = new_c_factor;
-			//std::cout << "++++ accepted, new cf: " << c_factor_ << std::endl;
 		} // if
+		mytimer_.stop(); rest_time += mytimer_.elapsed_msec();
 
 		/*real_t p = std::min(1.0, exp(diff_chi2 / tstar));
 		//real_t prand = (real_t)rand() / RAND_MAX;
@@ -238,13 +242,6 @@ namespace hir {
 
 	bool Tile::update_model(const woo::Matrix2D<real_t>& pattern, real_t base_norm) {
 		update_a_mat();
-#ifdef USE_GPU
-		// not really needed!
-		//cudaMemcpy(f_mat_[f_mat_i_], gtile_.f_mat_[f_mat_i_], size_ * size_, cudaMemcpyDeviceToHost);
-		//cudaMemcpy(mod_f_mat_[mod_f_mat_i_], gtile_.mod_f_mat_[mod_f_mat_i_], size_ * size_,
-		//			cudaMemcpyDeviceToHost);
-#else
-#endif // USE_GPU
 		return true;
 	} // Tile::update_model()
 
@@ -414,8 +411,6 @@ namespace hir {
 			for(unsigned int col = 0; col < size_; ++ col) {
 				complex_t new_temp = new_col_iter[row] * new_row_iter[col];
 				complex_t old_temp = old_col_iter[row] * old_row_iter[col];
-				//complex_t new_temp = vandermonde_mat(row, new_col) * vandermonde_mat(new_row, col);
-				//complex_t old_temp = vandermonde_mat(row, old_col) * vandermonde_mat(old_row, col);
 				dft_mat_(row, col) = (new_temp - old_temp) / (real_t)num_particles_;
 			} // for
 		} // for
@@ -431,7 +426,6 @@ namespace hir {
 								unsigned int in_buff_i, unsigned int out_buff_i) {
 #ifdef USE_GPU
 		// this has been merged into compute_dft2 for gpu
-	//	return gtile_.update_fft_mat(in_buff_i, out_buff_i);
 #else
 		return woo::matrix_add(dft_mat, f_mat, new_f_mat);	// matrix operation
 #endif // USE_GPU
@@ -441,7 +435,6 @@ namespace hir {
 	bool Tile::mask_mat(const unsigned int*& mask_mat, unsigned int buff_i) {
 #ifdef USE_GPU
 		/// this has been merged into compute_mod_mat for gpu
-		//gtile_.mask_mat(buff_i);
 #else
 		#pragma omp parallel for collapse(2) shared(mask_mat)
 		for(unsigned int i = 0; i < size_; ++ i) {
@@ -473,5 +466,15 @@ namespace hir {
 		} // for
 		return true;
 	} // Tile::update_a_mat()
+
+	bool Tile::print_times() {
+		std::cout << "vmove time: " << vmove_time << std::endl;
+		std::cout << "dft2 time: " << dft2_time << std::endl;
+		std::cout << "mod time: " << mod_time << std::endl;
+		std::cout << "norm time: " << norm_time << std::endl;
+		std::cout << "chi2 time: " << chi2_time << std::endl;
+		std::cout << "rest time: " << rest_time << std::endl;
+		return true;
+	} // Tile::print_times()
 
 } // namespace hir

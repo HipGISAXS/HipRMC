@@ -3,13 +3,15 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Fri 08 Feb 2013 10:16:49 PM PST
+  *  Modified: Wed 13 Feb 2013 02:09:28 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
 #include <iostream>
 #include <thrust/reduce.h>
+
+#include <woo/reduce/reduce.cuh>
 
 #include "tile.cuh"
 #include "typedefs.hpp"
@@ -145,6 +147,15 @@ namespace hir {
 	} // GTile::copy_mod_mat()
 
 
+	// reduction functor
+	typedef struct {
+		__host__ __device__
+		real_t operator()(real_t a, real_t b) {
+			return a + b;
+		} // operator()()
+	} plus_t;
+
+
 	__host__ double GTile::compute_model_norm(unsigned int buff_i) {
 		// TODO: perform a nicer reduction operation ...
 		double model_norm = 0.0;
@@ -152,9 +163,13 @@ namespace hir {
 		compute_model_norm_kernel <<< grid_dims_, block_dims_ >>> (mod_f_mat_[buff_i], size_,
 																	maxi, real_buff_d_);
 		cudaThreadSynchronize();
-		thrust::device_ptr<real_t> buff_p(real_buff_d_);
+		/*thrust::device_ptr<real_t> buff_p(real_buff_d_);
 		thrust::plus<real_t> plus;
 		model_norm = thrust::reduce(buff_p, buff_p + (maxi * maxi), 0.0, plus);
+		*/
+		plus_t plus_op;
+		model_norm = woo::cuda::reduce<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (maxi * maxi),
+															0.0, plus_op);
 		return model_norm;
 	} // GTile::compute_model_norm()
 
@@ -164,9 +179,14 @@ namespace hir {
 		compute_chi2_kernel <<< grid_dims_, block_dims_ >>> (pattern_, mod_f_mat_[buff_i], size_, c_factor,
 															real_buff_d_);
 		cudaThreadSynchronize();
-		thrust::device_ptr<real_t> buff_p(real_buff_d_);
+		/*thrust::device_ptr<real_t> buff_p(real_buff_d_);
 		thrust::plus<real_t> plus;
 		chi2 = thrust::reduce(buff_p, buff_p + (size_ * size_), 0.0, plus);
+		*/
+		plus_t plus_op;
+		chi2 = woo::cuda::reduce<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (size_ * size_),
+															0.0, plus_op);
+		
 		return chi2;
 	} // GTile::compute_chi2()
 

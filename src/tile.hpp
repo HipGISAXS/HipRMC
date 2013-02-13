@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 08 Feb 2013 10:28:45 PM PST
+  *  Modified: Mon 11 Feb 2013 12:15:09 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -65,6 +65,11 @@ namespace hir {
 			// for random number generation
 			std::mt19937_64 ms_rand_gen_;
 
+			woo::BoostChronoTimer mytimer_;
+			double vmove_time, dft2_time, mod_time, norm_time, chi2_time;
+			double rest_time;
+
+
 			// functions
 			bool compute_fft_mat();
 #ifndef USE_GPU // use cpu
@@ -96,6 +101,7 @@ namespace hir {
 			bool update_model(const woo::Matrix2D<real_t>&, real_t);
 			bool finalize_result(double&, woo::Matrix2D<real_t>&);
 			bool update_a_mat();
+			bool print_times();
 
 			// return a random number in (0,1)
 			real_t ms_rand_01() {
