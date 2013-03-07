@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 11 Feb 2013 12:15:09 PM PST
+  *  Modified: Wed 06 Mar 2013 11:19:55 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -13,15 +13,20 @@
 
 #include <vector>
 #include <random>
-#include <woo/matrix/matrix.hpp>
+#include <sstream>
+#include <iomanip>
+#include <fstream>
+
 #ifndef USE_GPU
 #include <fftw3.h>
-#endif // USE_GPU
+#endif
 
 #include "typedefs.hpp"
 #ifdef USE_GPU
 #include "tile.cuh"
-#endif // USE_GPU
+#endif
+
+#include "image.hpp"
 
 namespace hir {
 
@@ -29,12 +34,12 @@ namespace hir {
 
 		private:
 			// following define a tile
-			unsigned int size_;									// num rows = num cols = size
-			woo::Matrix2D<real_t> a_mat_;						// A
+			unsigned int size_;						// num rows = num cols = size
+			mat_real_t a_mat_;						// A: the current model
 
 			// buffers used only for cpu version
-			std::vector<woo::Matrix2D<complex_t> > f_mat_;		// F buffers
-			std::vector<woo::Matrix2D<real_t> > mod_f_mat_;		// auto_F buffers
+			std::vector<mat_complex_t> f_mat_;		// F buffers
+			std::vector<mat_real_t> mod_f_mat_;		// auto_F buffers
 
 			// used in both cpu and gpu versions
 			std::vector<unsigned int> indices_;					// NOTE: the first num_particles_ entries
@@ -46,15 +51,16 @@ namespace hir {
 			double model_norm_;									// norm of current model
 			double c_factor_;									// c factor
 
-#ifdef USE_GPU
-			cucomplex_t* cucomplex_buff_;
-			// new stuff:
-			GTile gtile_;
-#endif // USE_GPU
+			#ifdef USE_GPU
+				cucomplex_t* cucomplex_buff_;
+				GTile gtile_;
+			#endif // USE_GPU
 
 			// following are used during simulation
-			woo::Matrix2D<complex_t> dft_mat_;
+			mat_complex_t dft_mat_;
 			double prev_chi2_;
+
+			std::vector<double> chi2_list_;						// stores all chi2, for plotting purposes
 
 			// indices produced on virtually moving a particle
 			unsigned int old_pos_;
@@ -72,22 +78,20 @@ namespace hir {
 
 			// functions
 			bool compute_fft_mat();
-#ifndef USE_GPU // use cpu
-			bool execute_fftw(fftw_complex*, fftw_complex*);
-#endif
+			#ifndef USE_GPU // use cpu
+				bool execute_fftw(fftw_complex*, fftw_complex*);
+			#endif
 			bool compute_mod_mat(unsigned int);
 			bool compute_model_norm(unsigned int);
-			double compute_chi2(const woo::Matrix2D<real_t>&, unsigned int, real_t);
+			double compute_chi2(const mat_real_t&, unsigned int, real_t);
 			bool virtual_move_random_particle();
 			bool move_particle(double, real_t);
-			bool compute_dft2(woo::Matrix2D<complex_t>&, unsigned int, unsigned int);
-			bool update_fft_mat(woo::Matrix2D<complex_t>&, woo::Matrix2D<complex_t>&,
-								woo::Matrix2D<complex_t>&, unsigned int, unsigned int);
+			bool compute_dft2(mat_complex_t&, unsigned int, unsigned int);
+			bool update_fft_mat(mat_complex_t&, mat_complex_t&,
+								mat_complex_t&, unsigned int, unsigned int);
 			bool mask_mat(const unsigned int*&, unsigned int);
 			bool copy_mod_mat(unsigned int);
-#ifdef USE_GPU
-			//bool normalize_fft_mat(cucomplex_t*, unsigned int);
-#endif // USE_GPU
+			bool update_indices();
 
 		public:
 			Tile(unsigned int, unsigned int, const std::vector<unsigned int>&);
@@ -95,13 +99,55 @@ namespace hir {
 			~Tile();
 
 			// initialize with raw data
-			bool init(real_t, real_t, woo::Matrix2D<real_t>&, woo::Matrix2D<complex_t>&, const unsigned int*);
-			bool simulate_step(woo::Matrix2D<real_t>&, woo::Matrix2D<complex_t>&,
-								const unsigned int*, real_t, real_t);
-			bool update_model(const woo::Matrix2D<real_t>&, real_t);
-			bool finalize_result(double&, woo::Matrix2D<real_t>&);
+			bool init(real_t, real_t, mat_real_t&, mat_complex_t&, const unsigned int*);
+			// simulation functions
+			bool simulate_step(mat_real_t&, mat_complex_t&, const unsigned int*, real_t, real_t);
+			bool update_model(const mat_real_t&, real_t);
 			bool update_a_mat();
+			#ifdef USE_GPU
+				bool update_f_mats();
+			#endif
+			bool update_from_model();
 			bool print_times();
+			bool finalize_result(double&, mat_real_t&);
+
+			bool scale_step(const mat_real_t& pattern, real_t base_norm);
+			bool print_a_mat();
+
+			bool save_mat_image(unsigned int i) {
+				hig::Image img(mod_f_mat_[mod_f_mat_i_].num_rows(), mod_f_mat_[mod_f_mat_i_].num_cols());
+				img.construct_image(mod_f_mat_[mod_f_mat_i_].data());
+				std::string str("_modf.tif");
+				std::stringstream num;
+				num << std::setfill('0') << std::setw(4) << i;
+				char str0[5];
+				num >> str0;
+				str = std::string(str0) + str;
+				img.save(str);
+			} // save_mat_image()
+
+			bool save_mat_image_direct(unsigned int i) {
+				hig::Image img(a_mat_.num_rows(), a_mat_.num_cols());
+				img.construct_image_direct(a_mat_.data());
+				std::string str("_a_mat.tif");
+				std::stringstream num;
+				num << std::setfill('0') << std::setw(4) << i;
+				char str0[5];
+				num >> str0;
+				str = std::string(str0) + str;
+				img.save(str);
+			} // save_mat_image_direct()
+
+			bool save_chi2_list() {
+				std::ofstream chi2out("chi2_list.dat");
+				for(unsigned int i = 0; i < chi2_list_.size(); ++ i) {
+					chi2out << i << "\t" << chi2_list_[i] << std::endl;
+				} // for
+				chi2out.close();
+			} // save_chi2_list()
+
+			// accessors
+			real_t loading() const { return loading_factor_; }
 
 			// return a random number in (0,1)
 			real_t ms_rand_01() {

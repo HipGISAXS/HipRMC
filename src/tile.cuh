@@ -3,7 +3,7 @@
   *
   *  File: tile.cuh
   *  Created: Feb 02, 2013
-  *  Modified: Fri 08 Feb 2013 10:15:32 PM PST
+  *  Modified: Wed 06 Mar 2013 10:25:04 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -54,6 +54,7 @@ namespace hir {
 			__host__ double compute_chi2(unsigned int, real_t);
 			__host__ bool compute_dft2(unsigned int, unsigned int, unsigned int, unsigned int, unsigned int,
 										unsigned int, unsigned int);
+			__host__ bool copy_f_mats_to_host(cucomplex_t*, real_t*, unsigned int, unsigned int);
 	}; // class GTile
 
 	// cuda kernels

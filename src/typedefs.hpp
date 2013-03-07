@@ -3,7 +3,7 @@
   *
   *  File: typedefs.hpp
   *  Created: Feb 03, 2013
-  *  Modified: Sun 03 Feb 2013 12:13:12 PM PST
+  *  Modified: Mon 04 Mar 2013 09:18:58 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -15,22 +15,27 @@
 #ifdef USE_GPU
 #include <cuComplex.h>
 #endif // USE_GPU
+#include <woo/matrix/matrix.hpp>
 
 namespace hir {
 
 #ifdef DOUBLEP	// double precision
-	typedef double 					real_t;
-	typedef std::complex<double>	complex_t;
-#ifdef USE_GPU
-	typedef cuDoubleComplex			cucomplex_t;
-#endif // USE_GPU
+	typedef double 				real_t;
+	#ifdef USE_GPU
+		typedef cuDoubleComplex	cucomplex_t;
+	#endif
 #else			// single precision
-	typedef float 					real_t;
-	typedef std::complex<float>		complex_t;
-#ifdef USE_GPU
-	typedef cuFloatComplex			cucomplex_t;
-#endif // USE_GPU
+	typedef float 				real_t;
+	#ifdef USE_GPU
+		typedef cuFloatComplex	cucomplex_t;
+	#endif
 #endif // DOUBLEP
+
+typedef std::complex <real_t>	complex_t;
+
+typedef woo::Matrix2D <real_t>		mat_real_t;
+typedef woo::Matrix2D <complex_t>	mat_complex_t;
+
 
 } // namespace hir
 

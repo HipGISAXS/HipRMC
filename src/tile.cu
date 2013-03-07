@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Wed 13 Feb 2013 02:09:28 PM PST
+  *  Modified: Wed 06 Mar 2013 05:35:14 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -93,6 +93,15 @@ namespace hir {
 	} // GTile::init()
 
 
+	__host__ bool GTile::copy_f_mats_to_host(cucomplex_t* f_buff, real_t* mod_f_buff,
+												unsigned int f_i, unsigned int mod_f_i) {
+		unsigned int size2 = size_ * size_;
+		cudaMemcpy(f_buff, f_mat_[f_i], size2 * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
+		cudaMemcpy(mod_f_buff, mod_f_mat_[mod_f_i], size2 * sizeof(real_t), cudaMemcpyDeviceToHost);
+		return true;
+	} // GTile::copy_f_mats_to_host()
+
+
 	__host__ bool GTile::compute_fft_mat(unsigned int buff_i) {
         // create fft plan
         cufftHandle plan;
@@ -157,9 +166,8 @@ namespace hir {
 
 
 	__host__ double GTile::compute_model_norm(unsigned int buff_i) {
-		// TODO: perform a nicer reduction operation ...
 		double model_norm = 0.0;
-		unsigned int maxi = size_ >> 1;
+		unsigned int maxi = size_; // >> 1;
 		compute_model_norm_kernel <<< grid_dims_, block_dims_ >>> (mod_f_mat_[buff_i], size_,
 																	maxi, real_buff_d_);
 		cudaThreadSynchronize();
@@ -168,7 +176,9 @@ namespace hir {
 		model_norm = thrust::reduce(buff_p, buff_p + (maxi * maxi), 0.0, plus);
 		*/
 		plus_t plus_op;
-		model_norm = woo::cuda::reduce<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (maxi * maxi),
+		//model_norm = woo::cuda::reduce_multiple<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (maxi * maxi),
+		//													0.0, plus_op);
+		model_norm = woo::cuda::reduce_single<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (maxi * maxi),
 															0.0, plus_op);
 		return model_norm;
 	} // GTile::compute_model_norm()
@@ -184,7 +194,9 @@ namespace hir {
 		chi2 = thrust::reduce(buff_p, buff_p + (size_ * size_), 0.0, plus);
 		*/
 		plus_t plus_op;
-		chi2 = woo::cuda::reduce<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (size_ * size_),
+		//chi2 = woo::cuda::reduce_multiple<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (size_ * size_),
+		//													0.0, plus_op);
+		chi2 = woo::cuda::reduce_single<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (size_ * size_),
 															0.0, plus_op);
 		
 		return chi2;

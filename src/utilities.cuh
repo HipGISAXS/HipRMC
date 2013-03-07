@@ -3,7 +3,7 @@
   *
   *  File: utilities.cuh
   *  Created: Feb 02, 2013
-  *  Modified: Mon 04 Feb 2013 03:00:07 PM PST
+  *  Modified: Mon 04 Mar 2013 09:27:45 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -12,6 +12,8 @@
 #define __UTILITIES_CUH__
 
 namespace hir {
+
+	// overloaded arithmetic operations on cucomplex numbers
 
 	// make complex number
 	__host__ __device__
