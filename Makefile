@@ -79,7 +79,7 @@ endif
 
 ## opencv
 OPENCV_INCL = -I $(OPENCV_DIR)/include
-OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui
+OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
 
 ## woo
 WOO_INCL = -I $(WOO_DIR)
@@ -102,8 +102,8 @@ MISC_FLAGS =
 endif
 
 ## choose optimization levels, debug flags, gprof flag, etc
-#OPT_FLAGS = -g -DDEBUG #-v #-pg
-OPT_FLAGS = -O3 -DNDEBUG #-v
+OPT_FLAGS = -g -DDEBUG #-v #-pg
+#OPT_FLAGS = -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
 PREC_FLAG =			# leave empty for single precision
@@ -124,7 +124,7 @@ OBJ_DIR = $(PREFIX)/obj
 SRC_DIR = $(PREFIX)/src
 
 ## all objects
-OBJECTS_SIM = hiprmc.o tile.o
+OBJECTS_SIM = hiprmc.o tile.o image.o numeric_utils.o higutilities.o tile_scale.o
 ifeq ($(USE_GPU), y)
 OBJECTS_SIM += cutile.o
 endif
@@ -133,14 +133,29 @@ endif
 OBJ_BIN_SIM = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SIM))
 
 $(BINARY_SIM): $(OBJ_BIN_SIM)
-	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+
+
+BINARY_SCALE = hiprmc-scale
+OBJECTS_SCALE = testscale.o tile.o tile_scale.o image.o numeric_utils.o higutilities.o
+OBJ_BIN_SCALE = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SCALE))
+
+$(BINARY_SCALE): $(OBJ_BIN_SCALE)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -L/usr/local/lib -ltiff
+
+$(OBJ_DIR)/tile_scale.o: $(SRC_DIR)/tile_scale.cpp $(SRC_DIR)/tile.hpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
+
+$(OBJ_DIR)/testscale.o: $(SRC_DIR)/testscale.cpp $(SRC_DIR)/rmc.hpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
+
 
 ## c++ compilation
 _DEPS_CXX = %.hpp
 DEPS_CXX = $(patsubst %,$(SRC_DIR)/%,$(_DEPS_CXX))
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS_CXX)
-	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
 
 $(OBJ_DIR)/hiprmc.o: $(SRC_DIR)/hiprmc.cpp $(SRC_DIR)/rmc.hpp
 	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
