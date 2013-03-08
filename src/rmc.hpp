@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 06 Mar 2013 05:28:05 PM PST
+  *  Modified: Thu 07 Mar 2013 03:53:19 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -43,6 +43,7 @@ namespace hir {
 			bool pre_init(const char*, real_t*);
 			// initializes with raw data
 			bool init(real_t*, unsigned int, unsigned int*, real_t*);
+			bool scale_image_colormap(cv::Mat&, double, double);
 
 		public:
 			RMC(unsigned int, unsigned int, const char*, unsigned int, real_t*);
@@ -98,9 +99,12 @@ namespace hir {
 		unsigned int hcol = cols_ >> 1;
 		double min_val, max_val;
 		cv::minMaxIdx(img, &min_val, &max_val);
-		double threshold = min_val + 2 * ceil(max_val / min_val);
+		double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
 		std::cout << "MIN: " << min_val << ", MAX: " << max_val << ", THRESH: " << threshold << std::endl;
 		cv::threshold(img, img, threshold, max_val, cv::THRESH_TOZERO);
+		// scale pixel intensities to span all of 0 - 255
+		scale_image_colormap(img, threshold, max_val);
+		cv::imwrite("hohohohohohoho.tif", img);
 		for(unsigned int i = 0; i < rows_; ++ i) {
 			for(unsigned int j = 0; j < cols_; ++ j) {
 				unsigned int temp = (unsigned int) img.at<unsigned char>(i, j);
@@ -134,6 +138,22 @@ namespace hir {
 		delete[] img_data;
 		return true;
 	} // RMC::pre_init()
+
+
+	bool RMC::scale_image_colormap(cv::Mat& img, double min_val, double max_val) {
+		for(unsigned int i = 0; i < rows_; ++ i) {
+			for(unsigned int j = 0; j < cols_; ++ j) {
+				unsigned char temp = img.at<unsigned char>(i, j);
+				if(temp != 0) {
+					temp = (unsigned char) 255 * (temp - min_val) / (max_val - min_val);
+					//std::cout << (unsigned int) temp << " ";
+					img.at<unsigned char>(i, j) = temp;
+				} // if
+			} // for
+			//std::cout << std::endl;
+		} // for
+		return true;
+	} // RMC::scale_image_colormap()
 
 
 	// initialize with raw data
@@ -263,8 +283,8 @@ namespace hir {
 			tiles_[i].finalize_result(chi2, a);
 			tiles_[i].print_times();
 		} // for
-		tiles_[0].save_mat_image(1);
-		tiles_[0].save_mat_image_direct(1);
+		tiles_[0].save_mat_image(1);		// save mod_f mat
+		tiles_[0].save_mat_image_direct(1);	// save a_mat
 		tiles_[0].save_chi2_list();
 
 		return true;

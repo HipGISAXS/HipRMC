@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 06 Mar 2013 11:19:55 AM PST
+  *  Modified: Thu 07 Mar 2013 03:18:01 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -116,7 +116,8 @@ namespace hir {
 
 			bool save_mat_image(unsigned int i) {
 				hig::Image img(mod_f_mat_[mod_f_mat_i_].num_rows(), mod_f_mat_[mod_f_mat_i_].num_cols());
-				img.construct_image(mod_f_mat_[mod_f_mat_i_].data());
+				real_t* data = mod_f_mat_[mod_f_mat_i_].data();
+				img.construct_image(data);
 				std::string str("_modf.tif");
 				std::stringstream num;
 				num << std::setfill('0') << std::setw(4) << i;

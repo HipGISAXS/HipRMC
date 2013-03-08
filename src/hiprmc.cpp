@@ -3,7 +3,7 @@
   *
   *  File: hiprmc.cpp
   *  Created: Jan 27, 2013
-  *  Modified: Wed 06 Mar 2013 05:31:26 PM PST
+  *  Modified: Wed 06 Mar 2013 08:05:48 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -22,7 +22,7 @@ int main(int narg, char** args) {
 	} // if
 
 	float *loading = new (std::nothrow) float[2];
-	loading[0] = 0.01;
+	loading[0] = 0.0625;
 	loading[1] = 0.4;
 	std::string img(args[1]);
 	unsigned int size = atoi(args[2]);
