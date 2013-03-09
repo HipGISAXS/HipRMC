@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Wed 06 Mar 2013 05:35:14 PM PST
+  *  Modified: Fri 08 Mar 2013 07:51:30 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -106,7 +106,7 @@ namespace hir {
         // create fft plan
         cufftHandle plan;
         cufftResult res;
-        res = cufftPlan2d(&plan, size_, size_, CUFFT_C2C);
+        res = create_cufft_plan(plan, a_mat_);
         if(res != CUFFT_SUCCESS) {
             std::cerr << "error: " << res << ": fft plan could not be created" << std::endl;
             return false;
@@ -121,6 +121,16 @@ namespace hir {
         cufftDestroy(plan);
         return true;
     } // GTile::compute_fft_mat()
+
+
+	__host__ cufftResult GTile::create_cufft_plan(cufftHandle& plan, cuFloatComplex* a) {
+        return cufftPlan2d(&plan, size_, size_, CUFFT_C2C);
+	} // GTile::create_cufft_plan()
+
+
+	__host__ cufftResult GTile::create_cufft_plan(cufftHandle& plan, cuDoubleComplex* a) {
+        return cufftPlan2d(&plan, size_, size_, CUFFT_Z2Z);
+	} // GTile::create_cufft_plan()
 
 
 	__host__ cufftResult GTile::execute_cufft(cufftHandle plan, cuFloatComplex* a, cuFloatComplex* f) {

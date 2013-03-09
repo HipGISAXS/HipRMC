@@ -3,7 +3,7 @@
   *
   *  File: hiprmc.cpp
   *  Created: Jan 27, 2013
-  *  Modified: Wed 06 Mar 2013 08:05:48 PM PST
+  *  Modified: Fri 08 Mar 2013 12:42:27 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -21,7 +21,7 @@ int main(int narg, char** args) {
 		return 0;
 	} // if
 
-	float *loading = new (std::nothrow) float[2];
+	hir::real_t *loading = new (std::nothrow) hir::real_t[2];
 	loading[0] = 0.0625;
 	loading[1] = 0.4;
 	std::string img(args[1]);

@@ -3,7 +3,7 @@
   *
   *  File: tile.cuh
   *  Created: Feb 02, 2013
-  *  Modified: Wed 06 Mar 2013 10:25:04 AM PST
+  *  Modified: Fri 08 Mar 2013 07:51:24 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -45,6 +45,8 @@ namespace hir {
 								unsigned int, unsigned int);
 
 			__host__ bool compute_fft_mat(unsigned int);
+			__host__ cufftResult create_cufft_plan(cufftHandle&, cuFloatComplex*);
+			__host__ cufftResult create_cufft_plan(cufftHandle&, cuDoubleComplex*);
 			__host__ cufftResult execute_cufft(cufftHandle, cuFloatComplex*, cuFloatComplex*);
 			__host__ cufftResult execute_cufft(cufftHandle, cuDoubleComplex*, cuDoubleComplex*);
 			__host__ bool normalize_fft_mat(unsigned int, unsigned int);
