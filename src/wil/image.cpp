@@ -5,7 +5,7 @@
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Sat 09 Mar 2013 02:15:16 PM PST
+  *  Modified: Sat 09 Mar 2013 03:20:05 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -354,9 +354,7 @@ namespace wil {
 	 * NOTE: this requires the boost gil numeric library (it is not an official part of boost)
 	 * let the coordinates of old and new be from min (0, 0) to max (old_x-1, old_y-1) (new_x-1, new_y-1)
 	 */
-	bool Image::scale_image(unsigned int old_x, unsigned int old_y,
-							unsigned int new_x, unsigned int new_y,
-							real_t *old_data, real_t* &new_data) {
+	bool scale_image(int old_x, int old_y, int new_x, int new_y, real_t *old_data, real_t* &new_data) {
 		
 		typedef boost::gil::matrix3x2<real_t> matrix3x2;
 
@@ -375,20 +373,17 @@ namespace wil {
 	/**
 	 * nearest neighbor based sampling is used
 	 */
-	bool Image::resample_pixels(unsigned int old_x, unsigned int old_y, real_t* old_data,
-								unsigned int new_x, unsigned int new_y, real_t* &new_data,
+	bool resample_pixels(int old_x, int old_y, real_t* old_data, int new_x, int new_y, real_t* &new_data,
 								const boost::gil::matrix3x2<real_t>& mat) {
 		// mapping from new to old
 		boost::gil::point2 <int> new_p;
-
-		for(new_p.y = 0; new_p.y < (int)new_y; ++ new_p.y) {
-			//float_t* curr_row = new_data + new_x * new_p.y;
-			for(new_p.x = 0; new_p.x < (int)new_x; ++ new_p.x) {
-				//sample_pixel(old_x, old_y, old_data, boost::gil::transform(mat, new_p), curr_row[new_p.x]);
+		for(new_p.y = 0; new_p.y < (int) new_y; ++ new_p.y) {
+			for(new_p.x = 0; new_p.x < (int) new_x; ++ new_p.x) {
 				boost::gil::point2 <real_t> trans_p = boost::gil::transform(mat, new_p);
 				boost::gil::point2 <int> center(boost::math::iround(trans_p.x),
 												boost::math::iround(trans_p.y));
-				if(center.x >= 0 && center.y >= 0 && center.x < (int)old_x && center.y < (int)old_y) //{
+				if(center.x >= 0 && center.y >= 0 && center.x < (int) old_x &&
+						center.y < (int) old_y)
 					new_data[new_x * new_p.y + new_p.x] = old_data[old_x * center.y + center.x];
 			} // for x
 		} // for y

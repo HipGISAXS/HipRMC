@@ -3,7 +3,7 @@
   *
   *  File: tile_scale.cpp
   *  Created: Mar 04, 2013
-  *  Modified: Tue 05 Mar 2013 05:32:20 PM PST
+  *  Modified: Sun 10 Mar 2013 02:12:35 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -19,7 +19,7 @@
 
 namespace hir {
 
-	bool Tile::scale_step(const mat_real_t& pattern, real_t base_norm) {
+	bool Tile::scale_step() {
 		//std::cout << "++ scale_step" << std::endl;
 		std::cout << "---- initial loading: " << loading_factor_;
 
@@ -158,6 +158,17 @@ namespace hir {
 		//std::cout << "\tnew_par: " << new_row_par + new_col_par;
 		std::cout << "\tfinal loading: " << new_loading << std::endl;
 		loading_factor_ = new_loading;
+
+		// update indices array and num_particles
+		update_indices();
+		// update sizes of the f and mod f matrices, dft mat
+		f_mat_[0].incr_rows(1); f_mat_[0].incr_columns(1);
+		f_mat_[1].incr_rows(1); f_mat_[1].incr_columns(1);
+		mod_f_mat_[0].incr_rows(1); mod_f_mat_[0].incr_columns(1);
+		mod_f_mat_[1].incr_rows(1); mod_f_mat_[1].incr_columns(1);
+		dft_mat_.incr_rows(1); dft_mat_.incr_columns(1);
+		// clear chi2 list
+		chi2_list_.clear();
 
 		// update size
 		++ size_;

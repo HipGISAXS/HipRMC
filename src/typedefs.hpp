@@ -3,7 +3,7 @@
   *
   *  File: typedefs.hpp
   *  Created: Feb 03, 2013
-  *  Modified: Mon 04 Mar 2013 09:18:58 AM PST
+  *  Modified: Sun 10 Mar 2013 10:57:57 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -33,9 +33,11 @@ namespace hir {
 
 typedef std::complex <real_t>	complex_t;
 
-typedef woo::Matrix2D <real_t>		mat_real_t;
-typedef woo::Matrix2D <complex_t>	mat_complex_t;
+typedef woo::Matrix2D <real_t>			mat_real_t;
+typedef woo::Matrix2D <complex_t>		mat_complex_t;
+typedef woo::Matrix2D <unsigned int>	mat_uint_t;
 
+typedef std::vector <unsigned int>		vec_uint_t;
 
 } // namespace hir
 

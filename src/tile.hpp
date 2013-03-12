@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 09 Mar 2013 01:36:25 PM PST
+  *  Modified: Mon 11 Mar 2013 11:38:11 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -21,12 +21,15 @@
 #include <fftw3.h>
 #endif
 
+#include <woo/timer/woo_boostchronotimers.hpp>
+
+//#include <woo/visual/image.hpp>
+#include "wil/image.hpp"
+
 #include "typedefs.hpp"
 #ifdef USE_GPU
 #include "tile.cuh"
 #endif
-
-#include "wil/image.hpp"
 
 namespace hir {
 
@@ -35,6 +38,7 @@ namespace hir {
 		private:
 			// following define a tile
 			unsigned int size_;						// num rows = num cols = size
+			unsigned int final_size_;				// target model size (when using scaling)
 			mat_real_t a_mat_;						// A: the current model
 
 			// buffers used only for cpu version
@@ -83,26 +87,28 @@ namespace hir {
 			#endif
 			bool compute_mod_mat(unsigned int);
 			bool compute_model_norm(unsigned int);
+			//double compute_chi2(const mat_real_t&, unsigned int, real_t);
 			double compute_chi2(const mat_real_t&, unsigned int, real_t);
 			bool virtual_move_random_particle();
 			bool move_particle(double, real_t);
 			bool compute_dft2(mat_complex_t&, unsigned int, unsigned int);
 			bool update_fft_mat(mat_complex_t&, mat_complex_t&,
 								mat_complex_t&, unsigned int, unsigned int);
-			bool mask_mat(const unsigned int*&, unsigned int);
+			bool mask_mat(const mat_uint_t&, unsigned int);
 			bool copy_mod_mat(unsigned int);
 			bool update_indices();
 
 		public:
-			Tile(unsigned int, unsigned int, const std::vector<unsigned int>&);
+			Tile(unsigned int, unsigned int, const std::vector<unsigned int>&, unsigned int);
 			Tile(const Tile&);
 			~Tile();
 
 			// initialize with raw data
-			bool init(real_t, real_t, mat_real_t&, mat_complex_t&, const unsigned int*);
+			bool init(real_t, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
+			bool init_scale(real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
 			// simulation functions
-			bool simulate_step(mat_real_t&, mat_complex_t&, const unsigned int*, real_t, real_t);
-			bool update_model(const mat_real_t&, real_t);
+			bool simulate_step(mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, real_t);
+			bool update_model();
 			bool update_a_mat();
 			#ifdef USE_GPU
 				bool update_f_mats();
@@ -111,7 +117,7 @@ namespace hir {
 			bool print_times();
 			bool finalize_result(double&, mat_real_t&);
 
-			bool scale_step(const mat_real_t& pattern, real_t base_norm);
+			bool scale_step();
 			bool print_a_mat();
 
 			bool save_mat_image(unsigned int i) {
@@ -127,6 +133,27 @@ namespace hir {
 				img.save(str);
 			} // save_mat_image()
 
+			bool save_fmat_image(unsigned int i) {
+				unsigned int nrows = f_mat_[f_mat_i_].num_rows(), ncols = f_mat_[f_mat_i_].num_cols();
+				wil::Image img(nrows, ncols);
+				real_t* data = new (std::nothrow) real_t[nrows * ncols];
+				for(unsigned int i = 0; i < nrows; ++ i) {
+					for(unsigned int j = 0; j < ncols; ++ j) {
+						real_t temp = f_mat_[f_mat_i_](i, j).real();
+						data[i * ncols + j] = temp * temp;
+					} // for
+				} // for
+				img.construct_image(data);
+				std::string str("_f.tif");
+				std::stringstream num;
+				num << std::setfill('0') << std::setw(4) << i;
+				char str0[5];
+				num >> str0;
+				str = std::string(str0) + str;
+				img.save(str);
+				delete[] data;
+			} // save_mat_image()
+
 			bool save_mat_image_direct(unsigned int i) {
 				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols());
 				img.construct_image_direct(a_mat_.data());
@@ -140,7 +167,7 @@ namespace hir {
 			} // save_mat_image_direct()
 
 			bool save_chi2_list() {
-				std::ofstream chi2out("chi2_list.dat");
+				std::ofstream chi2out("chi2_list.dat", std::ios::out | std::ios::app);
 				for(unsigned int i = 0; i < chi2_list_.size(); ++ i) {
 					chi2out << i << "\t" << chi2_list_[i] << std::endl;
 				} // for
@@ -149,6 +176,7 @@ namespace hir {
 
 			// accessors
 			real_t loading() const { return loading_factor_; }
+			unsigned int size() const { return size_; }
 
 			// return a random number in (0,1)
 			real_t ms_rand_01() {
@@ -157,6 +185,9 @@ namespace hir {
 			} // ms_rand_01()
 
 	}; // class Tile
+
+
+	typedef std::vector<Tile> vec_tile_t;
 
 
 } // namespace hir

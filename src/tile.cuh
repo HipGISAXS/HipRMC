@@ -3,7 +3,7 @@
   *
   *  File: tile.cuh
   *  Created: Feb 02, 2013
-  *  Modified: Fri 08 Mar 2013 07:51:24 PM PST
+  *  Modified: Mon 11 Mar 2013 11:37:09 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -23,7 +23,8 @@ namespace hir {
 		private:
 			dim3 block_dims_;
 			dim3 grid_dims_;
-			unsigned int size_;
+			unsigned int final_size_;
+			unsigned int tile_size_;
 
 			// device buffers
 			real_t* pattern_;
@@ -41,8 +42,10 @@ namespace hir {
 			__host__ GTile();
 			__host__ ~GTile();
 
-			__host__ bool init(real_t*, cucomplex_t*, real_t*, const unsigned int*, unsigned int,
-								unsigned int, unsigned int);
+			__host__ bool init(real_t*, cucomplex_t*, real_t*, const unsigned int*,
+								unsigned int, unsigned int, unsigned int, unsigned int);
+			__host__ bool init_scale(real_t*, cucomplex_t*, real_t*, const unsigned int* mask,
+									unsigned int, unsigned int, unsigned int);
 
 			__host__ bool compute_fft_mat(unsigned int);
 			__host__ cufftResult create_cufft_plan(cufftHandle&, cuFloatComplex*);

@@ -5,7 +5,7 @@
   *
   *  File: image.hpp
   *  Created: Jun 18, 2012
-  *  Modified: Sat 09 Mar 2013 02:15:39 PM PST
+  *  Modified: Sat 09 Mar 2013 03:15:14 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -42,10 +42,6 @@ namespace wil {
 			bool normalize_pixels(unsigned int nx, unsigned int ny, real_t* &data);
 			vector2_t minmax(unsigned int n, real_t* data);
 
-			bool scale_image(unsigned int, unsigned int, unsigned int, unsigned int, real_t*, real_t*&);
-			bool resample_pixels(unsigned int, unsigned int, real_t*, unsigned int, unsigned int, real_t*&,
-									const boost::gil::matrix3x2<real_t>&);
-
 		public:
 			Image(unsigned int ny, unsigned int nz);					/* initialize a 2D image object */
 			Image(unsigned int ny, unsigned int nz, char* palette);
@@ -68,6 +64,9 @@ namespace wil {
 			bool save(char* filename, int xbegin, int xend);
 
 	}; // class Image
+
+	bool scale_image(int, int, int, int, real_t*, real_t*&);
+	bool resample_pixels(int, int, real_t*, int, int, real_t*&, const boost::gil::matrix3x2<real_t>&);
 
 } // namespace wil
 

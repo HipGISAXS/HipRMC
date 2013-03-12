@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Thu 07 Mar 2013 02:25:05 PM PST
+  *  Modified: Mon 11 Mar 2013 11:59:13 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -25,7 +25,8 @@
 namespace hir {
 
 	// constructor
-	Tile::Tile(unsigned int rows, unsigned int cols, const std::vector<unsigned int>& indices) :
+	Tile::Tile(unsigned int rows, unsigned int cols, const std::vector<unsigned int>& indices,
+				unsigned int final_size) :
 		a_mat_(rows, cols),
 		f_mat_i_(0),
 		mod_f_mat_i_(0),
@@ -35,6 +36,8 @@ namespace hir {
 		woo::BoostChronoTimer mytimer;
 
 		size_ = std::max(rows, cols);
+		final_size_ = final_size;
+
 		// two buffers each
 		mytimer.start();
 		f_mat_.push_back(mat_complex_t(size_, size_));
@@ -60,6 +63,7 @@ namespace hir {
 	// copy constructor
 	Tile::Tile(const Tile& tile):
 		size_(tile.size_),
+		final_size_(tile.final_size_),
 		a_mat_(tile.a_mat_),
 		f_mat_(tile.f_mat_),
 		mod_f_mat_(tile.mod_f_mat_),
@@ -77,10 +81,11 @@ namespace hir {
 		old_index_(tile.old_index_),
 		new_index_(tile.new_index_) {
 		#ifdef USE_GPU
-			unsigned int size2 = size_ * size_;
+			unsigned int size2 = final_size_ * final_size_;
 			cucomplex_buff_ = new (std::nothrow) cucomplex_t[size2];
 		#endif // USE_GPU
 	} // Tile::Tile()
+
 
 	Tile::~Tile() {
 		#ifdef USE_GPU
@@ -91,7 +96,7 @@ namespace hir {
 
 	// initialize with raw data
 	bool Tile::init(real_t loading, real_t base_norm, mat_real_t& pattern,
-			mat_complex_t& vandermonde, const unsigned int* mask) {
+					const mat_complex_t& vandermonde, mat_uint_t& mask) {
 		woo::BoostChronoTimer mytimer;
 		unsigned seed = time(NULL); //std::chrono::system_clock::now().time_since_epoch().count();
 		ms_rand_gen_.seed(seed);
@@ -118,11 +123,60 @@ namespace hir {
 					cucomplex_buff_[size_ * i + j].y = temp.imag();
 				} // for
 			} // for
-			gtile_.init(pattern.data(), cucomplex_buff_, a_mat_.data(), mask, size_, block_x, block_y);
+			gtile_.init(pattern.data(), cucomplex_buff_, a_mat_.data(), mask.data(), final_size_, size_,
+						block_x, block_y);
 			//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
 		#endif // USE_GPU
 
 		// compute fft of a_mat_ into fft_mat_ and other stuff
+/*		mytimer.start();
+		compute_fft_mat();
+		mytimer.stop();
+		std::cout << "**** FFT time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		mytimer.start();
+		compute_mod_mat(f_mat_i_);
+		mytimer.stop();
+		std::cout << "**** mod F time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		mytimer.start();
+		#ifndef USE_GPU
+			mask_mat(mask, 1 - mod_f_mat_i_);
+		#endif // USE_GPU
+		copy_mod_mat(1 - mod_f_mat_i_);
+		mytimer.stop();
+		std::cout << "**** Mask/copy time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		mytimer.start();
+		compute_model_norm(1 - mod_f_mat_i_);
+		mytimer.stop();
+		std::cout << "**** model norm time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		c_factor_ = base_norm / model_norm_;
+		mytimer.start();
+		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, c_factor_);
+		std::cout << "++++ initial chi2 = " << prev_chi2_ << std::endl;
+		mytimer.stop();
+		std::cout << "**** chi2 time: " << mytimer.elapsed_msec() << " ms." << std::endl;*/
+		return true;
+	} // Tile::init()
+
+
+	// to be executed at simulation beginning after a scaling
+	bool Tile::init_scale(real_t base_norm, mat_real_t& pattern, const mat_complex_t& vandermonde,
+							mat_uint_t& mask) {
+		// compute fft of a_mat_ into fft_mat_ and other stuff
+		woo::BoostChronoTimer mytimer;
+		#ifdef USE_GPU
+			unsigned int block_x = CUDA_BLOCK_SIZE_X_;
+			unsigned int block_y = CUDA_BLOCK_SIZE_Y_;
+			for(unsigned int i = 0; i < size_; ++ i) {
+				for(unsigned int j = 0; j < size_; ++ j) {
+					complex_t temp = vandermonde(i, j);
+					cucomplex_buff_[size_ * i + j].x = temp.real();
+					cucomplex_buff_[size_ * i + j].y = temp.imag();
+				} // for
+			} // for
+			gtile_.init_scale(pattern.data(), cucomplex_buff_, a_mat_.data(), mask.data(),
+								size_, block_x, block_y);
+			//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
+		#endif // USE_GPU
 		mytimer.start();
 		compute_fft_mat();
 		mytimer.stop();
@@ -164,7 +218,7 @@ namespace hir {
 
 	bool Tile::simulate_step(mat_real_t& pattern,
 							mat_complex_t& vandermonde,
-							const unsigned int* mask,
+							const mat_uint_t& mask,
 							real_t tstar, real_t base_norm) {
 		//std::cout << "++ simulate_step" << std::endl;
 		// do all computations in scratch buffers
@@ -222,7 +276,7 @@ namespace hir {
 	} // Tile::simulate_step()
 
 
-	bool Tile::update_model(const mat_real_t& pattern, real_t base_norm) {
+	bool Tile::update_model() {
 		update_a_mat();
 		return true;
 	} // Tile::update_model()
@@ -360,6 +414,29 @@ namespace hir {
 	} // Tile::compute_chi2()
 
 
+	/*double Tile::compute_chi2(mat_real_t& pattern, unsigned int mod_f_i, real_t c_factor) {
+		double chi2 = 0.0;
+		//#ifdef USE_GPU
+		//	chi2 = gtile_.compute_chi2(mod_f_i, c_factor);
+		//#else
+		//	#pragma omp parallel for collapse(2) reduction(+:chi2)
+			unsigned int psize = pattern.num_rows();
+			real_t* pdata = new (std::nothrow) real_t[psize * psize];
+			memcpy(pdata, pattern.data(), psize * psize * sizeof(real_t));
+			real_t* spdata;
+			wil::scale_image((int)psize, (int)psize, (int)size_, (int)size_, pdata, spdata);
+			for(unsigned int i = 0; i < size_; ++ i) {
+				for(unsigned int j = 0; j < size_; ++ j) {
+					real_t temp = spdata[size_ * i + j] - mod_f_mat_[mod_f_i](i, j) * c_factor;
+					chi2 += temp * temp;
+				} // for
+			} // for
+			//delete[] spdata;
+		//#endif // USE_GPU
+		return chi2;
+	} // Tile::compute_chi2()*/
+
+
 	bool Tile::virtual_move_random_particle() {
 		old_pos_ = floor(ms_rand_01() * num_particles_);
 		new_pos_ = floor(ms_rand_01() *	(size_ * size_ - num_particles_)) + num_particles_;
@@ -426,14 +503,14 @@ namespace hir {
 	} // Tile::update_fft_mat()
 
 
-	bool Tile::mask_mat(const unsigned int*& mask_mat, unsigned int buff_i) {
+	bool Tile::mask_mat(const mat_uint_t& mask_mat, unsigned int buff_i) {
 		#ifdef USE_GPU
 			/// this has been merged into compute_mod_mat for gpu
 		#else
 			#pragma omp parallel for collapse(2) shared(mask_mat)
 			for(unsigned int i = 0; i < size_; ++ i) {
 				for(unsigned int j = 0; j < size_; ++ j) {
-					mod_f_mat_[buff_i](i, j) *= mask_mat[size_ * i + j];
+					mod_f_mat_[buff_i](i, j) *= mask_mat(i, j);
 				} // for
 			} // for
 		#endif // USE_GPU
@@ -454,6 +531,7 @@ namespace hir {
 	} // Tile::finalize()
 
 
+	// update a_mat_ using indices_
 	bool Tile::update_a_mat() {
 		a_mat_.fill(0.0);
 		#pragma omp parallel for
@@ -471,6 +549,10 @@ namespace hir {
 		unsigned int size2 = size_ * size_;
 		real_t *mod_f_buff = new (std::nothrow) real_t[size2];
 		complex_t *f_buff = new (std::nothrow) complex_t[size2];
+		if(mod_f_buff == NULL || f_buff == NULL) {
+			std::cout << "error: could not allocate memory for f buffers in update_f_mats" << std::endl;
+			return false;
+		} // if
 
 		gtile_.copy_f_mats_to_host(cucomplex_buff_, mod_f_buff, f_mat_i_, mod_f_mat_i_);
 		for(unsigned int i = 0; i < size2; ++ i)
@@ -485,6 +567,7 @@ namespace hir {
 #endif
 
 
+	// update indices using a_mat_
 	bool Tile::update_indices() {
 		unsigned int rows = a_mat_.num_rows();
 		unsigned int cols = a_mat_.num_cols();

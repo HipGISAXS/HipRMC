@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Fri 08 Mar 2013 07:51:30 PM PST
+  *  Modified: Mon 11 Mar 2013 12:06:03 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -21,7 +21,7 @@
 namespace hir {
 
 	__host__ GTile::GTile():
-		size_(0),
+		final_size_(0), tile_size_(0),
 		pattern_(NULL), vandermonde_(NULL), a_mat_(NULL), mask_mat_(NULL),
 		real_buff_d_(NULL),
 		complex_buff_h_(NULL), real_buff_h_(NULL) {
@@ -47,16 +47,13 @@ namespace hir {
 
 
 	__host__ bool GTile::init(real_t* pattern, cucomplex_t* vander, real_t* a,
-			const unsigned int* mask, unsigned int size,
+			const unsigned int* mask, unsigned int size, unsigned int tile_size,
 			unsigned int block_x = CUDA_BLOCK_SIZE_X_, unsigned int block_y = CUDA_BLOCK_SIZE_Y_) {
-		size_ = size;
-		unsigned int size2 = size_ * size_;
-		unsigned int grid_x = (unsigned int) ceil((real_t) size_ / block_x);
-		unsigned int grid_y = (unsigned int) ceil((real_t) size_ / block_y);
-		block_dims_ = dim3(block_x, block_y, 1);
-		grid_dims_ = dim3(grid_x, grid_y, 1);
+		final_size_ = size;
+		tile_size_ = tile_size;
+		unsigned int size2 = final_size_ * final_size_;
 
-		// allocate device memory and host buffer memory
+		// allocate device memory and host buffer memory for full size once
 		cudaMalloc((void**) &pattern_, size2 * sizeof(real_t));
 		cudaMalloc((void**) &vandermonde_, size2 * sizeof(cucomplex_t));
 		cudaMalloc((void**) &a_mat_, size2 * sizeof(cucomplex_t));
@@ -79,23 +76,40 @@ namespace hir {
 			std::cerr << "error: failed to allocate host buffer memory." << std::endl;
 			return false;
 		} // if
-		// set a_mat_
-		for(int i = 0; i < size2; ++ i) {
-			complex_buff_h_[i].x = a[i];
-			complex_buff_h_[i].y = 0.0;
-		} // for
-		// copy data to device
-		cudaMemcpy(a_mat_, complex_buff_h_, size2 * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
-		cudaMemcpy(pattern_, pattern, size2 * sizeof(real_t), cudaMemcpyHostToDevice);
-		cudaMemcpy(vandermonde_, vander, size2 * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
-		cudaMemcpy(mask_mat_, mask, size2 * sizeof(unsigned int), cudaMemcpyHostToDevice);
+
 		return true;
 	} // GTile::init()
 
 
+	__host__ bool GTile::init_scale(real_t* pattern, cucomplex_t* vander, real_t* a,
+									const unsigned int* mask, unsigned int tile_size,
+									unsigned int block_x = CUDA_BLOCK_SIZE_X_,
+									unsigned int block_y = CUDA_BLOCK_SIZE_Y_) {
+		tile_size_ = tile_size;
+		unsigned int tsize2 = tile_size_ * tile_size_;
+
+		// copy current data to device
+		for(int i = 0; i < tsize2; ++ i) {
+			complex_buff_h_[i].x = a[i];
+			complex_buff_h_[i].y = 0.0;
+		} // for
+		cudaMemcpy(a_mat_, complex_buff_h_, tsize2 * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
+		cudaMemcpy(pattern_, pattern, tsize2 * sizeof(real_t), cudaMemcpyHostToDevice);
+		cudaMemcpy(vandermonde_, vander, tsize2 * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
+		cudaMemcpy(mask_mat_, mask, tsize2 * sizeof(unsigned int), cudaMemcpyHostToDevice);
+
+		unsigned int grid_x = (unsigned int) ceil((real_t) tile_size_ / block_x);
+		unsigned int grid_y = (unsigned int) ceil((real_t) tile_size_ / block_y);
+		block_dims_ = dim3(block_x, block_y, 1);
+		grid_dims_ = dim3(grid_x, grid_y, 1);
+
+		return true;
+	} // GTile::scale_init()
+
+
 	__host__ bool GTile::copy_f_mats_to_host(cucomplex_t* f_buff, real_t* mod_f_buff,
 												unsigned int f_i, unsigned int mod_f_i) {
-		unsigned int size2 = size_ * size_;
+		unsigned int size2 = tile_size_ * tile_size_;
 		cudaMemcpy(f_buff, f_mat_[f_i], size2 * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
 		cudaMemcpy(mod_f_buff, mod_f_mat_[mod_f_i], size2 * sizeof(real_t), cudaMemcpyDeviceToHost);
 		return true;
@@ -124,12 +138,12 @@ namespace hir {
 
 
 	__host__ cufftResult GTile::create_cufft_plan(cufftHandle& plan, cuFloatComplex* a) {
-        return cufftPlan2d(&plan, size_, size_, CUFFT_C2C);
+        return cufftPlan2d(&plan, tile_size_, tile_size_, CUFFT_C2C);
 	} // GTile::create_cufft_plan()
 
 
 	__host__ cufftResult GTile::create_cufft_plan(cufftHandle& plan, cuDoubleComplex* a) {
-        return cufftPlan2d(&plan, size_, size_, CUFFT_Z2Z);
+        return cufftPlan2d(&plan, tile_size_, tile_size_, CUFFT_Z2Z);
 	} // GTile::create_cufft_plan()
 
 
@@ -144,14 +158,14 @@ namespace hir {
 
 
 	__host__ bool GTile::normalize_fft_mat(unsigned int buff_i, unsigned int num_particles) {
-		normalize_fft_mat_kernel <<< grid_dims_, block_dims_ >>> (f_mat_[buff_i], size_, num_particles);
+		normalize_fft_mat_kernel <<< grid_dims_, block_dims_ >>> (f_mat_[buff_i], tile_size_, num_particles);
 		cudaThreadSynchronize();
 		return true;
 	} // GTile::normalize_fft_mat_cuda()
 
 
 	__host__ bool GTile::compute_mod_mat(unsigned int src_i, unsigned int dst_i) {
-		compute_mod_mat_kernel <<< grid_dims_, block_dims_ >>> (f_mat_[src_i], mask_mat_, size_,
+		compute_mod_mat_kernel <<< grid_dims_, block_dims_ >>> (f_mat_[src_i], mask_mat_, tile_size_,
 																mod_f_mat_[dst_i]);
 		cudaThreadSynchronize();
 		return true;
@@ -159,7 +173,7 @@ namespace hir {
 
 
 	__host__ bool GTile::copy_mod_mat(unsigned int src_i) {
-		cudaMemcpy(mod_f_mat_[1 - src_i], mod_f_mat_[src_i], size_ * size_ * sizeof(real_t),
+		cudaMemcpy(mod_f_mat_[1 - src_i], mod_f_mat_[src_i], tile_size_ * tile_size_ * sizeof(real_t),
 					cudaMemcpyDeviceToDevice);
 		cudaThreadSynchronize();	// not needed
 		return true;
@@ -177,8 +191,8 @@ namespace hir {
 
 	__host__ double GTile::compute_model_norm(unsigned int buff_i) {
 		double model_norm = 0.0;
-		unsigned int maxi = size_; // >> 1;
-		compute_model_norm_kernel <<< grid_dims_, block_dims_ >>> (mod_f_mat_[buff_i], size_,
+		unsigned int maxi = tile_size_; // >> 1;
+		compute_model_norm_kernel <<< grid_dims_, block_dims_ >>> (mod_f_mat_[buff_i], tile_size_,
 																	maxi, real_buff_d_);
 		cudaThreadSynchronize();
 		/*thrust::device_ptr<real_t> buff_p(real_buff_d_);
@@ -196,17 +210,19 @@ namespace hir {
 
 	__host__ double GTile::compute_chi2(unsigned int buff_i, real_t c_factor) {
 		double chi2 = 0.0;
-		compute_chi2_kernel <<< grid_dims_, block_dims_ >>> (pattern_, mod_f_mat_[buff_i], size_, c_factor,
-															real_buff_d_);
+		compute_chi2_kernel <<< grid_dims_, block_dims_ >>> (pattern_, mod_f_mat_[buff_i], tile_size_,
+															c_factor, real_buff_d_);
 		cudaThreadSynchronize();
 		/*thrust::device_ptr<real_t> buff_p(real_buff_d_);
 		thrust::plus<real_t> plus;
-		chi2 = thrust::reduce(buff_p, buff_p + (size_ * size_), 0.0, plus);
+		chi2 = thrust::reduce(buff_p, buff_p + (tile_size_ * tile_size_), 0.0, plus);
 		*/
 		plus_t plus_op;
-		//chi2 = woo::cuda::reduce_multiple<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (size_ * size_),
+		//chi2 = woo::cuda::reduce_multiple<real_t*, real_t, plus_t>(real_buff_d_,
+		//													real_buff_d_ + (tile_size_ * tile_size_),
 		//													0.0, plus_op);
-		chi2 = woo::cuda::reduce_single<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (size_ * size_),
+		chi2 = woo::cuda::reduce_single<real_t*, real_t, plus_t>(real_buff_d_,
+															real_buff_d_ + (tile_size_ * tile_size_),
 															0.0, plus_op);
 		
 		return chi2;
@@ -217,8 +233,8 @@ namespace hir {
 										unsigned int new_row, unsigned int new_col,
 										unsigned int num_particles,
 										unsigned int in_buff_i, unsigned int out_buff_i) {
-		//compute_dft2_kernel <<< grid_dims_, block_dims_ >>> (vandermonde_, size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
-		compute_dft2_kernel_shared <<< grid_dims_, block_dims_ >>> (vandermonde_, size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		//compute_dft2_kernel <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		compute_dft2_kernel_shared <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
 		cudaThreadSynchronize();
 		return true;
 	} // GTile::compute_dft2()

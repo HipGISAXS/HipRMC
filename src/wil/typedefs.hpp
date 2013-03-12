@@ -3,7 +3,7 @@
   *
   *  File: typedefs.hpp
   *  Created: Jul 08, 2012
-  *  Modified: Sat 09 Mar 2013 01:52:37 PM PST
+  *  Modified: Sat 09 Mar 2013 02:36:08 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -21,14 +21,14 @@ namespace wil {
 
 #ifdef DOUBLEP	// double precision
 	typedef double						real_t;
-#ifdef USE_GPU
-	typedef cuDoubleComplex				cucomplex_t;
-#endif
+	#ifdef USE_GPU
+		typedef cuDoubleComplex			cucomplex_t;
+	#endif
 #else			// single precision
 	typedef float						real_t;
-#ifdef USE_GPU
-	typedef cuFloatComplex				cucomplex_t;
-#endif
+	#ifdef USE_GPU
+		typedef cuFloatComplex			cucomplex_t;
+	#endif
 #endif	// DOUBLEP
 
 	typedef std::complex<real_t>		complex_t;
