@@ -3,7 +3,7 @@
   *
   *  File: hiprmc.cpp
   *  Created: Jan 27, 2013
-  *  Modified: Sun 10 Mar 2013 07:59:00 PM PDT
+  *  Modified: Tue 12 Mar 2013 01:46:42 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -16,9 +16,8 @@
 
 int main(int narg, char** args) {
 
-	if(narg != 6) {
-		std::cout << "usage: hiprmc <image_file> <size> <num steps> <init model size> <tile0 loading>"
-					<< std::endl;
+	if(narg != 7) {
+		std::cout << "usage: hiprmc <image_file> <size> <num steps factor> <init model size> <tile0 loading> <scaling factor>" << std::endl;
 		return 0;
 	} // if
 
@@ -27,8 +26,9 @@ int main(int narg, char** args) {
 	loading[1] = 0.4;
 	std::string img(args[1]);
 	unsigned int size = atoi(args[2]);
-	unsigned int num_steps = atoi(args[3]);
+	unsigned int num_steps_fac = atoi(args[3]);
 	unsigned int init_size = atoi(args[4]);
+	unsigned int scale_factor = atoi(args[6]);
 
 	woo::BoostChronoTimer mytimer;
 	mytimer.start();
@@ -36,7 +36,7 @@ int main(int narg, char** args) {
 	mytimer.stop();
 	double init_time = mytimer.elapsed_msec();
 	mytimer.start();
-	my_rmc.simulate_and_scale(num_steps, 1, 10000);
+	my_rmc.simulate_and_scale(num_steps_fac, scale_factor, 1, 10000);
 	//my_rmc.simulate(num_steps, 1, 10000);
 	mytimer.stop();
 	std::cout << "Initialization time: " << init_time << " ms." << std::endl;

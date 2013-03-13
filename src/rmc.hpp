@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 10 Mar 2013 04:52:45 PM PDT
+  *  Modified: Wed 13 Mar 2013 11:43:57 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -44,21 +44,21 @@ namespace hir {
 			//bool init(real_t*, unsigned int, unsigned int*, real_t*);
 			// initialization for each set of simulation runs
 			bool initialize_tiles(const vec_uint_t&, const real_t*);
-			bool initialize_vandermonde();
+			bool initialize_vandermonde(unsigned int);
 			bool initialize_particles_random(vec_uint_t&);
-			bool initialize_simulation();
+			bool initialize_simulation(unsigned int);
 			bool initialize_simulation_tiles();
 			bool compute_base_norm();
 			bool initialize_mask();
 			bool scale_image_colormap(cv::Mat&, double, double);
-			bool scale_pattern_to_tile();
-			bool preprocess_pattern_and_mask();
+			bool scale_pattern_to_tile(unsigned int);
+			bool preprocess_pattern_and_mask(unsigned int);
 
 		public:
 			RMC(unsigned int, unsigned int, const char*, unsigned int, unsigned int, real_t*);
 			~RMC();
-			bool simulate(int, real_t, unsigned int);
-			bool simulate_and_scale(int, real_t, unsigned int);
+			bool simulate(int, real_t, unsigned int, unsigned int);
+			bool simulate_and_scale(int, unsigned int, real_t, unsigned int);
 
 			// for testing ...
 			bool scale(unsigned int size);

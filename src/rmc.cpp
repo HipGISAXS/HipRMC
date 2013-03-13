@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 11 Mar 2013 11:42:00 AM PDT
+  *  Modified: Wed 13 Mar 2013 01:07:18 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -99,7 +99,7 @@ namespace hir {
 		vec_uint_t indices;
 		initialize_particles_random(indices);
 
-		initialize_simulation();
+		initialize_simulation(1);
 		initialize_tiles(indices, loading);
 
 		//delete[] mask_data;
@@ -125,13 +125,13 @@ namespace hir {
 
 
 	// this is for every simulation set
-	bool RMC::initialize_simulation() {
+	bool RMC::initialize_simulation(unsigned int scale_factor) {
 		// scale pattern to current size
-		scale_pattern_to_tile();
+		scale_pattern_to_tile(scale_factor);
 		// process pattern, scale pixel intensities
-		preprocess_pattern_and_mask();
+		preprocess_pattern_and_mask(scale_factor);
 		compute_base_norm();
-		initialize_vandermonde();
+		initialize_vandermonde(scale_factor);
 
 		return true;
 	} // RMC::initialize_simulation()
@@ -157,7 +157,7 @@ namespace hir {
 
 
 	// check ...
-	bool RMC::initialize_vandermonde() {
+	bool RMC::initialize_vandermonde(unsigned int scale_fac) {
 		// compute vandermonde matrix
 		// generate 1st order power (full 360 deg rotation in polar coords)
 		std::vector<complex_t> first_pow;
@@ -168,10 +168,14 @@ namespace hir {
 			first_pow.push_back(complex_t(temp_r, temp_i));
 		} // for
 		//print_carray("first_pow", reinterpret_cast<complex_t*>(&first_pow[0]), size_);
-		if(vandermonde_mat_.num_rows() + 1 == tile_size_) {
-			vandermonde_mat_.incr_rows(1);
-			vandermonde_mat_.incr_columns(1);
-		} // if
+		if(vandermonde_mat_.num_rows() + scale_fac == tile_size_) {
+			vandermonde_mat_.incr_rows(scale_fac);
+			vandermonde_mat_.incr_columns(scale_fac);
+		} else if(vandermonde_mat_.num_rows() != tile_size_) {
+			std::cerr << "error: Mr. Vandermonde is very angry! "
+						<< vandermonde_mat_.num_rows() << ", " << tile_size_ << std::endl;
+			return false;
+		} // if-else
 		// initialize first column
 		typename mat_complex_t::col_iterator citer = vandermonde_mat_.column(0);
 		for(unsigned int i = 0; i < citer.size(); ++ i) citer[i] = complex_t(1.0, 0.0);
@@ -201,7 +205,7 @@ namespace hir {
 	} // RMC::initialize_particles_random()
 
 
-	bool RMC::scale_pattern_to_tile() {
+	bool RMC::scale_pattern_to_tile(unsigned int scale_factor) {
 		if(size_ == tile_size_) {
 			scaled_pattern_ = in_pattern_;
 		} else {
@@ -211,9 +215,9 @@ namespace hir {
 			wil::scale_image((int) size_, (int) size_, (int) tile_size_, (int) tile_size_,
 								pdata, scaled_pdata);
 			// increase the size of the scaled pattern
-			if(scaled_pattern_.num_rows() + 1 == tile_size_) {
-				scaled_pattern_.incr_rows(1);
-				scaled_pattern_.incr_columns(1);
+			if(scaled_pattern_.num_rows() + scale_factor == tile_size_) {
+				scaled_pattern_.incr_rows(scale_factor);
+				scaled_pattern_.incr_columns(scale_factor);
 			} // if
 			// populate with the scaled data
 			scaled_pattern_.populate(scaled_pdata);
@@ -223,7 +227,7 @@ namespace hir {
 	} // RMC::scale_pattern_to_tile()
 
 
-	bool RMC::preprocess_pattern_and_mask() {
+	bool RMC::preprocess_pattern_and_mask(unsigned int scale_fac) {
 		double min_val, max_val;
 		woo::matrix_min_max(scaled_pattern_, min_val, max_val);
 		double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
@@ -233,15 +237,21 @@ namespace hir {
 			std::cerr << "error: you are now really in grave danger: "
 						<< scaled_pattern_.num_rows() << ", " << tile_size_ << std::endl;
 			return false;
-		} // if
+		} else {
+			std::cout << "be happiee: " << scaled_pattern_.num_rows() << ", " << tile_size_ << std::endl;
+		} // if-else
 		// apply threshold and
 		// scale pixel intensities to span all of 0 - 255
 		// and generate mask_mat_
 		//memset(mask_mat_, 0, tile_size_ * tile_size_ * sizeof(unsigned int));
-		if(mask_mat_.num_rows() + 1 == tile_size_) {
-			mask_mat_.incr_rows(1);
-			mask_mat_.incr_columns(1);
-		} // if
+		if(mask_mat_.num_rows() + scale_fac == tile_size_) {
+			mask_mat_.incr_rows(scale_fac);
+			mask_mat_.incr_columns(scale_fac);
+		} else if(mask_mat_.num_rows() != tile_size_) {
+			std::cerr << "error: you have a wrong mask. "
+						<< mask_mat_.num_rows() << ", " << tile_size_ << std::endl;
+			return false;
+		} // if-else
 		mask_mat_.fill(1);
 		for(unsigned int i = 0; i < tile_size_; ++ i) {
 			for(unsigned int j = 0; j < tile_size_; ++ j) {
@@ -293,9 +303,9 @@ namespace hir {
 
 
 	// simulate RMC
-	bool RMC::simulate(int num_steps, real_t tstar, unsigned int rate) {
+	bool RMC::simulate(int num_steps, real_t tstar, unsigned int rate, unsigned int scale_factor = 1) {
 
-		if(!initialize_simulation()) {
+		if(!initialize_simulation(scale_factor)) {
 			std::cerr << "error: failed to initialize simulation set" << std::endl;
 			return false;
 		} // if
@@ -338,6 +348,7 @@ namespace hir {
 			double chi2 = 0.0;
 			mat_real_t a(tile_size_, tile_size_);
 			tiles_[i].finalize_result(chi2, a);
+			std::cout << "++++ final chi2 = " << chi2 << std::endl;
 			tiles_[i].print_times();
 
 			std::cout << "saving images ... " << std::endl;
@@ -351,25 +362,32 @@ namespace hir {
 	} // RMC::simulate()
 
 
-	bool RMC::simulate_and_scale(int num_steps_fac, real_t tstar, unsigned int rate) {
+	bool RMC::simulate_and_scale(int num_steps_fac, unsigned int scale_factor,
+								real_t tstar, unsigned int rate) {
 		std::cout << "++ performing scaling and simulation ..." << std::endl;
 		unsigned int num_steps = num_steps_fac * tile_size_;
-		simulate(num_steps, tstar, rate);
-		for(unsigned int tsize = tile_size_; tsize < size_; ++ tsize) {
+		unsigned int curr_scale_fac = scale_factor;
+		simulate(num_steps, tstar, rate, scale_factor);
+		for(unsigned int tsize = tile_size_, iter = 0; tsize < size_; tsize += curr_scale_fac, ++ iter) {
 			if(tile_size_ < size_) {
 				for(unsigned int i = 0; i < num_tiles_; ++ i) {
 					tiles_[i].update_model();
-					tiles_[i].scale_step();
-					if(tiles_[i].size() != tile_size_ + 1) {
+					if(tile_size_ + scale_factor > size_) {
+						curr_scale_fac = size_ - tile_size_;
+					} // if
+					for(unsigned int s = 0; s < curr_scale_fac; ++ s) {
+						tiles_[i].scale_step();
+					} // for
+					if(tiles_[i].size() != tile_size_ + curr_scale_fac) {
 						std::cerr << "error: you are in graaaaaaave danger!" << std::endl;
 						return false;
 					} // if
 					//tiles_[i].save_mat_image_direct(i);
 				} // for
-				++ tile_size_;
-				num_steps = num_steps_fac * tile_size_;
+				tile_size_ += curr_scale_fac;
 			} // if
-			simulate(num_steps, tstar, rate);
+			num_steps = num_steps_fac * tile_size_;
+			simulate(num_steps, tstar, rate, curr_scale_fac);
 		} // for
 		return true;
 	} // RMC::simulate_and_scale()

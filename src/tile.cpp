@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 11 Mar 2013 11:59:13 AM PDT
+  *  Modified: Wed 13 Mar 2013 01:05:26 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -52,7 +52,7 @@ namespace hir {
 		#ifdef USE_GPU
 			// device memory allocation takes all the time
 			mytimer.start();
-			unsigned int size2 = size_ * size_;
+			unsigned int size2 = final_size_ * final_size_;
 			cucomplex_buff_ = new (std::nothrow) cucomplex_t[size2];
 			mytimer.stop();
 			std::cout << "***** device mem: " << mytimer.elapsed_msec() << " ms." << std::endl;
@@ -161,6 +161,11 @@ namespace hir {
 	// to be executed at simulation beginning after a scaling
 	bool Tile::init_scale(real_t base_norm, mat_real_t& pattern, const mat_complex_t& vandermonde,
 							mat_uint_t& mask) {
+		if(pattern.num_rows() != size_ || vandermonde.num_rows() != size_ || mask.num_rows() != size_) {
+			std::cerr << "error: some matrix size is not what it should be! check your BUGGY code!"
+						<< std::endl;
+			return false;
+		} // if
 		// compute fft of a_mat_ into fft_mat_ and other stuff
 		woo::BoostChronoTimer mytimer;
 		#ifdef USE_GPU
@@ -216,6 +221,7 @@ namespace hir {
 	} // Tile::copy_mod_mat()
 
 
+	// in case of gpu version, this assumes all data is already on the gpu
 	bool Tile::simulate_step(mat_real_t& pattern,
 							mat_complex_t& vandermonde,
 							const mat_uint_t& mask,
@@ -410,6 +416,8 @@ namespace hir {
 				} // for
 			} // for
 		#endif // USE_GPU
+		// normalize with the size
+		chi2 = chi2 / (size_ * size_);
 		return chi2;
 	} // Tile::compute_chi2()
 
@@ -545,6 +553,7 @@ namespace hir {
 
 
 #ifdef USE_GPU
+	// update the f and modf matrices on the host with data from device
 	bool Tile::update_f_mats() {
 		unsigned int size2 = size_ * size_;
 		real_t *mod_f_buff = new (std::nothrow) real_t[size2];
@@ -567,7 +576,7 @@ namespace hir {
 #endif
 
 
-	// update indices using a_mat_
+	// update indices, num_particles and loading_factor using a_mat_
 	bool Tile::update_indices() {
 		unsigned int rows = a_mat_.num_rows();
 		unsigned int cols = a_mat_.num_cols();
@@ -579,7 +588,9 @@ namespace hir {
 			else zero_indices.push_back(i);
 		} // for
 		indices_.insert(indices_.end(), zero_indices.begin(), zero_indices.end());
-		loading_factor_ = (real_t) num_particles_ / (rows * cols);
+		//loading_factor_ = (real_t) num_particles_ / (rows * cols);
+		std::cout << "+++++++++++++++ actual loading: " << (real_t) num_particles_ / (rows * cols)
+					<< std::endl;
 		return true;
 	} // Tile::update_indices()
 

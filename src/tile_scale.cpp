@@ -3,7 +3,7 @@
   *
   *  File: tile_scale.cpp
   *  Created: Mar 04, 2013
-  *  Modified: Sun 10 Mar 2013 02:12:35 PM PDT
+  *  Modified: Wed 13 Mar 2013 12:15:37 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -21,7 +21,7 @@ namespace hir {
 
 	bool Tile::scale_step() {
 		//std::cout << "++ scale_step" << std::endl;
-		std::cout << "---- initial loading: " << loading_factor_;
+		//std::cout << "---- initial loading: " << loading_factor_;
 
 		// first update the model to make sure the latest model is in 'a'
 		unsigned int new_row_par = 0, new_col_par = 0;
@@ -59,7 +59,7 @@ namespace hir {
 				fill_indices.push_back(i);
 			} // if-else
 		} // for
-		unsigned int curr_num_par = floor(loading_factor_ * curr_size * curr_size) + new_row_par;
+		unsigned int curr_num_par = num_particles_ + new_row_par;
 		unsigned int req_num_par = floor(loading_factor_ * curr_size * (curr_size + 1));
 		if(req_num_par > curr_num_par) {
 			// insert the remaining particles at random zero positions
@@ -97,6 +97,7 @@ namespace hir {
 		++ curr_size;
 		zero_indices.clear();
 		fill_indices.clear();
+		curr_num_par = 0;
 		
 		// fill the new col
 		// making it wrap around periodic
@@ -119,7 +120,7 @@ namespace hir {
 				fill_indices.push_back(i);
 			} // if-else
 		} // for
-		curr_num_par = floor(loading_factor_ * curr_size * (curr_size - 1)) + new_col_par;
+		curr_num_par = num_particles_ + new_row_par + new_col_par;
 		req_num_par = floor(loading_factor_ * curr_size * curr_size);
 		if(req_num_par > curr_num_par) {
 			unsigned int insert_num_par = req_num_par - curr_num_par;
@@ -153,14 +154,15 @@ namespace hir {
 		a_mat_.insert_col(new_col_i, new_col, curr_size);
 
 		// this is just temporary for testing ...
-		curr_num_par = floor(loading_factor_ * (curr_size - 1) * (curr_size - 1)) + new_row_par + new_col_par;
-		real_t new_loading = curr_num_par / (real_t)(curr_size * curr_size);
+		//curr_num_par = floor(loading_factor_ * (curr_size - 1) * (curr_size - 1)) + new_row_par + new_col_par;
+		//real_t new_loading = curr_num_par / (real_t)(curr_size * curr_size);
 		//std::cout << "\tnew_par: " << new_row_par + new_col_par;
-		std::cout << "\tfinal loading: " << new_loading << std::endl;
-		loading_factor_ = new_loading;
 
 		// update indices array and num_particles
+		num_particles_ += (new_row_par + new_col_par);
 		update_indices();
+		//std::cout << "\tfinal loading: " << loading_factor_ << std::endl;
+
 		// update sizes of the f and mod f matrices, dft mat
 		f_mat_[0].incr_rows(1); f_mat_[0].incr_columns(1);
 		f_mat_[1].incr_rows(1); f_mat_[1].incr_columns(1);
