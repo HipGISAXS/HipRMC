@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 13 Mar 2013 01:05:26 PM PDT
+  *  Modified: Wed 13 Mar 2013 01:44:24 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -417,7 +417,7 @@ namespace hir {
 			} // for
 		#endif // USE_GPU
 		// normalize with the size
-		chi2 = chi2 / (size_ * size_);
+		//chi2 = chi2 / (size_ * size_);
 		return chi2;
 	} // Tile::compute_chi2()
 
