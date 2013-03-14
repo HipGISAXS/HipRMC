@@ -1,0 +1,183 @@
+##
+# Project: HipRMC
+#
+# File: Makefile
+# Created: January 27, 2013
+# Modified: Jan 27, 2013
+#
+# Author: Abhinav Sarje <asarje@lbl.gov>
+##
+
+USE_GPU = y
+
+## base directories
+#BOOST_DIR = /sw/xk6/boost/1.49.0/cle4.0_gnu4.6.2
+#MPI_DIR = /usr/local/openmpi-1.6
+#HDF5_DIR = /usr/local/hdf5-1.8.9
+#Z_DIR = /usr/local/zlib-1.2.7
+#SZ_DIR = /usr/local/szip-2.1
+#TIFF_LIB_DIR = /usr/local/lib
+OPENCV_DIR = /lustre/widow1/scratch/asarje/opt/opencv-2.4.4
+WOO_DIR = /ccs/home/asarje
+TIFF_DIR = $(HOME)/opt/tiff-4.0.2
+ifeq ($(USE_GPU), y)
+CUDA_DIR = $(CRAY_CUDATOOLKIT_DIR)
+FFTW_DIR =
+else
+CUDA_DIR =
+FFTW_DIR =
+endif
+
+## compilers
+CXX = CC -v
+#H5CC = $(HDF5_DIR)/bin/h5pcc
+ifeq ($(USE_GPU), y)
+NVCC = nvcc -v
+else
+NVCC =
+endif
+
+## compiler flags
+CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
+## gnu c++ compilers >= 4.3 support -std=c++0x [requirement for hipgisaxs 4.3.x <= g++ <= 4.6.x]
+## gnu c++ compilers >= 4.7 also support -std=c++11, but they are not supported by cuda
+
+## boost
+BOOST_INCL = -I $(BOOST_DIR)/include -I $(HOME)/opt/boost-gil-numeric
+BOOST_LIBS = -L $(BOOST_DIR)/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
+
+## parallel hdf5
+#HDF5_INCL = -I$(HDF5_DIR)/include -I$(SZ_DIR)/include -I$(Z_DIR)/include
+#HDF5_LIBS = -L$(SZ_DIR)/lib -L$(Z_DIR)/lib -L$(HDF5_DIR)/lib -lhdf5 -lz -lsz -lm
+#HDF5_FLAGS = -Wl,-rpath -Wl,$(HDF5_DIR)/lib
+#HDF5_FLAGS += -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -D_POSIX_SOURCE -D_BSD_SOURCE
+
+## mpi (openmpi)
+#MPI_INCL = -I $(MPI_DIR)/include
+#MPI_LIBS = -L $(MPI_DIR)/lib -lmpi_cxx -lmpi
+
+## cuda
+ifeq ($(USE_GPU), y)
+CUDA_INCL = -I$(CUDA_DIR)/include
+CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft
+NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64
+NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
+NVCC_FLAGS += -gencode=arch=compute_20,code=compute_20
+NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
+NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
+NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
+#NVCC_FLAGS += -Xptxas -v -Xcompiler -v -Xlinker -v
+NVCC_FLAGS += --ptxas-options="-v"
+NVCC_FLAGS += --compiler-bindir /opt/gcc/4.6.3/bin
+NVLIB_FLAGS = -Xlinker -lgomp
+NVLIB_FLAGS += -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
+else
+CUDA_INCL =
+CUDA_LIBS =
+NVCC_FLAGS =
+endif
+
+## libtiff
+TIFF_INCL = -I $(TIFF_DIR)/include
+TIFF_LIBS = -L $(TIFF_DIR)/lib -ltiff
+
+## opencv
+OPENCV_INCL = -I $(OPENCV_DIR)/include
+OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
+
+## woo
+WOO_INCL = -I $(WOO_DIR)
+
+## fftw
+ifeq ($(USE_GPU), y)
+FFTW_INCL =
+FFTW_LIBS =
+else
+FFTW_INCL = -I $(FFTW_DIR)/include
+FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3
+endif
+
+## miscellaneous
+MISC_INCL =
+ifeq ($(USE_GPU), y)
+MISC_FLAGS = -DUSE_GPU
+else
+MISC_FLAGS =
+endif
+
+## choose optimization levels, debug flags, gprof flag, etc
+OPT_FLAGS = -g -DDEBUG #-v #-pg
+#OPT_FLAGS = -O3 -DNDEBUG #-v
+
+## choose single or double precision here
+#PREC_FLAG =			# leave empty for single precision
+PREC_FLAG = -DDOUBLEP	# define this for double precision
+
+
+## all includes
+ALL_INCL = $(OPENCV_INCL) $(WOO_INCL) $(CUDA_INCL) $(FFTW_INCL) $(BOOST_INCL) $(TIFF_INCL)
+
+## all libraries
+ALL_LIBS = $(OPENCV_LIBS) $(CUDA_LIBS) $(FFTW_LIBS) $(BOOST_LIBS) $(TIFF_LIBS)
+
+
+PREFIX = $(PWD)
+BINARY_SIM = hiprmc
+BIN_DIR = $(PREFIX)/bin
+OBJ_DIR = $(PREFIX)/obj
+SRC_DIR = $(PREFIX)/src
+
+## all objects
+OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o
+ifeq ($(USE_GPU), y)
+OBJECTS_SIM += cutile.o
+endif
+
+## the main binary
+OBJ_BIN_SIM = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SIM))
+
+$(BINARY_SIM): $(OBJ_BIN_SIM)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS)
+
+
+BINARY_SCALE = hiprmc-scale
+OBJECTS_SCALE = testscale.o tile.o tile_scale.o image.o utilities.o
+OBJ_BIN_SCALE = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SCALE))
+
+$(BINARY_SCALE): $(OBJ_BIN_SCALE)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS)
+
+$(OBJ_DIR)/tile_scale.o: $(SRC_DIR)/tile_scale.cpp $(SRC_DIR)/tile.hpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+$(OBJ_DIR)/testscale.o: $(SRC_DIR)/testscale.cpp $(SRC_DIR)/rmc.hpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+
+## c++ compilation
+_DEPS_CXX = %.hpp
+DEPS_CXX = $(patsubst %,$(SRC_DIR)/%,$(_DEPS_CXX))
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS_CXX)
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+_DEPS_WIL = wil/%.hpp
+DEPS_WIL = $(patsubst %,$(SRC_DIR)/%,$(_DEPS_WIL))
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/wil/%.cpp $(DEPS_WIL)
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+$(OBJ_DIR)/hiprmc.o: $(SRC_DIR)/hiprmc.cpp $(SRC_DIR)/rmc.hpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+ifeq ($(USE_GPU), y)
+$(OBJ_DIR)/cutile.o: $(SRC_DIR)/tile.cu
+	$(NVCC) -c $< -o $@ $(OPT_FLAGS) $(NVCC_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+endif
+
+all: hiprmc
+
+.PHONY: clean
+
+clean:
+	rm -f $(OBJ_BIN_SIM) $(BIN_DIR)/$(BINARY_SIM)
