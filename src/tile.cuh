@@ -3,7 +3,7 @@
   *
   *  File: tile.cuh
   *  Created: Feb 02, 2013
-  *  Modified: Sun 17 Mar 2013 12:47:31 PM PDT
+  *  Modified: Mon 18 Mar 2013 10:47:59 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -77,6 +77,12 @@ namespace hir {
 										unsigned int, unsigned int, unsigned int, //cucomplex_t*,
 										cucomplex_t*, cucomplex_t*);
 	__global__ void compute_dft2_kernel_shared_opt2(cucomplex_t*, unsigned int, unsigned int, unsigned int,
+										unsigned int, unsigned int, unsigned int, //cucomplex_t*,
+										cucomplex_t*, cucomplex_t*);
+	__global__ void compute_dft2_kernel_shared_opt3(cucomplex_t*, unsigned int, unsigned int, unsigned int,
+										unsigned int, unsigned int, unsigned int, //cucomplex_t*,
+										cucomplex_t*, cucomplex_t*);
+	__global__ void compute_dft2_kernel_shared_opt4(cucomplex_t*, unsigned int, unsigned int, unsigned int,
 										unsigned int, unsigned int, unsigned int, //cucomplex_t*,
 										cucomplex_t*, cucomplex_t*);
 	__global__ void compute_dft2_kernel_shared_test(cucomplex_t*, unsigned int, unsigned int, unsigned int,

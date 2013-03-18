@@ -3,7 +3,7 @@
   *
   *  File: constants.hpp
   *  Created: Jan 28, 2013
-  *  Modified: Mon 04 Mar 2013 09:21:54 AM PST
+  *  Modified: Mon 18 Mar 2013 10:38:38 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -19,6 +19,8 @@ namespace hir {
 	#ifdef USE_GPU
 		const unsigned int CUDA_BLOCK_SIZE_X_ = 16;
 		const unsigned int CUDA_BLOCK_SIZE_Y_ = 16;
+
+		const unsigned int CUDA_DFT2_SUBTILES_ = 4;
 	#endif
 
 } // namespace hir
