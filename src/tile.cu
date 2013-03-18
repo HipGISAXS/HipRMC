@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Mon 11 Mar 2013 12:06:03 PM PDT
+  *  Modified: Sun 17 Mar 2013 05:15:10 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -234,7 +234,10 @@ namespace hir {
 										unsigned int num_particles,
 										unsigned int in_buff_i, unsigned int out_buff_i) {
 		//compute_dft2_kernel <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
-		compute_dft2_kernel_shared <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		//compute_dft2_kernel_shared <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		compute_dft2_kernel_shared_opt2 <<< grid_dims_, block_dims_ >>>
+			(vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles,
+			 f_mat_[in_buff_i], f_mat_[out_buff_i]);
 		cudaThreadSynchronize();
 		return true;
 	} // GTile::compute_dft2()
@@ -293,6 +296,7 @@ namespace hir {
 	} // compute_chi2_kernel()
 
 
+	// base kernel - no shared mem
 	__global__ void compute_dft2_kernel(cucomplex_t* vandermonde, unsigned int size,
 										unsigned int old_row, unsigned int old_col,
 										unsigned int new_row, unsigned int new_col,
@@ -312,6 +316,7 @@ namespace hir {
 	} // compute_dft2_kernel()
 
 
+	// shared mem - naive
 	__global__ void compute_dft2_kernel_shared(cucomplex_t* vandermonde, unsigned int size,
 							unsigned int old_row, unsigned int old_col,
 							unsigned int new_row, unsigned int new_col,
@@ -326,23 +331,6 @@ namespace hir {
 		unsigned int old_y = size * i_y + old_col;
 		unsigned int new_x = size * new_row + i_x;
 		unsigned int new_y = size * i_y + new_col;
-
-		// this basically makes copies of input vectors so that each thread
-		// access different location in shared mem
-		/*const unsigned int mat_size = CUDA_BLOCK_SIZE_X_ * CUDA_BLOCK_SIZE_Y_;
-		__shared__ cucomplex_t vander_old_row[mat_size];
-		__shared__ cucomplex_t vander_new_row[mat_size];
-		__shared__ cucomplex_t vander_old_col[mat_size];
-		__shared__ cucomplex_t vander_new_col[mat_size];
-		unsigned int in_index = blockDim.x * threadIdx.y + threadIdx.x;
-		if(i_x < size) {
-			vander_old_row[in_index] = vandermonde[old_x];
-			vander_new_row[in_index] = vandermonde[new_x];
-		} // if
-		if(i_y < size) {
-			vander_old_col[in_index] = vandermonde[old_y];
-			vander_new_col[in_index] = vandermonde[new_y];
-		} // if*/
 
 		__shared__ cucomplex_t vander_old_row[CUDA_BLOCK_SIZE_X_];
 		__shared__ cucomplex_t vander_new_row[CUDA_BLOCK_SIZE_X_];
@@ -363,10 +351,6 @@ namespace hir {
 
 		unsigned int index = size * i_y + i_x;
 		if(i_x < size && i_y < size) {
-			/*cucomplex_t new_temp = complex_mul(vander_new_col[in_index],
-								vander_new_row[in_index]);
-			cucomplex_t old_temp = complex_mul(vander_old_col[in_index],
-								vander_old_row[in_index]);*/
 			cucomplex_t new_temp = complex_mul(vander_new_col[threadIdx.y],
 								vander_new_row[threadIdx.x]);
 			cucomplex_t old_temp = complex_mul(vander_old_col[threadIdx.y],
@@ -374,6 +358,197 @@ namespace hir {
 			cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)),
 								(real_t)num_particles);
 			fout[index] = complex_add(dft_temp, fin[index]);
+		} // if
+	} // compute_dft2_kernel_shared()
+
+
+	// shared mem - rowwise to avoid bank conflicts -- verrrry slooooow
+	__global__ void compute_dft2_kernel_shared_opt(cucomplex_t* vandermonde, unsigned int size,
+							unsigned int old_row, unsigned int old_col,
+							unsigned int new_row, unsigned int new_col,
+							unsigned int num_particles,
+							cucomplex_t* fin, cucomplex_t* fout) {
+		// TODO: try subtiling also
+		// TODO: try dynamic shared memory
+		// TODO: try shared mem for output to coalesce writes
+		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
+		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
+		unsigned int old_x = size * old_row + i_x;
+		unsigned int old_y = size * i_y + old_col;
+		unsigned int new_x = size * new_row + i_x;
+		unsigned int new_y = size * i_y + new_col;
+
+		__shared__ cucomplex_t vander_old_row[CUDA_BLOCK_SIZE_X_];
+		__shared__ cucomplex_t vander_new_row[CUDA_BLOCK_SIZE_X_];
+		__shared__ cucomplex_t vander_old_col[CUDA_BLOCK_SIZE_Y_];
+		__shared__ cucomplex_t vander_new_col[CUDA_BLOCK_SIZE_Y_];
+		// first row of threads load both rows
+		if(threadIdx.y == 0 && i_x < size) {
+			vander_old_row[threadIdx.x] = vandermonde[old_x];
+			vander_new_row[threadIdx.x] = vandermonde[new_x];
+		} // if
+		// first col of threads load both cols
+		if(threadIdx.x == 0 && i_y < size) {
+			vander_old_col[threadIdx.y] = vandermonde[old_y];
+			vander_new_col[threadIdx.y] = vandermonde[new_y];
+		} // if
+
+		__syncthreads();	// make sure all data is available
+
+		unsigned int index = size * i_y + i_x;
+		if(i_x < size && i_y < size) {
+			for(int i = 0; i < blockDim.x; ++ i) {		// to remove shared mem bank conflicts
+				if(threadIdx.x == i) {
+					// y threads read serial memory
+					// x threads use one broadcast
+					cucomplex_t new_temp = complex_mul(vander_new_col[threadIdx.y],
+										vander_new_row[threadIdx.x]);
+					cucomplex_t old_temp = complex_mul(vander_old_col[threadIdx.y],
+										vander_old_row[threadIdx.x]);
+					cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)),
+										(real_t)num_particles);
+					fout[index] = complex_add(dft_temp, fin[index]);
+				} // if
+			} // for
+		} // if
+	} // compute_dft2_kernel_shared()
+
+
+	// shared mem - padding or 8 thread groups at a time
+	__global__ void compute_dft2_kernel_shared_opt2(cucomplex_t* vandermonde, unsigned int size,
+							unsigned int old_row, unsigned int old_col,
+							unsigned int new_row, unsigned int new_col,
+							unsigned int num_particles,
+							cucomplex_t* fin, cucomplex_t* fout) {
+		// TODO: try subtiling also
+		// TODO: try dynamic shared memory
+		// TODO: try shared mem for output to coalesce writes
+		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
+		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
+		unsigned int old_x = size * old_row + i_x;
+		unsigned int old_y = size * i_y + old_col;
+		unsigned int new_x = size * new_row + i_x;
+		unsigned int new_y = size * i_y + new_col;
+
+		// assuming blocks are 16x16
+		unsigned int padx = (threadIdx.x < 8) ? 0 : 1;
+		unsigned int pady = (threadIdx.y < 8) ? 0 : 1;
+
+		//__shared__ cucomplex_t vander_old_row[CUDA_BLOCK_SIZE_X_];
+		//__shared__ cucomplex_t vander_new_row[CUDA_BLOCK_SIZE_X_];
+		//__shared__ cucomplex_t vander_old_col[CUDA_BLOCK_SIZE_Y_];
+		//__shared__ cucomplex_t vander_new_col[CUDA_BLOCK_SIZE_Y_];
+		__shared__ real_t vander_old_row[2 * CUDA_BLOCK_SIZE_X_ + 1];
+		__shared__ real_t vander_new_row[2 * CUDA_BLOCK_SIZE_X_ + 1];
+		__shared__ real_t vander_old_col[2 * CUDA_BLOCK_SIZE_Y_ + 1];
+		__shared__ real_t vander_new_col[2 * CUDA_BLOCK_SIZE_Y_ + 1];
+		/*__shared__ real_t vander[4 * CUDA_BLOCK_SIZE_X_ + 4 * CUDA_BLOCK_SIZE_Y_ + 8];
+		real_t *vander_old_row = vander;
+		real_t *vander_new_row = vander_old_row + 2 * CUDA_BLOCK_SIZE_X_ + 2;
+		real_t *vander_old_col = vander_new_row + 2 * CUDA_BLOCK_SIZE_X_ + 2;
+		real_t *vander_new_col = vander_old_col + 2 * CUDA_BLOCK_SIZE_Y_ + 2;*/
+
+		unsigned int t_i_x = 2 * threadIdx.x + padx;
+		unsigned int t_i_y = 2 * threadIdx.y + pady;
+
+		// first row of threads load both rows
+		if(threadIdx.y == 0 && i_x < size) {
+			cucomplex_t temp1 = vandermonde[old_x];
+			cucomplex_t temp2 = vandermonde[new_x];
+			vander_old_row[t_i_x] = temp1.x;
+			vander_old_row[t_i_x + 1] = temp1.y;
+			vander_new_row[t_i_x] = temp2.x;
+			vander_new_row[t_i_x + 1] = temp2.y;
+		} // if
+		// first col of threads load both cols
+		if(threadIdx.x == 0 && i_y < size) {
+			cucomplex_t temp1 = vandermonde[old_y];
+			cucomplex_t temp2 = vandermonde[new_y];
+			vander_old_col[t_i_y] = temp1.x;
+			vander_old_col[t_i_y + 1] = temp1.y;
+			vander_new_col[t_i_y] = temp2.x;
+			vander_new_col[t_i_y + 1] = temp2.y;
+		} // if
+
+		__syncthreads();	// make sure all data is available
+
+		//unsigned int r_iter = blockDim.x >> 3;
+		//unsigned int c_iter = blockDim.y >> 3;
+		unsigned int index = size * i_y + i_x;
+		if(i_x < size && i_y < size) {
+			//for(int r = 0; r < r_iter; ++ r) {
+			//	if(threadIdx.x >= r << 3 && threadIdx.x < (r + 1) << 3) {
+					cucomplex_t new_row = make_cuComplex(vander_new_row[t_i_x],
+															vander_new_row[t_i_x + 1]);
+					cucomplex_t old_row = make_cuComplex(vander_old_row[t_i_x],
+															vander_old_row[t_i_x + 1]);
+					//for(int c = 0; c < c_iter; ++ c) {
+					//	if(threadIdx.y >= c << 3 && threadIdx.y < (c + 1) << 3) {
+							cucomplex_t new_col = make_cuComplex(vander_new_col[t_i_y],
+																	vander_new_col[t_i_y + 1]);
+							cucomplex_t old_col = make_cuComplex(vander_old_col[t_i_y],
+																	vander_old_col[t_i_y + 1]);
+							cucomplex_t new_temp = complex_mul(new_col, new_row);
+							cucomplex_t old_temp = complex_mul(old_col, old_row);
+							cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)),
+																(real_t) num_particles);
+							fout[index] = complex_add(dft_temp, fin[index]);
+					//	} // if c
+					//} // for c
+			//	} // if r
+			//} // for r
+		} // if
+	} // compute_dft2_kernel_shared()
+
+
+	__global__ void compute_dft2_kernel_shared_test(cucomplex_t* vandermonde, unsigned int size,
+							unsigned int old_row, unsigned int old_col,
+							unsigned int new_row, unsigned int new_col,
+							unsigned int num_particles,
+							cucomplex_t* fin, cucomplex_t* fout) {
+		// TODO: try subtiling also
+		// TODO: try dynamic shared memory
+		// TODO: try shared mem for output to coalesce writes
+		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
+		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
+		unsigned int old_x = size * old_row + i_x;
+		unsigned int old_y = size * i_y + old_col;
+		unsigned int new_x = size * new_row + i_x;
+		unsigned int new_y = size * i_y + new_col;
+
+		// this basically makes copies of input vectors so that each thread
+		// access different location in shared mem
+		const unsigned int mat_size = CUDA_BLOCK_SIZE_X_ * CUDA_BLOCK_SIZE_Y_;
+		__shared__ cucomplex_t vander_old_row[mat_size];
+		__shared__ cucomplex_t vander_new_row[mat_size];
+		__shared__ cucomplex_t vander_old_col[mat_size];
+		__shared__ cucomplex_t vander_new_col[mat_size];
+		unsigned int in_index = blockDim.x * threadIdx.y + threadIdx.x;
+		if(i_x < size) {
+			vander_old_row[in_index] = vandermonde[old_x];
+			vander_new_row[in_index] = vandermonde[new_x];
+		} // if
+		if(i_y < size) {
+			vander_old_col[in_index] = vandermonde[old_y];
+			vander_new_col[in_index] = vandermonde[new_y];
+		} // if
+
+		__syncthreads();	// make sure all data is available
+		unsigned int num_iter = mat_size >> 3;	// to avoid bank conflicts
+												// this is the case with cucomplex_t = double complex
+		unsigned int out_index = size * i_y + i_x;
+		if(i_x < size && i_y < size) {
+			for(int i = 0; i < num_iter; ++ i) {
+				if(in_index > (i - 1) << 3 && in_index < i << 3) {
+					cucomplex_t new_temp = complex_mul(vander_new_col[in_index],
+										vander_new_row[in_index]);
+					cucomplex_t old_temp = complex_mul(vander_old_col[in_index],
+										vander_old_row[in_index]);
+					cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)),
+										(real_t)num_particles);
+					fout[out_index] = complex_add(dft_temp, fin[out_index]);
+				} // if
+			} // for
 		} // if
 	} // compute_dft2_kernel_shared()
 
