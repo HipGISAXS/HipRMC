@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Mon 18 Mar 2013 11:07:00 AM PDT
+  *  Modified: Mon 18 Mar 2013 02:05:49 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -12,6 +12,9 @@
 #include <thrust/reduce.h>
 
 #include <woo/reduce/reduce.cuh>
+
+#include <nvToolsExt.h>
+#include <cuda_profiler_api.h>
 
 #include "tile.cuh"
 #include "typedefs.hpp"
@@ -233,20 +236,25 @@ namespace hir {
 										unsigned int new_row, unsigned int new_col,
 										unsigned int num_particles,
 										unsigned int in_buff_i, unsigned int out_buff_i) {
+		nvtxRangeId_t nvtx0 = nvtxRangeStart("dft2_compute");
+		cudaProfilerStart();
 		//compute_dft2_kernel <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
 		//compute_dft2_kernel_shared <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
-		/*compute_dft2_kernel_shared_opt2 <<< grid_dims_, block_dims_ >>>
-			(vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles,
-			 f_mat_[in_buff_i], f_mat_[out_buff_i]);*/
-		unsigned int block_x = CUDA_BLOCK_SIZE_X_;
+		compute_dft2_kernel_shared_opt2 <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		/*unsigned int block_x = CUDA_BLOCK_SIZE_X_;
 		unsigned int block_y = CUDA_BLOCK_SIZE_Y_;
 		unsigned int grid_x = (unsigned int) ceil((real_t) tile_size_ / block_x);
 		unsigned int grid_y = (unsigned int) ceil((real_t) tile_size_ / (block_y * CUDA_DFT2_SUBTILES_));
 		dim3 block_dims = dim3(block_x, block_y, 1);
 		dim3 grid_dims = dim3(grid_x, grid_y, 1);
-		compute_dft2_kernel_shared_opt4 <<< grid_dims_, block_dims_ >>>
+		compute_dft2_kernel_shared_opt3 <<< grid_dims_, block_dims_ >>>
 			(vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles,
 			 f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		//compute_dft2_kernel_shared_opt4 <<< grid_dims_, block_dims_ >>>
+		//	(vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles,
+		//	 f_mat_[in_buff_i], f_mat_[out_buff_i]);*/
+		cudaProfilerStop();
+		nvtxRangeEnd(nvtx0);
 		cudaThreadSynchronize();
 		return true;
 	} // GTile::compute_dft2()
@@ -351,9 +359,9 @@ namespace hir {
 			vander_new_row[threadIdx.x] = vandermonde[new_x];
 		} // if
 		// first col of threads load both cols
-		if(threadIdx.x == 0 && i_y < size) {
-			vander_old_col[threadIdx.y] = vandermonde[old_y];
-			vander_new_col[threadIdx.y] = vandermonde[new_y];
+		if(threadIdx.y == 0 && i_y < size) {
+			vander_old_col[threadIdx.x] = vandermonde[old_y];
+			vander_new_col[threadIdx.x] = vandermonde[new_y];
 		} // if
 
 		__syncthreads();	// make sure all data is available

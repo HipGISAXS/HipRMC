@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 13 Mar 2013 01:07:18 PM PDT
+  *  Modified: Mon 18 Mar 2013 11:53:46 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -350,6 +350,17 @@ namespace hir {
 			tiles_[i].finalize_result(chi2, a);
 			std::cout << "++++ final chi2 = " << chi2 << std::endl;
 			tiles_[i].print_times();
+
+			// temp ... for bandwidth computation of dft2 ...
+			unsigned int num_blocks = ceil((real_t) tile_size_ / CUDA_BLOCK_SIZE_X_) *
+										ceil((real_t) tile_size_ / CUDA_BLOCK_SIZE_Y_);
+			unsigned int read_bytes = num_blocks * (CUDA_BLOCK_SIZE_X_ + CUDA_BLOCK_SIZE_Y_) *
+										sizeof(cucomplex_t);
+			unsigned int write_bytes = num_blocks * CUDA_BLOCK_SIZE_X_ * CUDA_BLOCK_SIZE_Y_ *
+										sizeof(cucomplex_t);
+			std::cout << "+++++++ DFT2: "
+					<< (read_bytes + write_bytes) * num_steps * 1000 / (tiles_[i].dft2_time * 1024 * 1024)
+					<< " MB/sec" << std::endl;
 
 			std::cout << "saving images ... " << std::endl;
 			tiles_[i].save_mat_image(num_tiles_ + i);		// save mod_f mat

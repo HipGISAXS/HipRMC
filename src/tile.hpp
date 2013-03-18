@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 11 Mar 2013 11:38:11 AM PDT
+  *  Modified: Mon 18 Mar 2013 11:41:42 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -76,8 +76,6 @@ namespace hir {
 			std::mt19937_64 ms_rand_gen_;
 
 			woo::BoostChronoTimer mytimer_;
-			double vmove_time, dft2_time, mod_time, norm_time, chi2_time;
-			double rest_time;
 
 
 			// functions
@@ -99,6 +97,9 @@ namespace hir {
 			bool update_indices();
 
 		public:
+			double vmove_time, dft2_time, mod_time, norm_time, chi2_time;
+			double rest_time;
+
 			Tile(unsigned int, unsigned int, const std::vector<unsigned int>&, unsigned int);
 			Tile(const Tile&);
 			~Tile();
