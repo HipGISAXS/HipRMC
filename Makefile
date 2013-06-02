@@ -8,33 +8,36 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = n
+USE_GPU = y
 
 ## base directories
-BOOST_DIR = /usr/common/usg/boost/1.51/gnu
+BOOST_DIR = /usr/local/boost_1_49_0
 #MPI_DIR = /usr/local/openmpi-1.6
 #HDF5_DIR = /usr/local/hdf5-1.8.9
 #Z_DIR = /usr/local/zlib-1.2.7
 #SZ_DIR = /usr/local/szip-2.1
 #TIFF_LIB_DIR = /usr/local/lib
-OPENCV_DIR = /global/homes/a/asarje/local/opencv-2.4.3-hopper
-WOO_DIR = /global/homes/a/asarje/lib
+OPENCV_DIR = /usr/local/opencv
+WOO_DIR = /home/asarje
 ifeq ($(USE_GPU), y)
-CUDA_DIR =
+CUDA_DIR = /usr/local/cuda
 FFTW_DIR =
 else
 CUDA_DIR =
-FFTW_DIR = /opt/fftw/3.3.0.1/x86_64
+FFTW_DIR = /usr/local/fftw-3.3.2
 endif
+TAU_DIR = /usr/local/tau-2.22.1/x86_64
 
 ## compilers
-CXX = CC -v
-#H5CC = $(HDF5_DIR)/bin/h5pcc
+CXX = g++
+#CXX = $(TAU_DIR)/bin/tau_cxx.sh
 ifeq ($(USE_GPU), y)
-NVCC =
+NVCC = $(CUDA_DIR)/bin/nvcc
+#NVCC = $(TAU_DIR)/bin/tau_cxx.sh
 else
 NVCC =
 endif
+
 
 ## compiler flags
 CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
@@ -42,8 +45,8 @@ CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
 ## gnu c++ compilers >= 4.7 also support -std=c++11, but they are not supported by cuda
 
 ## boost
-BOOST_INCL = -I $(BOOST_DIR)/include -I /global/homes/a/asarje/local/boost_1_49_0
-BOOST_LIBS = -L $(BOOST_DIR)/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
+BOOST_INCL = -I $(BOOST_DIR)
+BOOST_LIBS = -L /usr/local/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
 
 ## parallel hdf5
 #HDF5_INCL = -I$(HDF5_DIR)/include -I$(SZ_DIR)/include -I$(Z_DIR)/include
@@ -58,10 +61,10 @@ BOOST_LIBS = -L $(BOOST_DIR)/lib -lboost_system -lboost_filesystem -lboost_timer
 ## cuda
 ifeq ($(USE_GPU), y)
 CUDA_INCL = -I$(CUDA_DIR)/include
-CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft
-NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64
+CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft -lnvToolsExt
+NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp #-m 64
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
-NVCC_FLAGS += -gencode=arch=compute_20,code=compute_20
+NVCC_FLAGS += -gencode arch=compute_20,code=compute_20
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
 NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
 NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
@@ -102,8 +105,8 @@ MISC_FLAGS =
 endif
 
 ## choose optimization levels, debug flags, gprof flag, etc
-OPT_FLAGS = -g -DDEBUG #-v #-pg
-#OPT_FLAGS = -O3 -DNDEBUG #-v
+#OPT_FLAGS = -g -DDEBUG #-v #-pg
+OPT_FLAGS = -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
 #PREC_FLAG =			# leave empty for single precision
@@ -124,7 +127,7 @@ OBJ_DIR = $(PREFIX)/obj
 SRC_DIR = $(PREFIX)/src
 
 ## all objects
-OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o tile_scale.o utilities.o
+OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o
 ifeq ($(USE_GPU), y)
 OBJECTS_SIM += cutile.o
 endif
@@ -137,17 +140,17 @@ $(BINARY_SIM): $(OBJ_BIN_SIM)
 
 
 BINARY_SCALE = hiprmc-scale
-OBJECTS_SCALE = testscale.o rmc.o tile.o tile_scale.o utilities.o image.o
+OBJECTS_SCALE = testscale.o tile.o tile_scale.o utilities.o image.o
 OBJ_BIN_SCALE = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SCALE))
 
 $(BINARY_SCALE): $(OBJ_BIN_SCALE)
-	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -L/usr/local/lib -ltiff
 
 $(OBJ_DIR)/tile_scale.o: $(SRC_DIR)/tile_scale.cpp $(SRC_DIR)/tile.hpp
-	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
 
 $(OBJ_DIR)/testscale.o: $(SRC_DIR)/testscale.cpp $(SRC_DIR)/rmc.hpp
-	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
 
 
 ## c++ compilation
@@ -155,13 +158,13 @@ _DEPS_CXX = %.hpp
 DEPS_CXX = $(patsubst %,$(SRC_DIR)/%,$(_DEPS_CXX))
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS_CXX)
-	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
 
 _DEPS_WIL = wil/%.hpp
 DEPS_WIL = $(patsubst %,$(SRC_DIR)/wil/%,$(_DEPS_CXX))
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/wil/%.cpp $(DEPS_WIL)
-	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
 
 $(OBJ_DIR)/hiprmc.o: $(SRC_DIR)/hiprmc.cpp $(SRC_DIR)/rmc.hpp
 	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)

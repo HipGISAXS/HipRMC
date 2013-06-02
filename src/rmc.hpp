@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 13 Mar 2013 11:43:57 AM PDT
+  *  Modified: Mon 18 Mar 2013 05:53:45 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -38,8 +38,11 @@ namespace hir {
 			mat_complex_t vandermonde_mat_;
 			real_t base_norm_;			// norm of input
 
+			#ifdef USE_MPI
+			#endif
+
 			// extracts raw data from image
-			bool init(const char*, real_t*);
+			bool init(int, char**, const char*, real_t*);
 			// initializes with raw data
 			//bool init(real_t*, unsigned int, unsigned int*, real_t*);
 			// initialization for each set of simulation runs
@@ -55,7 +58,7 @@ namespace hir {
 			bool preprocess_pattern_and_mask(unsigned int);
 
 		public:
-			RMC(unsigned int, unsigned int, const char*, unsigned int, unsigned int, real_t*);
+			RMC(int, char**, unsigned int, unsigned int, const char*, unsigned int, unsigned int, real_t*);
 			~RMC();
 			bool simulate(int, real_t, unsigned int, unsigned int);
 			bool simulate_and_scale(int, unsigned int, real_t, unsigned int);

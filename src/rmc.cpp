@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 18 Mar 2013 11:53:46 AM PDT
+  *  Modified: Thu 21 Mar 2013 03:39:16 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -19,7 +19,7 @@
 
 namespace hir {
 
-	RMC::RMC(unsigned int rows, unsigned int cols, const char* img_file,
+	RMC::RMC(int narg, char** args, unsigned int rows, unsigned int cols, const char* img_file,
 					unsigned int num_tiles, unsigned int init_tile_size, real_t* loading) :
 			in_pattern_(rows, cols),
 			rows_(rows), cols_(cols), size_(std::max(rows, cols)),
@@ -39,7 +39,7 @@ namespace hir {
 			std::cerr << "error: initial tile size should be less or equal to pattern size" << std::endl;
 			exit(1);
 		} // if
-		if(!init(img_file, loading)) {
+		if(!init(narg, args, img_file, loading)) {
 			std::cerr << "error: failed to pre-initialize RMC object" << std::endl;
 			exit(1);
 		} // if
@@ -53,44 +53,65 @@ namespace hir {
 
 
 	// idea is that this can be replaced easily for other types of raw inputs (not image)
-	bool RMC::init(const char* img_file, real_t* loading) {
+	bool RMC::init(int narg, char** args, const char* img_file, real_t* loading) {
 		std::cout << "++ init" << std::endl;
 		#ifdef USE_GPU
-			init_gpu();
+			if(!init_gpu()) {
+				std::cerr << "error: " << std::endl;
+				return false;
+			} // if
+		#endif
+		#ifdef USE_MPI
+			if(!init_mpi(narg, args)) {
+				std::cerr << "error: " << std::endl;
+				return false;
+			} // if
 		#endif
 
-		// TODO: opencv usage is temporary. improve with something else...
-		// TODO: take a subimage of the input ...
-		cv::Mat img = cv::imread(img_file, 0);	// grayscale only for now
-		//cv::getRectSubPix(img, cv::Size(rows_, cols_), cv::Point2f(cx, cy), subimg);
-		// extract the input image raw data (grayscale values)
-		// and create mask array = indices in image data where value is min
-		real_t *img_data = new (std::nothrow) real_t[rows_ * cols_];
-		//unsigned int *mask_data = new (std::nothrow) unsigned int[rows_ * cols_];
-		unsigned int mask_count = 0;
-		unsigned int hrow = rows_ >> 1;
-		unsigned int hcol = cols_ >> 1;
-		double min_val, max_val;
-		cv::minMaxIdx(img, &min_val, &max_val);
-		double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
-		std::cout << "MIN: " << min_val << ", MAX: " << max_val << ", THRESH: " << threshold << std::endl;
-		cv::threshold(img, img, threshold, max_val, cv::THRESH_TOZERO);
-		// scale pixel intensities to span all of 0 - 255
-		scale_image_colormap(img, threshold, max_val);
-		cv::imwrite("hohohohohohoho.tif", img);
-		// initialize image data from img
-		for(unsigned int i = 0; i < rows_; ++ i) {
-			for(unsigned int j = 0; j < cols_; ++ j) {
-				unsigned int temp = (unsigned int) img.at<unsigned char>(i, j);
-				/*
-				// do the quadrant swap thingy ...
-				unsigned int img_index = cols_ * ((i + hrow) % rows_) + (j + hcol) % cols_;*/
-				// or not ...
-				unsigned int img_index = cols_ * i + j;
-				img_data[img_index] = (real_t) temp;
-				//if(temp == 0) mask_data[mask_count ++] = img_index;
+		#ifdef USE_MPI
+		if(main_comm.rank() == 0) {
+		#endif
+			// TODO: opencv usage is temporary. improve with something else...
+			// TODO: take a subimage of the input ...
+			cv::Mat img = cv::imread(img_file, 0);	// grayscale only for now
+			//cv::getRectSubPix(img, cv::Size(rows_, cols_), cv::Point2f(cx, cy), subimg);
+			// extract the input image raw data (grayscale values)
+			// and create mask array = indices in image data where value is min
+			real_t *img_data = new (std::nothrow) real_t[rows_ * cols_];
+			//unsigned int *mask_data = new (std::nothrow) unsigned int[rows_ * cols_];
+			unsigned int mask_count = 0;
+			unsigned int hrow = rows_ >> 1;
+			unsigned int hcol = cols_ >> 1;
+			double min_val, max_val;
+			cv::minMaxIdx(img, &min_val, &max_val);
+			double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
+			std::cout << "MIN: " << min_val << ", MAX: " << max_val << ", THRESH: " << threshold << std::endl;
+			cv::threshold(img, img, threshold, max_val, cv::THRESH_TOZERO);
+			// scale pixel intensities to span all of 0 - 255
+			scale_image_colormap(img, threshold, max_val);
+			cv::imwrite("hohohohohohoho.tif", img);
+			// initialize image data from img
+			for(unsigned int i = 0; i < rows_; ++ i) {
+				for(unsigned int j = 0; j < cols_; ++ j) {
+					unsigned int temp = (unsigned int) img.at<unsigned char>(i, j);
+					/*
+					// do the quadrant swap thingy ...
+					unsigned int img_index = cols_ * ((i + hrow) % rows_) + (j + hcol) % cols_;*/
+					// or not ...
+					unsigned int img_index = cols_ * i + j;
+					img_data[img_index] = (real_t) temp;
+					//if(temp == 0) mask_data[mask_count ++] = img_index;
+				} // for
 			} // for
-		} // for
+
+		#ifdef USE_MPI
+			// send img_data to all procs ...
+		} else {
+			// receive img_data from proc 0 ...
+		} // if-else
+		#endif
+
+		// for now, limit to max num procs == num tiles ...
 
 		//print_matrix("img_data:", img_data, rows_, cols_);
 		//print_array( "mask_data:", mask_data, mask_count);
@@ -337,10 +358,14 @@ namespace hir {
 			for(unsigned int i = 0; i < num_tiles_; ++ i) {
 				tiles_[i].simulate_step(scaled_pattern_, vandermonde_mat_, mask_mat_, tstar, base_norm_);
 				if((step + 1) % rate == 0) tiles_[i].update_model();
-				//if(step % 100 == 0) {
-				//	tiles_[0].update_model(scaled_pattern_, base_norm_);
-				//	tiles_[0].save_mat_image((step / 100 + 1));
-				//} // if
+				/*if(step % 100 == 0) {
+					tiles_[i].update_model();
+					#ifdef USE_GPU
+						tiles_[i].update_f_mats();
+					#endif
+					tiles_[i].save_mat_image((step / 100 + 1));
+					tiles_[i].save_mat_image_direct(step / 100 + 1);	// save a_mat
+				} // if*/
 			} // for
 		} // for
 		std::cout << std::endl << "++ simulation finished" << std::endl;
@@ -351,6 +376,7 @@ namespace hir {
 			std::cout << "++++ final chi2 = " << chi2 << std::endl;
 			tiles_[i].print_times();
 
+			#ifdef USE_GPU
 			// temp ... for bandwidth computation of dft2 ...
 			unsigned int num_blocks = ceil((real_t) tile_size_ / CUDA_BLOCK_SIZE_X_) *
 										ceil((real_t) tile_size_ / CUDA_BLOCK_SIZE_Y_);
@@ -361,11 +387,12 @@ namespace hir {
 			std::cout << "+++++++ DFT2: "
 					<< (read_bytes + write_bytes) * num_steps * 1000 / (tiles_[i].dft2_time * 1024 * 1024)
 					<< " MB/sec" << std::endl;
+			#endif
 
 			std::cout << "saving images ... " << std::endl;
 			tiles_[i].save_mat_image(num_tiles_ + i);		// save mod_f mat
 			tiles_[i].save_fmat_image(num_tiles_ + i);		// save mod_f mat
-			tiles_[i].save_mat_image_direct(num_tiles_ + i);	// save a_mat
+			tiles_[i].save_mat_image_direct(num_tiles_ + i);	// save a_mat*/
 			tiles_[i].save_chi2_list();
 		} // for
 

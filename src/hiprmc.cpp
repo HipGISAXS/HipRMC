@@ -3,7 +3,7 @@
   *
   *  File: hiprmc.cpp
   *  Created: Jan 27, 2013
-  *  Modified: Tue 12 Mar 2013 01:46:42 PM PDT
+  *  Modified: Mon 18 Mar 2013 05:54:19 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -32,7 +32,7 @@ int main(int narg, char** args) {
 
 	woo::BoostChronoTimer mytimer;
 	mytimer.start();
-	hir::RMC my_rmc(size, size, img.c_str(), 1, init_size, loading);
+	hir::RMC my_rmc(narg, args, size, size, img.c_str(), 1, init_size, loading);
 	mytimer.stop();
 	double init_time = mytimer.elapsed_msec();
 	mytimer.start();

@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 18 Mar 2013 11:41:42 AM PDT
+  *  Modified: Tue 19 Mar 2013 10:16:50 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -127,8 +127,8 @@ namespace hir {
 				img.construct_image(data);
 				std::string str("_modf.tif");
 				std::stringstream num;
-				num << std::setfill('0') << std::setw(4) << i;
-				char str0[5];
+				num << std::setfill('0') << std::setw(6) << i;
+				char str0[7];
 				num >> str0;
 				str = std::string(str0) + str;
 				img.save(str);
@@ -147,8 +147,8 @@ namespace hir {
 				img.construct_image(data);
 				std::string str("_f.tif");
 				std::stringstream num;
-				num << std::setfill('0') << std::setw(4) << i;
-				char str0[5];
+				num << std::setfill('0') << std::setw(6) << i;
+				char str0[7];
 				num >> str0;
 				str = std::string(str0) + str;
 				img.save(str);
@@ -160,8 +160,8 @@ namespace hir {
 				img.construct_image_direct(a_mat_.data());
 				std::string str("_a_mat.tif");
 				std::stringstream num;
-				num << std::setfill('0') << std::setw(4) << i;
-				char str0[5];
+				num << std::setfill('0') << std::setw(6) << i;
+				char str0[7];
 				num >> str0;
 				str = std::string(str0) + str;
 				img.save(str);
