@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Thu 21 Mar 2013 03:39:16 PM PDT
+  *  Modified: Tue 04 Jun 2013 09:50:46 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -105,16 +105,16 @@ namespace hir {
 			} // for
 
 		#ifdef USE_MPI
-			// send img_data to all procs ...
+			// TODO: send img_data to all procs ...
 		} else {
-			// receive img_data from proc 0 ...
+			// TODO: receive img_data from proc 0 ...
 		} // if-else
 		#endif
 
-		// for now, limit to max num procs == num tiles ...
+		// TODO: for now, limit to max num procs == num tiles ...
 
 		//print_matrix("img_data:", img_data, rows_, cols_);
-		//print_array( "mask_data:", mask_data, mask_count);
+		//print_array("mask_data:", mask_data, mask_count);
 
 		in_pattern_.populate(img_data);
 		vec_uint_t indices;
@@ -259,7 +259,7 @@ namespace hir {
 						<< scaled_pattern_.num_rows() << ", " << tile_size_ << std::endl;
 			return false;
 		} else {
-			std::cout << "be happiee: " << scaled_pattern_.num_rows() << ", " << tile_size_ << std::endl;
+			//std::cout << "be happiee: " << scaled_pattern_.num_rows() << ", " << tile_size_ << std::endl;
 		} // if-else
 		// apply threshold and
 		// scale pixel intensities to span all of 0 - 255

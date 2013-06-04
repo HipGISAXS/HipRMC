@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 18 Mar 2013 11:36:57 AM PDT
+  *  Modified: Mon 03 Jun 2013 09:42:24 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -203,7 +203,7 @@ namespace hir {
 		std::cout << "**** model norm time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		c_factor_ = base_norm / model_norm_;
 		mytimer.start();
-		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, c_factor_);
+		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, c_factor_, base_norm);
 		std::cout << "++++ initial chi2 = " << prev_chi2_ << std::endl;
 		mytimer.stop();
 		std::cout << "**** chi2 time: " << mytimer.elapsed_msec() << " ms." << std::endl;
@@ -253,7 +253,7 @@ namespace hir {
 		mytimer_.stop(); norm_time += mytimer_.elapsed_msec();
 		mytimer_.start();
 		double new_c_factor = base_norm / model_norm_;
-		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, new_c_factor);
+		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, new_c_factor, base_norm);
 		double diff_chi2 = prev_chi2_ - new_chi2;
 		mytimer_.stop(); chi2_time += mytimer_.elapsed_msec();
 		//std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
@@ -400,7 +400,8 @@ namespace hir {
 	} // Tile::compute_model_norm()
 
 
-	double Tile::compute_chi2(const mat_real_t& pattern, unsigned int mod_f_i, real_t c_factor) {
+	double Tile::compute_chi2(const mat_real_t& pattern, unsigned int mod_f_i, real_t c_factor,
+								real_t base_norm) {
 		double chi2 = 0.0;
 		#ifdef USE_GPU
 			chi2 = gtile_.compute_chi2(mod_f_i, c_factor);
@@ -413,11 +414,12 @@ namespace hir {
 					//			<< mod_f_mat_[mod_f_i](i, j) << ", c_fac: " << c_factor
 					//			<< ", chi: " << temp << std::endl;
 					chi2 += temp * temp;
+					//chi2 += temp * temp / (pattern(i, j) + 1);
 				} // for
 			} // for
 		#endif // USE_GPU
-		// normalize with the size
-		//chi2 = chi2 / (size_ * size_);
+		// normalize with something ... norm for now
+		//chi2 /= base_norm * base_norm;
 		return chi2;
 	} // Tile::compute_chi2()
 

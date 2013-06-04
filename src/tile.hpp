@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Tue 19 Mar 2013 10:16:50 AM PDT
+  *  Modified: Mon 03 Jun 2013 07:35:47 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -86,7 +86,7 @@ namespace hir {
 			bool compute_mod_mat(unsigned int);
 			bool compute_model_norm(unsigned int);
 			//double compute_chi2(const mat_real_t&, unsigned int, real_t);
-			double compute_chi2(const mat_real_t&, unsigned int, real_t);
+			double compute_chi2(const mat_real_t&, unsigned int, real_t, real_t);
 			bool virtual_move_random_particle();
 			bool move_particle(double, real_t);
 			bool compute_dft2(mat_complex_t&, unsigned int, unsigned int);
