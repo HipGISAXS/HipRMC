@@ -3,14 +3,14 @@
   *
   *  File: generate.cpp
   *  Created: Mar 06, 2013
-  *  Modified: Thu 07 Mar 2013 09:15:08 AM PST
+  *  Modified: Tue 04 Jun 2013 01:28:28 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
 #include <opencv2/opencv.hpp>
 #include <fftw3.h>
-#include "image.hpp"
+#include "wil/image.hpp"
 
 	bool execute_fftw(unsigned int size, fftw_complex* input, fftw_complex* output) {
 		// create fft plan
@@ -23,7 +23,7 @@
 	} // execute_cufft()
 
 
-	bool compute_fft_mat(unsigned int size, const cv::Mat& data) {
+	bool compute_fft_mat(unsigned int size, const cv::Mat& data, char* outfile) {
 		std::cout << "++ compute_fft_mat" << std::endl;
 
 		unsigned int size2 = size * size;
@@ -44,23 +44,23 @@
 		// execute fft
 		execute_fftw(size, mat_in, mat_out);
 
-		float *temp_data = new (std::nothrow) float[size * size];
-		float min_val = FLT_MAX, max_val = 0.0;
+		double *temp_data = new (std::nothrow) double[size * size];
+		double min_val = FLT_MAX, max_val = 0.0;
 		for(unsigned int i = 0; i < size; ++ i) {
 			for(unsigned int j = 0; j < size; ++ j) {
-				float val = pow(mat_out[size * i + j][0], 2) + pow(mat_out[size * i + j][1], 2);
-				std::cout << mat_out[size * i + j][0] << "," << mat_out[size * i + j][1] << " ";
+				double val = pow(mat_out[size * i + j][0], 2) + pow(mat_out[size * i + j][1], 2);
+				//std::cout << mat_out[size * i + j][0] << "," << mat_out[size * i + j][1] << " ";
 				if(val > max_val) max_val = val;
 				if(val < min_val) min_val = val;
 				temp_data[size * i + j] = val;
 				//std::cout << val << " ";
 			} // for
-			std::cout << std::endl;
+			//std::cout << std::endl;
 		} // for
 
-		hig::Image img(size, size);
+		wil::Image img(size, size);
 		img.construct_image(temp_data);
-		std::string str("mysquare_fft.tif");
+		std::string str(outfile);
 		img.save(str);
 
 		delete[] temp_data;
@@ -74,7 +74,7 @@
 	} // compute_fft_mat()
 
 
-int main(int narg, char** args) {
+/*int main(int narg, char** args) {
 	unsigned int size = 512;
 	unsigned int size8 = size >> 3;
 	//std::vector<unsigned char> data;
@@ -95,5 +95,17 @@ int main(int narg, char** args) {
 
 	compute_fft_mat(size, img);
 
+	return 0;
+} // main()*/
+
+
+int main(int narg, char** args) {
+	if(narg != 4) {
+		std::cout << "usage: generate <size> <input image> <output image>" << std::endl;
+		return 0;
+	} // if
+	unsigned int size = atoi(args[1]);
+	cv::Mat img = cv::imread(args[2], 0);
+	compute_fft_mat(size, img, args[3]);
 	return 0;
 } // main()

@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 03 Jun 2013 07:35:47 PM PDT
+  *  Modified: Tue 04 Jun 2013 02:30:36 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -16,6 +16,7 @@
 #include <sstream>
 #include <iomanip>
 #include <fstream>
+#include <limits>
 
 #ifndef USE_GPU
 #include <fftw3.h>
@@ -170,7 +171,8 @@ namespace hir {
 			bool save_chi2_list() {
 				std::ofstream chi2out("chi2_list.dat", std::ios::out | std::ios::app);
 				for(unsigned int i = 0; i < chi2_list_.size(); ++ i) {
-					chi2out << i << "\t" << chi2_list_[i] << std::endl;
+					chi2out << i << "\t" << std::setprecision(std::numeric_limits<double>::digits10 + 1)
+							<< chi2_list_[i] << std::endl;
 				} // for
 				chi2out.close();
 			} // save_chi2_list()

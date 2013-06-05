@@ -3,7 +3,7 @@
   *
   *  File: init_gpu.cuh
   *  Created: Feb 22, 2013
-  *  Modified: Mon 18 Mar 2013 05:55:22 PM PDT
+  *  Modified: Tue 04 Jun 2013 09:39:03 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
