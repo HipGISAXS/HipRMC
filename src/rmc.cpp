@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Tue 04 Jun 2013 09:50:46 AM PDT
+  *  Modified: Wed 05 Jun 2013 10:35:27 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -385,8 +385,9 @@ namespace hir {
 			unsigned int write_bytes = num_blocks * CUDA_BLOCK_SIZE_X_ * CUDA_BLOCK_SIZE_Y_ *
 										sizeof(cucomplex_t);
 			std::cout << "+++++++ DFT2: "
-					<< (read_bytes + write_bytes) * num_steps * 1000 / (tiles_[i].dft2_time * 1024 * 1024)
-					<< " MB/sec" << std::endl;
+					<< (float) (read_bytes + write_bytes) * num_steps * 1000 /
+						(tiles_[i].dft2_time * 1024 * 1024)
+					<< " MB/s" << std::endl;
 			#endif
 
 			std::cout << "saving images ... " << std::endl;
