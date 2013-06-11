@@ -26,15 +26,18 @@ else
 CUDA_DIR =
 FFTW_DIR = /usr/local/fftw-3.3.2
 endif
+TAU_DIR = /usr/local/tau-2.22.1/x86_64
 
 ## compilers
 CXX = g++
-#H5CC = $(HDF5_DIR)/bin/h5pcc
+#CXX = $(TAU_DIR)/bin/tau_cxx.sh
 ifeq ($(USE_GPU), y)
 NVCC = $(CUDA_DIR)/bin/nvcc
+#NVCC = $(TAU_DIR)/bin/tau_cxx.sh
 else
 NVCC =
 endif
+
 
 ## compiler flags
 CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
@@ -58,10 +61,10 @@ BOOST_LIBS = -L /usr/local/lib -lboost_system -lboost_filesystem -lboost_timer -
 ## cuda
 ifeq ($(USE_GPU), y)
 CUDA_INCL = -I$(CUDA_DIR)/include
-CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft
-NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64
+CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft -lnvToolsExt
+NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp #-m 64
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
-NVCC_FLAGS += -gencode=arch=compute_20,code=compute_20
+NVCC_FLAGS += -gencode arch=compute_20,code=compute_20
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
 NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
 NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
@@ -171,7 +174,22 @@ $(OBJ_DIR)/cutile.o: $(SRC_DIR)/tile.cu
 	$(NVCC) -c $< -o $@ $(OPT_FLAGS) $(NVCC_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
 endif
 
-all: hiprmc
+all: $(BINARY_SIM)
+
+
+## compute fft tool
+
+BINARY_COMPUTE_FFT = compute-fft
+OBJECTS_COMPUTE_FFT = generate.o utilities.o image.o
+OBJ_BIN_COMPUTE_FFT = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_COMPUTE_FFT))
+
+computefft: $(BINARY_COMPUTE_FFT)
+
+$(BINARY_COMPUTE_FFT): $(OBJ_BIN_COMPUTE_FFT)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+
+$(OBJ_DIR)/generate.o: $(SRC_DIR)/generate.cpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
 
 .PHONY: clean
 
