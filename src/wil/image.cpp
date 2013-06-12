@@ -5,7 +5,7 @@
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Sat 09 Mar 2013 03:20:05 PM PST
+  *  Modified: Wed 12 Jun 2013 03:11:44 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -35,6 +35,12 @@ namespace wil {
 
 	Image::Image(unsigned int ny, unsigned int nz, std::string palette):
 					nx_(1), ny_(ny), nz_(nz), color_map_(palette) {
+		image_buffer_ = NULL;
+	} // Image::Image()
+
+
+	Image::Image(unsigned int ny, unsigned int nz, unsigned int r, unsigned int g, unsigned int b):
+					nx_(1), ny_(ny), nz_(nz), new_color_map_(r, g, b) {
 		image_buffer_ = NULL;
 	} // Image::Image()
 

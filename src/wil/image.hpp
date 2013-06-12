@@ -5,7 +5,7 @@
   *
   *  File: image.hpp
   *  Created: Jun 18, 2012
-  *  Modified: Sat 09 Mar 2013 03:15:14 PM PST
+  *  Modified: Wed 12 Jun 2013 03:12:24 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -46,6 +46,7 @@ namespace wil {
 			Image(unsigned int ny, unsigned int nz);					/* initialize a 2D image object */
 			Image(unsigned int ny, unsigned int nz, char* palette);
 			Image(unsigned int ny, unsigned int nz, std::string palette);
+			Image(unsigned int ny, unsigned int nz, unsigned int r, unsigned int g, unsigned int b);
 			Image(unsigned int nx, unsigned int ny, unsigned int nz);	/* initialize a 3D image object */
 			Image(unsigned int nx, unsigned int ny, unsigned int nz, char* palette);
 			Image(unsigned int nx, unsigned int ny, unsigned int nz, std::string palette);
