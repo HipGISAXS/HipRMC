@@ -1,0 +1,16 @@
+
+hipRMCInput = {
+
+	instrumentation = {							# mandatory object
+		inputimage = "data/mysphere3.tif",		# mandatory
+		imagesize = [ 512 512 ],				# mandatory
+		numtiles = 1,							# optional, default = 1
+		loadingfactors = [ 0.1 ]				# mandatory
+	},
+
+	computation = {								# optional object
+		modelstartsize = [ 510 510 ],			# optional, default = imagesize
+		numstepsfactor = 100,					# optional, default = 100 ?? ...
+		scalefactor = 1							# optional, default = 1
+	}
+}

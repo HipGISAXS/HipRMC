@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 18 Mar 2013 05:53:45 PM PDT
+  *  Modified: Wed 12 Jun 2013 01:59:08 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -42,6 +42,7 @@ namespace hir {
 			#endif
 
 			// extracts raw data from image
+			bool init();
 			bool init(int, char**, const char*, real_t*);
 			// initializes with raw data
 			//bool init(real_t*, unsigned int, unsigned int*, real_t*);
@@ -58,10 +59,12 @@ namespace hir {
 			bool preprocess_pattern_and_mask(unsigned int);
 
 		public:
+			RMC(char*);
 			RMC(int, char**, unsigned int, unsigned int, const char*, unsigned int, unsigned int, real_t*);
 			~RMC();
 			bool simulate(int, real_t, unsigned int, unsigned int);
 			bool simulate_and_scale(int, unsigned int, real_t, unsigned int);
+			bool simulate_and_scale();
 
 			// for testing ...
 			bool scale(unsigned int size);

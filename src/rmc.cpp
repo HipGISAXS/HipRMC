@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 05 Jun 2013 10:35:27 AM PDT
+  *  Modified: Wed 12 Jun 2013 02:04:01 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -13,11 +13,65 @@
 
 #include "rmc.hpp"
 #include "constants.hpp"
+#include "hiprmc_input.hpp"
 #ifdef USE_GPU
 #include "init_gpu.cuh"
 #endif
 
 namespace hir {
+
+	RMC::RMC(char* filename) :
+			in_pattern_(0, 0),
+			scaled_pattern_(0, 0),
+			mask_mat_(0, 0),
+			vandermonde_mat_(0, 0) {
+		if(!HipRMCInput::instance().construct_input_config(filename)) {
+			std::cerr << "error: failed to construct input configuration" << std::endl;
+			exit(1);
+		} // if
+
+		HipRMCInput::instance().print_all();
+
+		rows_ = HipRMCInput::instance().num_rows();
+		cols_ = HipRMCInput::instance().num_cols();
+		size_ = std::max(rows_, cols_);
+		num_tiles_ = HipRMCInput::instance().num_tiles();
+		in_pattern_.resize(rows_, cols_);
+		unsigned int start_num_rows = HipRMCInput::instance().model_start_num_rows();
+		unsigned int start_num_cols = HipRMCInput::instance().model_start_num_cols();
+		tile_size_ = std::max(start_num_rows, start_num_cols);
+		scaled_pattern_.resize(tile_size_, tile_size_);
+		mask_mat_.resize(tile_size_, tile_size_);
+		vandermonde_mat_.resize(tile_size_, tile_size_);
+
+		// for now only square patterns are considered
+		if(rows_ != cols_) {
+			std::cerr << "error: number of rows should equal number of columns" << std::endl;
+			exit(1);
+		} // if
+		if(tile_size_ > rows_) {
+			std::cerr << "error: initial tile size should be less or equal to pattern size" << std::endl;
+			exit(1);
+		} // if
+		#ifdef USE_GPU
+			if(!init_gpu()) {
+				std::cerr << "error: " << std::endl;
+				exit(1);
+			} // if
+		#endif
+		#ifdef USE_MPI
+			if(!init_mpi(1, &filename)) {
+				std::cerr << "error: " << std::endl;
+				exit(1);
+			} // if
+		#endif
+		if(!init()) {
+			std::cerr << "error: failed to pre-initialize RMC object" << std::endl;
+			exit(1);
+		} // if
+
+	} // RMC::RMC()
+
 
 	RMC::RMC(int narg, char** args, unsigned int rows, unsigned int cols, const char* img_file,
 					unsigned int num_tiles, unsigned int init_tile_size, real_t* loading) :
@@ -122,6 +176,70 @@ namespace hir {
 
 		initialize_simulation(1);
 		initialize_tiles(indices, loading);
+
+		//delete[] mask_data;
+		delete[] img_data;
+		return true;
+	} // RMC::init()
+
+
+	bool RMC::init() {
+		std::cout << "++ init" << std::endl;
+
+		#ifdef USE_MPI
+		if(main_comm.rank() == 0) {
+		#endif
+			// TODO: opencv usage is temporary. improve with something else...
+			// TODO: take a subimage of the input ...
+			cv::Mat img = cv::imread(HipRMCInput::instance().input_image(), 0);	// grayscale only for now
+			//cv::getRectSubPix(img, cv::Size(rows_, cols_), cv::Point2f(cx, cy), subimg);
+			// extract the input image raw data (grayscale values)
+			// and create mask array = indices in image data where value is min
+			real_t *img_data = new (std::nothrow) real_t[rows_ * cols_];
+			//unsigned int *mask_data = new (std::nothrow) unsigned int[rows_ * cols_];
+			unsigned int mask_count = 0;
+			unsigned int hrow = rows_ >> 1;
+			unsigned int hcol = cols_ >> 1;
+			double min_val, max_val;
+			cv::minMaxIdx(img, &min_val, &max_val);
+			double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
+			std::cout << "MIN: " << min_val << ", MAX: " << max_val << ", THRESH: " << threshold << std::endl;
+			cv::threshold(img, img, threshold, max_val, cv::THRESH_TOZERO);
+			// scale pixel intensities to span all of 0 - 255
+			scale_image_colormap(img, threshold, max_val);
+			cv::imwrite("hohohohohohoho.tif", img);
+			// initialize image data from img
+			for(unsigned int i = 0; i < rows_; ++ i) {
+				for(unsigned int j = 0; j < cols_; ++ j) {
+					unsigned int temp = (unsigned int) img.at<unsigned char>(i, j);
+					/*
+					// do the quadrant swap thingy ...
+					unsigned int img_index = cols_ * ((i + hrow) % rows_) + (j + hcol) % cols_;*/
+					// or not ...
+					unsigned int img_index = cols_ * i + j;
+					img_data[img_index] = (real_t) temp;
+					//if(temp == 0) mask_data[mask_count ++] = img_index;
+				} // for
+			} // for
+
+		#ifdef USE_MPI
+			// TODO: send img_data to all procs ...
+		} else {
+			// TODO: receive img_data from proc 0 ...
+		} // if-else
+		#endif
+
+		// TODO: for now, limit to max num procs == num tiles ...
+
+		//print_matrix("img_data:", img_data, rows_, cols_);
+		//print_array("mask_data:", mask_data, mask_count);
+
+		in_pattern_.populate(img_data);
+		vec_uint_t indices;
+		initialize_particles_random(indices);
+
+		initialize_simulation(1);
+		initialize_tiles(indices, &(HipRMCInput::instance().loading()[0]));
 
 		//delete[] mask_data;
 		delete[] img_data;
@@ -404,6 +522,40 @@ namespace hir {
 	bool RMC::simulate_and_scale(int num_steps_fac, unsigned int scale_factor,
 								real_t tstar, unsigned int rate) {
 		std::cout << "++ performing scaling and simulation ..." << std::endl;
+		unsigned int num_steps = num_steps_fac * tile_size_;
+		unsigned int curr_scale_fac = scale_factor;
+		simulate(num_steps, tstar, rate, scale_factor);
+		for(unsigned int tsize = tile_size_, iter = 0; tsize < size_; tsize += curr_scale_fac, ++ iter) {
+			if(tile_size_ < size_) {
+				for(unsigned int i = 0; i < num_tiles_; ++ i) {
+					tiles_[i].update_model();
+					if(tile_size_ + scale_factor > size_) {
+						curr_scale_fac = size_ - tile_size_;
+					} // if
+					for(unsigned int s = 0; s < curr_scale_fac; ++ s) {
+						tiles_[i].scale_step();
+					} // for
+					if(tiles_[i].size() != tile_size_ + curr_scale_fac) {
+						std::cerr << "error: you are in graaaaaaave danger!" << std::endl;
+						return false;
+					} // if
+					//tiles_[i].save_mat_image_direct(i);
+				} // for
+				tile_size_ += curr_scale_fac;
+			} // if
+			num_steps = num_steps_fac * tile_size_;
+			simulate(num_steps, tstar, rate, curr_scale_fac);
+		} // for
+		return true;
+	} // RMC::simulate_and_scale()
+
+
+	bool RMC::simulate_and_scale() {
+		std::cout << "++ performing scaling and simulation ..." << std::endl;
+		int num_steps_fac = HipRMCInput::instance().num_steps_factor();
+		unsigned int scale_factor = HipRMCInput::instance().scale_factor();
+		real_t tstar = 1;				// FIXME ... hardcoded ...
+		unsigned int rate = 10000;		// FIXME ... hardcoded ...
 		unsigned int num_steps = num_steps_fac * tile_size_;
 		unsigned int curr_scale_fac = scale_factor;
 		simulate(num_steps, tstar, rate, scale_factor);
