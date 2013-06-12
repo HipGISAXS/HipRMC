@@ -171,9 +171,24 @@ $(OBJ_DIR)/cutile.o: $(SRC_DIR)/tile.cu
 	$(NVCC) -c $< -o $@ $(OPT_FLAGS) $(NVCC_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
 endif
 
-all: hiprmc
+all: $(BINARY_SIM)
+
+
+## compute fft tool
+
+BINARY_COMPUTE_FFT = compute-fft
+OBJECTS_COMPUTE_FFT = generate.o utilities.o image.o
+OBJ_BIN_COMPUTE_FFT = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_COMPUTE_FFT))
+
+computefft: $(BINARY_COMPUTE_FFT)
+
+$(BINARY_COMPUTE_FFT): $(OBJ_BIN_COMPUTE_FFT)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+
+$(OBJ_DIR)/generate.o: $(SRC_DIR)/generate.cpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
 
 .PHONY: clean
 
 clean:
-	rm -f $(OBJ_BIN_SIM) $(BIN_DIR)/$(BINARY_SIM)
+	rm -f $(OBJ_BIN_SIM) $(BIN_DIR)/$(BINARY_SIM) $(OBJ_BIN_COMPUTE_FFT) $(BIN_DIR)/$(BINARY_COMPUTE_FFT)
