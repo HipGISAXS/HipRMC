@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 12 Jun 2013 02:04:01 PM PDT
+  *  Modified: Fri 14 Jun 2013 11:50:59 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -143,7 +143,6 @@ namespace hir {
 			cv::threshold(img, img, threshold, max_val, cv::THRESH_TOZERO);
 			// scale pixel intensities to span all of 0 - 255
 			scale_image_colormap(img, threshold, max_val);
-			cv::imwrite("hohohohohohoho.tif", img);
 			// initialize image data from img
 			for(unsigned int i = 0; i < rows_; ++ i) {
 				for(unsigned int j = 0; j < cols_; ++ j) {
@@ -157,6 +156,13 @@ namespace hir {
 					//if(temp == 0) mask_data[mask_count ++] = img_index;
 				} // for
 			} // for
+			for(unsigned int i = 0; i < rows_; ++ i) {
+				for(unsigned int j = 0; j < cols_; ++ j) {
+					img.at<unsigned char>(i, j) = (unsigned char) img_data[cols_ * i + j];
+				} // for
+			} // for
+			// write it out
+			cv::imwrite("base_pattern.tif", img);
 
 		#ifdef USE_MPI
 			// TODO: send img_data to all procs ...
@@ -207,20 +213,26 @@ namespace hir {
 			cv::threshold(img, img, threshold, max_val, cv::THRESH_TOZERO);
 			// scale pixel intensities to span all of 0 - 255
 			scale_image_colormap(img, threshold, max_val);
-			cv::imwrite("hohohohohohoho.tif", img);
 			// initialize image data from img
 			for(unsigned int i = 0; i < rows_; ++ i) {
 				for(unsigned int j = 0; j < cols_; ++ j) {
 					unsigned int temp = (unsigned int) img.at<unsigned char>(i, j);
-					/*
+					
 					// do the quadrant swap thingy ...
-					unsigned int img_index = cols_ * ((i + hrow) % rows_) + (j + hcol) % cols_;*/
+					unsigned int img_index = cols_ * ((i + hrow) % rows_) + (j + hcol) % cols_;
 					// or not ...
-					unsigned int img_index = cols_ * i + j;
+					//unsigned int img_index = cols_ * i + j;
 					img_data[img_index] = (real_t) temp;
 					//if(temp == 0) mask_data[mask_count ++] = img_index;
 				} // for
 			} // for
+			for(unsigned int i = 0; i < rows_; ++ i) {
+				for(unsigned int j = 0; j < cols_; ++ j) {
+					img.at<unsigned char>(i, j) = (unsigned char) img_data[cols_ * i + j];
+				} // for
+			} // for
+			// write it out
+			cv::imwrite("base_pattern.tif", img);
 
 		#ifdef USE_MPI
 			// TODO: send img_data to all procs ...
