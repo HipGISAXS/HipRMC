@@ -3,7 +3,7 @@
   *
   *  File: generate.cpp
   *  Created: Mar 06, 2013
-  *  Modified: Wed 12 Jun 2013 03:25:30 PM PDT
+  *  Modified: Thu 01 Aug 2013 01:05:03 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -52,7 +52,9 @@
 				//std::cout << mat_out[size * i + j][0] << "," << mat_out[size * i + j][1] << " ";
 				if(val > max_val) max_val = val;
 				if(val < min_val) min_val = val;
-				temp_data[size * i + j] = val;
+				unsigned int index = size * ((i + (size >> 1)) % size) + ((j + (size >> 1)) % size);
+				temp_data[index] = val;
+				//temp_data[size * i + j] = val;
 				//std::cout << val << " ";
 			} // for
 			//std::cout << std::endl;

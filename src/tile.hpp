@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Thu 01 Aug 2013 12:23:30 PM PDT
+  *  Modified: Thu 01 Aug 2013 01:08:38 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -125,7 +125,8 @@ namespace hir {
 			bool print_a_mat();
 
 			bool save_mat_image(unsigned int i) {
-				wil::Image img(mod_f_mat_[mod_f_mat_i_].num_rows(), mod_f_mat_[mod_f_mat_i_].num_cols());
+				wil::Image img(mod_f_mat_[mod_f_mat_i_].num_rows(), mod_f_mat_[mod_f_mat_i_].num_cols(),
+								30, 30, 30);
 				real_t* data = mod_f_mat_[mod_f_mat_i_].data();
 				img.construct_image(data);
 				std::string str("_modfft.tif");
@@ -139,7 +140,7 @@ namespace hir {
 
 			bool save_fmat_image(unsigned int i) {
 				unsigned int nrows = f_mat_[f_mat_i_].num_rows(), ncols = f_mat_[f_mat_i_].num_cols();
-				wil::Image img(nrows, ncols);
+				wil::Image img(nrows, ncols, 30, 30, 30);
 				real_t* data = new (std::nothrow) real_t[nrows * ncols];
 				for(unsigned int i = 0; i < nrows; ++ i) {
 					for(unsigned int j = 0; j < ncols; ++ j) {
@@ -159,7 +160,7 @@ namespace hir {
 			} // save_mat_image()
 
 			bool save_mat_image_direct(unsigned int i) {
-				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols());
+				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols(), 30, 30, 30);
 				img.construct_image_direct(a_mat_.data());
 				std::string str("_model.tif");
 				std::stringstream num;
