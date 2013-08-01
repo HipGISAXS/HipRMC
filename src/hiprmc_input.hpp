@@ -3,7 +3,7 @@
   *
   *  File: hiprmc_input.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Wed 12 Jun 2013 02:01:16 PM PDT
+  *  Modified: Thu 01 Aug 2013 12:01:04 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -40,6 +40,8 @@ namespace hir {
 			vec2_int_t model_start_size_;
 			unsigned int num_steps_factor_;
 			unsigned int scale_factor_;
+
+			std::string label_;				// run name given by user
 
 			/* helpers */
 
@@ -105,6 +107,7 @@ namespace hir {
 			vec_real_t loading() const { return loading_factors_; }
 			unsigned int num_steps_factor() const { return num_steps_factor_; }
 			unsigned int scale_factor() const { return scale_factor_; }
+			std::string label() const { return label_; }
 
 			/* printing for testing */
 			void print_all();

@@ -3,7 +3,7 @@
   *
   *  File: token_mapper.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Tue 11 Jun 2013 03:42:09 PM PDT
+  *  Modified: Thu 01 Aug 2013 11:31:52 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -68,6 +68,7 @@ namespace hir {
 				KeyWords_[std::string("modelstartsize")]	= compute_model_start_size_token;
 				KeyWords_[std::string("numstepsfactor")]	= compute_num_steps_factor_token;
 				KeyWords_[std::string("scalefactor")]		= compute_scale_factor_token;
+				KeyWords_[std::string("runname")]			= compute_label_token;
 			
 		} // TokenMapper()
 

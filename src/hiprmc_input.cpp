@@ -3,7 +3,7 @@
   *
   *  File: hiprmc_input.cpp
   *  Created: Jun 11, 2013
-  *  Modified: Wed 12 Jun 2013 02:09:32 PM PDT
+  *  Modified: Thu 01 Aug 2013 11:55:02 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -12,6 +12,7 @@
 
 #include "hiprmc_input.hpp"
 #include "config_file_reader.hpp"
+#include "utilities.hpp"
 
 
 namespace hir {
@@ -312,6 +313,7 @@ namespace hir {
 			case compute_model_start_size_token:
 			case compute_num_steps_factor_token:
 			case compute_scale_factor_token:
+			case compute_label_token:
 				break;
 
 			default:
@@ -401,6 +403,10 @@ namespace hir {
 				input_image_ = str;
 				break;
 
+			case compute_label_token:
+				label_ = str + "_" + timestamp();
+				break;
+
 			default:
 				std::cerr << "fatal error: found a string '"
 							<< str << "' where it should not be" << std::endl;
@@ -428,6 +434,7 @@ namespace hir {
 		std::cout << "  modelstartsize = " << model_start_size_[0] << " " << model_start_size_[1] << std::endl;
 		std::cout << "  numstepsfactor = " << num_steps_factor_ << std::endl;
 		std::cout << "  scalefactor = " << scale_factor_ << std::endl;
+		std::cout << "  runname = " << label_ << std::endl;
 	} // HipRMCInput::print_all()
 
 

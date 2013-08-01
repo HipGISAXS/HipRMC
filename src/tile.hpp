@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Tue 04 Jun 2013 02:30:36 PM PDT
+  *  Modified: Thu 01 Aug 2013 12:23:30 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -31,6 +31,8 @@
 #ifdef USE_GPU
 #include "tile.cuh"
 #endif
+
+#include "hiprmc_input.hpp"
 
 namespace hir {
 
@@ -126,12 +128,12 @@ namespace hir {
 				wil::Image img(mod_f_mat_[mod_f_mat_i_].num_rows(), mod_f_mat_[mod_f_mat_i_].num_cols());
 				real_t* data = mod_f_mat_[mod_f_mat_i_].data();
 				img.construct_image(data);
-				std::string str("_modf.tif");
+				std::string str("_modfft.tif");
 				std::stringstream num;
 				num << std::setfill('0') << std::setw(6) << i;
 				char str0[7];
 				num >> str0;
-				str = std::string(str0) + str;
+				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
 				img.save(str);
 			} // save_mat_image()
 
@@ -146,12 +148,12 @@ namespace hir {
 					} // for
 				} // for
 				img.construct_image(data);
-				std::string str("_f.tif");
+				std::string str("_fft.tif");
 				std::stringstream num;
 				num << std::setfill('0') << std::setw(6) << i;
 				char str0[7];
 				num >> str0;
-				str = std::string(str0) + str;
+				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
 				img.save(str);
 				delete[] data;
 			} // save_mat_image()
@@ -159,17 +161,23 @@ namespace hir {
 			bool save_mat_image_direct(unsigned int i) {
 				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols());
 				img.construct_image_direct(a_mat_.data());
-				std::string str("_a_mat.tif");
+				std::string str("_model.tif");
 				std::stringstream num;
 				num << std::setfill('0') << std::setw(6) << i;
 				char str0[7];
 				num >> str0;
-				str = std::string(str0) + str;
+				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
 				img.save(str);
 			} // save_mat_image_direct()
 
-			bool save_chi2_list() {
-				std::ofstream chi2out("chi2_list.dat", std::ios::out | std::ios::app);
+			bool save_chi2_list(unsigned int i) {
+				std::stringstream num;
+				num << std::setfill('0') << std::setw(6) << i;
+				char str0[7];
+				num >> str0;
+				std::string str("_chi2_list.dat");
+				std::ofstream chi2out(HipRMCInput::instance().label() + "/" + std::string(str0) + str,
+										std::ios::out | std::ios::app);
 				for(unsigned int i = 0; i < chi2_list_.size(); ++ i) {
 					chi2out << i << "\t" << std::setprecision(std::numeric_limits<double>::digits10 + 1)
 							<< chi2_list_[i] << std::endl;

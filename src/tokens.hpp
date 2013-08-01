@@ -3,7 +3,7 @@
   *
   *  File: tokens.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Tue 11 Jun 2013 03:41:26 PM PDT
+  *  Modified: Thu 01 Aug 2013 11:32:26 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -73,7 +73,8 @@ namespace hir {
 		compute_token,					/* computation object token */
 		compute_model_start_size_token,	/* size of the starting model token */
 		compute_num_steps_factor_token,	/* num steps factor token */
-		compute_scale_factor_token		/* scaling factor token */
+		compute_scale_factor_token,		/* scaling factor token */
+		compute_label_token				/* a label for output directory */
 	}; // enum TokenType
 
 
