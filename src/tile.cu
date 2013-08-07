@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Mon 18 Mar 2013 06:08:41 PM PDT
+  *  Modified: Sun 04 Aug 2013 11:16:35 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -195,9 +195,9 @@ namespace hir {
 	__host__ double GTile::compute_model_norm(unsigned int buff_i) {
 		double model_norm = 0.0;
 		unsigned int maxi = tile_size_; // >> 1;
-		compute_model_norm_kernel <<< grid_dims_, block_dims_ >>> (mod_f_mat_[buff_i], tile_size_,
-																	maxi, real_buff_d_);
-		cudaThreadSynchronize();
+//		compute_model_norm_kernel <<< grid_dims_, block_dims_ >>> (mod_f_mat_[buff_i], tile_size_,
+//																	maxi, real_buff_d_);
+//		cudaThreadSynchronize();
 		/*thrust::device_ptr<real_t> buff_p(real_buff_d_);
 		thrust::plus<real_t> plus;
 		model_norm = thrust::reduce(buff_p, buff_p + (maxi * maxi), 0.0, plus);
@@ -306,8 +306,11 @@ namespace hir {
 		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
 		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
 		if(i_x < size && i_y < size) {
+			unsigned int swap_i_x = (i_x + (size >> 1)) % size;
+			unsigned int swap_i_y = (i_y + (size >> 1)) % size;
 			unsigned int index = size * i_y + i_x;
-			real_t temp = pattern[index] - mod_mat[index] * c_factor;
+			unsigned int swap_index = size * swap_i_y + swap_i_x;
+			real_t temp = pattern[index] - mod_mat[swap_index] * c_factor;
 			out[index] = temp * temp;
 		} // if
 	} // compute_chi2_kernel()

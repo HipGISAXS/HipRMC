@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 03 Jun 2013 09:42:24 PM PDT
+  *  Modified: Wed 07 Aug 2013 09:27:20 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -43,19 +43,20 @@ namespace hir {
 		f_mat_.push_back(mat_complex_t(size_, size_));
 		f_mat_.push_back(mat_complex_t(size_, size_));
 		mytimer.stop();
-		std::cout << "***** f_mat_: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "**   FFT matrix initialization time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		mytimer.start();
 		mod_f_mat_.push_back(mat_real_t(size_, size_));
 		mod_f_mat_.push_back(mat_real_t(size_, size_));
 		mytimer.stop();
-		std::cout << "***** mod_f_mat_: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "**      FFT mod initialization time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		#ifdef USE_GPU
 			// device memory allocation takes all the time
 			mytimer.start();
 			unsigned int size2 = final_size_ * final_size_;
 			cucomplex_buff_ = new (std::nothrow) cucomplex_t[size2];
 			mytimer.stop();
-			std::cout << "***** device mem: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "**       Memory initialization time: " << mytimer.elapsed_msec()
+						<< " ms." << std::endl;
 		#endif // USE_GPU
 	} // Tile::Tile()
 
@@ -105,13 +106,13 @@ namespace hir {
 		unsigned int cols = a_mat_.num_cols(), rows = a_mat_.num_rows();
 		num_particles_ = ceil(loading * rows * cols);
 		// NOTE: the first num_particles_ entries in indices_ are filled, rest are empty
-		std::cout << "++ num_particles: " << num_particles_ << std::endl;
 
 		// fill a_mat_ with particles
 		mytimer.start();
 		update_a_mat();
 		mytimer.stop();
-		std::cout << "**** A fill time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "**  Initial model construction time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "++              Number of particles: " << num_particles_ << std::endl;
 		//print_matrix("a_mat", a_mat_.data(), rows, cols);
 		#ifdef USE_GPU
 			unsigned int block_x = CUDA_BLOCK_SIZE_X_;
@@ -127,6 +128,15 @@ namespace hir {
 						block_x, block_y);
 			//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
 		#endif // USE_GPU
+
+		cv::Mat img(size_, size_, 0);
+		for(unsigned int i = 0; i < size_; ++ i) {
+			for(unsigned int j = 0; j < size_; ++ j) {
+				img.at<unsigned char>(i, j) = (unsigned char) 255 * a_mat_(i, j);
+			} // for
+		} // for
+		// write it out
+		cv::imwrite(HipRMCInput::instance().label() + "/init_model.tif", img);
 
 		// compute fft of a_mat_ into fft_mat_ and other stuff
 /*		mytimer.start();
@@ -185,28 +195,34 @@ namespace hir {
 		mytimer.start();
 		compute_fft_mat();
 		mytimer.stop();
-		std::cout << "**** FFT time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "**         Initial FFT compute time: " << mytimer.elapsed_msec()
+					<< " ms." << std::endl;
 		mytimer.start();
 		compute_mod_mat(f_mat_i_);
 		mytimer.stop();
-		std::cout << "**** mod F time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "**         Initial mod compute time: " << mytimer.elapsed_msec()
+					<< " ms." << std::endl;
 		mytimer.start();
 		#ifndef USE_GPU
-			mask_mat(mask, 1 - mod_f_mat_i_);
+//			mask_mat(mask, 1 - mod_f_mat_i_);
 		#endif // USE_GPU
 		copy_mod_mat(1 - mod_f_mat_i_);
 		mytimer.stop();
-		std::cout << "**** Mask/copy time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "**           Initial mask/copy time: " << mytimer.elapsed_msec()
+					<< " ms." << std::endl;
 		mytimer.start();
 		compute_model_norm(1 - mod_f_mat_i_);
 		mytimer.stop();
-		std::cout << "**** model norm time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "**  Initial model norm compute time: " << mytimer.elapsed_msec()
+					<< " ms." << std::endl;
 		c_factor_ = base_norm / model_norm_;
 		mytimer.start();
 		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, c_factor_, base_norm);
-		std::cout << "++++ initial chi2 = " << prev_chi2_ << std::endl;
 		mytimer.stop();
-		std::cout << "**** chi2 time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		std::cout << "**        Initial chi2 compute time: " << mytimer.elapsed_msec()
+					<< " ms." << std::endl;
+		std::cout << "++         Initial chi2-error value: " << prev_chi2_ << std::endl;
+		accepted_moves_ = 0;
 		return true;
 	} // Tile::init()
 
@@ -225,7 +241,7 @@ namespace hir {
 	bool Tile::simulate_step(mat_real_t& pattern,
 							mat_complex_t& vandermonde,
 							const mat_uint_t& mask,
-							real_t tstar, real_t base_norm) {
+							real_t tstar, real_t base_norm, unsigned int iter) {
 		//std::cout << "++ simulate_step" << std::endl;
 		// do all computations in scratch buffers
 		unsigned int f_scratch_i = 1 - f_mat_i_;
@@ -244,7 +260,7 @@ namespace hir {
 		mytimer_.start();
 		compute_mod_mat(f_scratch_i);
 		#ifndef USE_GPU
-			mask_mat(mask, mod_f_scratch_i);
+//			mask_mat(mask, mod_f_scratch_i);
 		#endif // USE_GPU
 		mytimer_.stop(); mod_time += mytimer_.elapsed_msec();
 		// this should be here i think ...
@@ -256,25 +272,28 @@ namespace hir {
 		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, new_c_factor, base_norm);
 		double diff_chi2 = prev_chi2_ - new_chi2;
 		mytimer_.stop(); chi2_time += mytimer_.elapsed_msec();
-		//std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
-		//			<< "\t c_factor: " << new_c_factor << std::endl;
-
+//		std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
+//					<< "\t c_factor: " << new_c_factor << std::endl;
 		mytimer_.start();
 		bool accept = false;
-		if(new_chi2 < prev_chi2_) accept = true;
+		if(diff_chi2 > 0.0) accept = true;
 		else {
 			real_t p = exp(diff_chi2 / tstar);
 			real_t prand = ms_rand_01();
 			if(prand < p) accept = true;
 		} // if-else
 		if(accept) {	// accept the move
-			//std::cout << std::endl << "++++ accepting move..., chi2: " << new_chi2 << ", prev: " << prev_chi2_
+			//std::cout << std::endl << "++++ accepting move..., chi2: " << new_chi2
+			//			<< ", prev: " << prev_chi2_
 			//			<< ", old cf: " << c_factor_ << std::endl;
 			// update to newly computed stuff
 			// make scratch as current
 			move_particle(new_chi2, base_norm);
 			c_factor_ = new_c_factor;
 			chi2_list_.push_back(new_chi2);		// save this chi2 value
+			++ accepted_moves_;
+			update_model();
+			//save_mat_image_direct(9, iter);
 		} // if
 		mytimer_.stop(); rest_time += mytimer_.elapsed_msec();
 
@@ -297,7 +316,7 @@ namespace hir {
 	#ifndef USE_GPU // use CPU
 
 	bool Tile::compute_fft_mat() {
-		std::cout << "++ compute_fft_mat" << std::endl;
+		std::cout << "++ Computing model FFT ..." << std::endl;
 
 		unsigned int size2 = size_ * size_;
 		fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
@@ -316,7 +335,7 @@ namespace hir {
 		{
 			#ifdef _OPENMP
 				if(omp_get_thread_num() == 0)
-					std::cout << "[" << omp_get_num_threads() << " threads] ... "
+					std::cout << "++ Using " << omp_get_num_threads() << " OpenMP threads."
 								<< std::endl << std::flush;
 			#endif
 			#pragma omp for collapse(2)
@@ -350,7 +369,7 @@ namespace hir {
 	#else // USE_GPU
 
 	bool Tile::compute_fft_mat() {
-		std::cout << "++ compute_fft_mat_cuda" << std::endl;
+		std::cout << "++ Computing model FFT on GPU ..." << std::endl;
 
 		gtile_.compute_fft_mat(f_mat_i_);
 		gtile_.normalize_fft_mat(f_mat_i_, num_particles_);
@@ -368,14 +387,35 @@ namespace hir {
 			for(unsigned int i = 0; i < size_; ++ i) {
 				for(unsigned int j = 0; j < size_; ++ j) {
 					complex_t temp_f = f_mat_[f_i](i, j);
-					mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp_f.real() * temp_f.real() +
-														temp_f.imag() * temp_f.imag();
+					mod_f_mat_[1 - mod_f_mat_i_](i, j) = fabs(temp_f.real() * temp_f.real() +
+														temp_f.imag() * temp_f.imag());
 				} // for
 			} // for
+			//normalize_mod_mat(1 - mod_f_mat_i_);	///////////////////////////////////////////////// ...
 			//print_matrix("mod_f_mat_[1 - mod_f_mat_i_]", mod_f_mat_[1 - mod_f_mat_i_].data(), size_, size_);
 			return true;
 		#endif // USE_GPU
 	} // Tile::compute_mod_mat()
+
+
+	bool Tile::normalize_mod_mat(unsigned int mat_i) {
+		real_t min_val, max_val;
+		min_val = max_val = mod_f_mat_[mat_i](0, 0);
+		for(unsigned int i = 0; i < size_; ++ i) {
+			for(unsigned int j = 0; j < size_; ++ j) {
+				real_t temp = mod_f_mat_[mat_i](i, j);
+				min_val = (temp < min_val) ? temp : min_val;
+				max_val = (temp > max_val) ? temp : max_val;
+			} // for
+		} // for
+		#pragma omp parallel for collapse(2)
+		for(unsigned int i = 0; i < size_; ++ i) {
+			for(unsigned int j = 0; j < size_; ++ j) {
+				mod_f_mat_[mat_i](i, j) = (mod_f_mat_[mat_i](i, j) - min_val) / (max_val - min_val);
+			} // for
+		} // for
+		return true;
+	} // Tile::normalize_mod_mat()
 
 
 	bool Tile::compute_model_norm(unsigned int buff_i) {
@@ -389,13 +429,14 @@ namespace hir {
 				#pragma omp for collapse(2) reduction(+:model_norm)
 				for(unsigned int i = 0; i < maxi; ++ i) {
 					for(unsigned int j = 0; j < maxi; ++ j) {
-						model_norm += mod_f_mat_[buff_i](i, j); // * (j + 1);	// what is the Y matrix anyway ???
+						//model_norm += mod_f_mat_[buff_i](i, j); // * (j + 1);	// what is the Y matrix anyway ???
+						model_norm += mod_f_mat_[buff_i](i, j);
 					} // for
 				} // for
 			}
 		#endif // USE_GPU
 		model_norm_ = model_norm;
-		//std::cout << "++++ model_norm: " << model_norm_ << std::endl;
+//		std::cout << "++++ model_norm: " << model_norm_ << std::endl;
 		return true;
 	} // Tile::compute_model_norm()
 
@@ -409,17 +450,20 @@ namespace hir {
 			#pragma omp parallel for collapse(2) reduction(+:chi2)
 			for(unsigned int i = 0; i < size_; ++ i) {
 				for(unsigned int j = 0; j < size_; ++ j) {
-					real_t temp = pattern(i, j) - mod_f_mat_[mod_f_i](i, j) * c_factor;
-					//std::cout << "--------- pattern: " << pattern(i, j) << ", mod_f: "
-					//			<< mod_f_mat_[mod_f_i](i, j) << ", c_fac: " << c_factor
+					int i_swap = (i + (size_ >> 1)) % size_;
+					int j_swap = (j + (size_ >> 1)) % size_;
+					real_t temp = fabs(pattern(i_swap, j_swap) - mod_f_mat_[mod_f_i](i, j) * c_factor);
+					//std::cout << "--------- pattern: " << pattern(i_swap, j_swap) << ", mod_f: "
+					//			<< mod_f_mat_[mod_f_i](i, j) * c_factor << ", c_fac: " << c_factor
 					//			<< ", chi: " << temp << std::endl;
 					chi2 += temp * temp;
-					//chi2 += temp * temp / (pattern(i, j) + 1);
+					//if(pattern(i_swap, j_swap) != 0.0)
+					//	chi2 += temp * temp / pattern(i_swap, j_swap);
 				} // for
 			} // for
 		#endif // USE_GPU
 		// normalize with something ... norm for now
-		//chi2 /= base_norm * base_norm;
+		chi2 = 10e6 * chi2 / (base_norm * base_norm);
 		return chi2;
 	} // Tile::compute_chi2()
 
@@ -492,7 +536,7 @@ namespace hir {
 				for(unsigned int col = 0; col < size_; ++ col) {
 					complex_t new_temp = new_col_iter[row] * new_row_iter[col];
 					complex_t old_temp = old_col_iter[row] * old_row_iter[col];
-					dft_mat_(row, col) = (new_temp - old_temp) / (real_t)num_particles_;
+					dft_mat_(row, col) = (new_temp - old_temp) / (real_t) num_particles_;
 				} // for
 			} // for
 			//print_cmatrix("dft_mat", dft_mat.data(), size_, size_);
@@ -591,19 +635,19 @@ namespace hir {
 		} // for
 		indices_.insert(indices_.end(), zero_indices.begin(), zero_indices.end());
 		//loading_factor_ = (real_t) num_particles_ / (rows * cols);
-		std::cout << "+++++++++++++++ actual loading: " << (real_t) num_particles_ / (rows * cols)
-					<< std::endl;
+		//std::cout << "+++++++++++++++ actual loading: " << (real_t) num_particles_ / (rows * cols)
+		//			<< std::endl;
 		return true;
 	} // Tile::update_indices()
 
 
 	bool Tile::print_times() {
-		std::cout << "vmove time: " << vmove_time << std::endl;
-		std::cout << "dft2 time: " << dft2_time << std::endl;
-		std::cout << "mod time: " << mod_time << std::endl;
-		std::cout << "norm time: " << norm_time << std::endl;
-		std::cout << "chi2 time: " << chi2_time << std::endl;
-		std::cout << "rest time: " << rest_time << std::endl;
+		std::cout << "**               Particle move time: " << vmove_time << " ms." << std::endl;
+		std::cout << "**                 DFT compute time: " << dft2_time  << " ms." << std::endl;
+		std::cout << "**          Mod matrix compute time: " << mod_time   << " ms." << std::endl;
+		std::cout << "**          Model norm compute time: " << norm_time  << " ms." << std::endl;
+		std::cout << "**          Chi2-error compute time: " << chi2_time  << " ms." << std::endl;
+		std::cout << "**                       Other time: " << rest_time  << " ms." << std::endl;
 		return true;
 	} // Tile::print_times()
 

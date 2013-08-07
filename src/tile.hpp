@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Thu 01 Aug 2013 01:08:38 PM PDT
+  *  Modified: Tue 06 Aug 2013 12:17:56 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -68,6 +68,7 @@ namespace hir {
 			double prev_chi2_;
 
 			std::vector<double> chi2_list_;						// stores all chi2, for plotting purposes
+			unsigned int accepted_moves_;						// just for statistics
 
 			// indices produced on virtually moving a particle
 			unsigned int old_pos_;
@@ -87,6 +88,7 @@ namespace hir {
 				bool execute_fftw(fftw_complex*, fftw_complex*);
 			#endif
 			bool compute_mod_mat(unsigned int);
+			bool normalize_mod_mat(unsigned int);
 			bool compute_model_norm(unsigned int);
 			//double compute_chi2(const mat_real_t&, unsigned int, real_t);
 			double compute_chi2(const mat_real_t&, unsigned int, real_t, real_t);
@@ -111,7 +113,7 @@ namespace hir {
 			bool init(real_t, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
 			bool init_scale(real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
 			// simulation functions
-			bool simulate_step(mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, real_t);
+			bool simulate_step(mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, real_t, unsigned int);
 			bool update_model();
 			bool update_a_mat();
 			#ifdef USE_GPU
@@ -123,11 +125,21 @@ namespace hir {
 
 			bool scale_step();
 			bool print_a_mat();
+			unsigned int accepted_moves() const { return accepted_moves_; }
 
 			bool save_mat_image(unsigned int i) {
-				wil::Image img(mod_f_mat_[mod_f_mat_i_].num_rows(), mod_f_mat_[mod_f_mat_i_].num_cols(),
-								30, 30, 30);
-				real_t* data = mod_f_mat_[mod_f_mat_i_].data();
+				unsigned int nrows = mod_f_mat_[mod_f_mat_i_].num_rows();
+				unsigned int ncols = mod_f_mat_[mod_f_mat_i_].num_cols();
+				wil::Image img(nrows, ncols, 30, 30, 30);
+				real_t* data = new (std::nothrow) real_t[nrows * ncols];
+				for(int i = 0; i < nrows; ++ i) {
+					for(int j = 0; j < ncols; ++ j) {
+						int i_swap = (i + (nrows >> 1)) % nrows;
+						int j_swap = (j + (ncols >> 1)) % ncols;
+						real_t temp = mod_f_mat_[mod_f_mat_i_](i_swap, j_swap);
+						data[i * ncols + j] = temp;
+					} // for
+				} // for
 				img.construct_image(data);
 				std::string str("_modfft.tif");
 				std::stringstream num;
@@ -136,15 +148,18 @@ namespace hir {
 				num >> str0;
 				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
 				img.save(str);
+				delete[] data;
 			} // save_mat_image()
 
 			bool save_fmat_image(unsigned int i) {
 				unsigned int nrows = f_mat_[f_mat_i_].num_rows(), ncols = f_mat_[f_mat_i_].num_cols();
 				wil::Image img(nrows, ncols, 30, 30, 30);
 				real_t* data = new (std::nothrow) real_t[nrows * ncols];
-				for(unsigned int i = 0; i < nrows; ++ i) {
-					for(unsigned int j = 0; j < ncols; ++ j) {
-						real_t temp = f_mat_[f_mat_i_](i, j).real();
+				for(int i = 0; i < nrows; ++ i) {
+					for(int j = 0; j < ncols; ++ j) {
+						int i_swap = (i + (nrows >> 1)) % nrows;
+						int j_swap = (j + (ncols >> 1)) % ncols;
+						real_t temp = f_mat_[f_mat_i_](i_swap, j_swap).real();
 						data[i * ncols + j] = temp * temp;
 					} // for
 				} // for
@@ -159,6 +174,18 @@ namespace hir {
 				delete[] data;
 			} // save_mat_image()
 
+/*			bool save_mat_image_direct(unsigned int i, unsigned int iter) {
+				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols(), 30, 30, 30);
+				img.construct_image_direct(a_mat_.data());
+				std::string str("_model.tif");
+				std::stringstream num;
+				num << std::setfill('0') << std::setw(6) << i << "_" << iter;
+				char str0[15];
+				num >> str0;
+				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
+				img.save(str);
+			} // save_mat_image_direct()
+*/
 			bool save_mat_image_direct(unsigned int i) {
 				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols(), 30, 30, 30);
 				img.construct_image_direct(a_mat_.data());

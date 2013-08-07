@@ -3,7 +3,7 @@
   *
   *  File: hiprmc.cpp
   *  Created: Jan 27, 2013
-  *  Modified: Wed 12 Jun 2013 02:00:05 PM PDT
+  *  Modified: Mon 05 Aug 2013 12:41:00 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -45,8 +45,9 @@ int main(int narg, char** args) {
 	//my_rmc.simulate_and_scale(num_steps_fac, scale_factor, 1, 10000);
 	//my_rmc.simulate(num_steps, 1, 10000);
 	mytimer.stop();
-	std::cout << "Initialization time: " << init_time << " ms." << std::endl;
-	std::cout << "Simulation time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+
+	std::cout << "**  Total initialization time: " << init_time << " ms." << std::endl;
+	std::cout << "**      Total simulation time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 
 	//delete[] loading;
 	return 0;

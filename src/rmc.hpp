@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 12 Jun 2013 01:59:08 PM PDT
+  *  Modified: Fri 02 Aug 2013 11:53:28 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -25,9 +25,9 @@ namespace hir {
 			unsigned int cols_;
 			unsigned int size_;
 
-			mat_real_t scaled_pattern_;	// current pattern, scaled to tile size
-			unsigned int tile_size_;	// current tile size
-										// any benefit of using vectors for below instead? ...
+			//mat_real_t scaled_pattern_;		// current pattern, scaled to tile size
+			mat_real_t cropped_pattern_;	// current pattern, cropped to tile size
+			unsigned int tile_size_;		// current tile size
 			//unsigned int* in_mask_;		// the input mask
 			//unsigned int in_mask_len_;	// size of input mask
 			//unsigned int* mask_mat_;	// mask matrix of 1 and 0
@@ -55,7 +55,8 @@ namespace hir {
 			bool compute_base_norm();
 			bool initialize_mask();
 			bool scale_image_colormap(cv::Mat&, double, double);
-			bool scale_pattern_to_tile(unsigned int);
+			//bool scale_pattern_to_tile(unsigned int);
+			bool crop_pattern_to_tile(unsigned int);
 			bool preprocess_pattern_and_mask(unsigned int);
 
 		public:

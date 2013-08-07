@@ -3,7 +3,7 @@
   *
   *  File: hiprmc_input.cpp
   *  Created: Jun 11, 2013
-  *  Modified: Thu 01 Aug 2013 11:55:02 AM PDT
+  *  Modified: Mon 05 Aug 2013 12:25:35 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -423,18 +423,19 @@ namespace hir {
 
 
 	void HipRMCInput::print_all() {
-		std::cout << "HipRMC Inputs: " << std::endl;
-		std::cout << "  inputimage = " << input_image_ << std::endl;
-		std::cout << "  imagesize = " << image_size_[0] << " " << image_size_[1] << std::endl;
-		std::cout << "  numtiles = " << num_tiles_ << std::endl;
-		std::cout << "  loadingfactors = ";
+		std::cout << "++ HipRMC Input data: " << std::endl;
+		std::cout << "             Input image = " << input_image_ << std::endl;
+		std::cout << "              Image size = " << image_size_[0] << " x " << image_size_[1] << std::endl;
+		std::cout << "         Number of tiles = " << num_tiles_ << std::endl;
+		std::cout << "         Loading factors = ";
 		for(vec_real_t::iterator i = loading_factors_.begin(); i != loading_factors_.end(); ++ i)
 			std::cout << *i << " ";
 		std::cout << std::endl;
-		std::cout << "  modelstartsize = " << model_start_size_[0] << " " << model_start_size_[1] << std::endl;
-		std::cout << "  numstepsfactor = " << num_steps_factor_ << std::endl;
-		std::cout << "  scalefactor = " << scale_factor_ << std::endl;
-		std::cout << "  runname = " << label_ << std::endl;
+		std::cout << "        Model start size = " << model_start_size_[0] << " x " << model_start_size_[1] << std::endl;
+		std::cout << "  Number of steps factor = " << num_steps_factor_ << std::endl;
+		std::cout << "          Scaling factor = " << scale_factor_ << std::endl;
+		std::cout << "                Run name = " << label_ << std::endl;
+		std::cout << std::endl << std::flush;
 	} // HipRMCInput::print_all()
 
 
