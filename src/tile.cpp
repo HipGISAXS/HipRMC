@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 07 Aug 2013 09:27:20 AM PDT
+  *  Modified: Wed 07 Aug 2013 09:38:08 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -463,7 +463,7 @@ namespace hir {
 			} // for
 		#endif // USE_GPU
 		// normalize with something ... norm for now
-		chi2 = 10e6 * chi2 / (base_norm * base_norm);
+		chi2 = 10e6 * chi2 / (base_norm * base_norm);	// 10e6 is a constant to control acceptance rate
 		return chi2;
 	} // Tile::compute_chi2()
 
