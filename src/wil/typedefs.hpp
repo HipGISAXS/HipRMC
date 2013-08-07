@@ -1,9 +1,9 @@
 /***
-  *  Project: HipGISAXS (High-Performance GISAXS)
+  *  Project:
   *
   *  File: typedefs.hpp
   *  Created: Jul 08, 2012
-  *  Modified: Sat 09 Mar 2013 02:36:08 PM PST
+  *  Modified: Wed 07 Aug 2013 09:25:09 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */

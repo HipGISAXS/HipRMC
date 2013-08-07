@@ -1,11 +1,9 @@
 /***
-  *  $Id: image.cpp 47 2012-08-23 21:05:16Z asarje $
-  *
-  *  Project: HipGISAXS (High-Performance GISAXS)
+  *  Project:
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Wed 12 Jun 2013 03:11:44 PM PDT
+  *  Modified: Wed 07 Aug 2013 09:24:54 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
