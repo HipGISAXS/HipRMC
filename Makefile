@@ -8,7 +8,7 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = y
+USE_GPU = n
 
 ## base directories
 BOOST_DIR = /usr/local/boost_1_49_0
@@ -17,23 +17,20 @@ BOOST_DIR = /usr/local/boost_1_49_0
 #Z_DIR = /usr/local/zlib-1.2.7
 #SZ_DIR = /usr/local/szip-2.1
 #TIFF_LIB_DIR = /usr/local/lib
-OPENCV_DIR = /usr/local/opencv
+OPENCV_DIR = /usr
 WOO_DIR = /home/asarje
 ifeq ($(USE_GPU), y)
 CUDA_DIR = /usr/local/cuda
 FFTW_DIR =
 else
 CUDA_DIR =
-FFTW_DIR = /usr/local/fftw-3.3.2
+FFTW_DIR = /usr
 endif
-TAU_DIR = /usr/local/tau-2.22.1/x86_64
 
 ## compilers
 CXX = g++
-#CXX = $(TAU_DIR)/bin/tau_cxx.sh
 ifeq ($(USE_GPU), y)
 NVCC = $(CUDA_DIR)/bin/nvcc
-#NVCC = $(TAU_DIR)/bin/tau_cxx.sh
 else
 NVCC =
 endif
@@ -45,8 +42,8 @@ CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
 ## gnu c++ compilers >= 4.7 also support -std=c++11, but they are not supported by cuda
 
 ## boost
-BOOST_INCL = -I $(BOOST_DIR)
-BOOST_LIBS = -L /usr/local/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
+BOOST_INCL = -I $(BOOST_DIR)/include
+BOOST_LIBS = -L $(BOOST_DIR)/lib -lboost_system -lboost_filesystem -lboost_timer -lboost_chrono
 
 ## parallel hdf5
 #HDF5_INCL = -I$(HDF5_DIR)/include -I$(SZ_DIR)/include -I$(Z_DIR)/include
@@ -62,7 +59,7 @@ BOOST_LIBS = -L /usr/local/lib -lboost_system -lboost_filesystem -lboost_timer -
 ifeq ($(USE_GPU), y)
 CUDA_INCL = -I$(CUDA_DIR)/include
 CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft -lnvToolsExt
-NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp #-m 64
+NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64 #-dc
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
 NVCC_FLAGS += -gencode arch=compute_20,code=compute_20
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
@@ -105,8 +102,8 @@ MISC_FLAGS =
 endif
 
 ## choose optimization levels, debug flags, gprof flag, etc
-#OPT_FLAGS = -g -DDEBUG #-v #-pg
-OPT_FLAGS = -O3 -DNDEBUG #-v
+OPT_FLAGS = -g #-DDEBUG #-v #-pg
+OPT_FLAGS += -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
 #PREC_FLAG =			# leave empty for single precision
@@ -127,7 +124,7 @@ OBJ_DIR = $(PREFIX)/obj
 SRC_DIR = $(PREFIX)/src
 
 ## all objects
-OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o
+OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o
 ifeq ($(USE_GPU), y)
 OBJECTS_SIM += cutile.o
 endif
@@ -174,7 +171,35 @@ $(OBJ_DIR)/cutile.o: $(SRC_DIR)/tile.cu
 	$(NVCC) -c $< -o $@ $(OPT_FLAGS) $(NVCC_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
 endif
 
-all: hiprmc
+all: $(BINARY_SIM)
+
+
+## compute fft tool
+
+BINARY_COMPUTE_FFT = compute-fft
+OBJECTS_COMPUTE_FFT = generate.o utilities.o image.o
+OBJ_BIN_COMPUTE_FFT = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_COMPUTE_FFT))
+
+computefft: $(BINARY_COMPUTE_FFT)
+
+$(BINARY_COMPUTE_FFT): $(OBJ_BIN_COMPUTE_FFT)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+
+$(OBJ_DIR)/generate.o: $(SRC_DIR)/generate.cpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+BINARY_LOADING = compute-loading
+OBJECTS_LOADING = compute_loading.o utilities.o image.o
+OBJ_BIN_LOADING = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_LOADING))
+
+computeloading: $(BINARY_LOADING)
+
+$(BINARY_LOADING): $(OBJ_BIN_LOADING)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+
+$(OBJ_DIR)/compute_loading.o: $(SRC_DIR)/compute_loading.cpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
 
 .PHONY: clean
 
