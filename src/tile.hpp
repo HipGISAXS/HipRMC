@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Tue 06 Aug 2013 12:17:56 PM PDT
+  *  Modified: Fri 09 Aug 2013 03:33:02 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -43,6 +43,7 @@ namespace hir {
 			unsigned int size_;						// num rows = num cols = size
 			unsigned int final_size_;				// target model size (when using scaling)
 			mat_real_t a_mat_;						// A: the current model
+			mat_real_t virtual_a_mat_;						// A: the current model
 
 			// buffers used only for cpu version
 			std::vector<mat_complex_t> f_mat_;		// F buffers
@@ -61,6 +62,10 @@ namespace hir {
 			#ifdef USE_GPU
 				cucomplex_t* cucomplex_buff_;
 				GTile gtile_;
+			#else
+				fftw_complex *fft_in_;
+				fftw_complex *fft_out_;
+				fftw_plan fft_plan_;
 			#endif // USE_GPU
 
 			// following are used during simulation
@@ -84,6 +89,7 @@ namespace hir {
 
 			// functions
 			bool compute_fft_mat();
+			bool compute_fft_mat(unsigned int);
 			#ifndef USE_GPU // use cpu
 				bool execute_fftw(fftw_complex*, fftw_complex*);
 			#endif
@@ -112,9 +118,11 @@ namespace hir {
 			// initialize with raw data
 			bool init(real_t, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
 			bool init_scale(real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
+			bool destroy_scale();
 			// simulation functions
 			bool simulate_step(mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, real_t, unsigned int);
 			bool update_model();
+			bool update_virtual_model();
 			bool update_a_mat();
 			#ifdef USE_GPU
 				bool update_f_mats();
@@ -123,9 +131,12 @@ namespace hir {
 			bool print_times();
 			bool finalize_result(double&, mat_real_t&);
 
+			void create_image(std::string, unsigned int, const mat_real_t&);
 			bool scale_step();
 			bool print_a_mat();
 			unsigned int accepted_moves() const { return accepted_moves_; }
+
+			bool normalize_mod(unsigned int);
 
 			bool save_mat_image(unsigned int i) {
 				unsigned int nrows = mod_f_mat_[mod_f_mat_i_].num_rows();
