@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 07 Aug 2013 09:27:20 AM PDT
+  *  Modified: Fri 09 Aug 2013 03:46:46 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -28,6 +28,7 @@ namespace hir {
 	Tile::Tile(unsigned int rows, unsigned int cols, const std::vector<unsigned int>& indices,
 				unsigned int final_size) :
 		a_mat_(rows, cols),
+		virtual_a_mat_(rows, cols),
 		f_mat_i_(0),
 		mod_f_mat_i_(0),
 		indices_(indices),
@@ -66,6 +67,7 @@ namespace hir {
 		size_(tile.size_),
 		final_size_(tile.final_size_),
 		a_mat_(tile.a_mat_),
+		virtual_a_mat_(tile.a_mat_),
 		f_mat_(tile.f_mat_),
 		mod_f_mat_(tile.mod_f_mat_),
 		indices_(tile.indices_),
@@ -129,7 +131,7 @@ namespace hir {
 			//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
 		#endif // USE_GPU
 
-		cv::Mat img(size_, size_, 0);
+/*		cv::Mat img(size_, size_, 0);
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
 				img.at<unsigned char>(i, j) = (unsigned char) 255 * a_mat_(i, j);
@@ -137,6 +139,7 @@ namespace hir {
 		} // for
 		// write it out
 		cv::imwrite(HipRMCInput::instance().label() + "/init_model.tif", img);
+*///		create_image("init_model", 0, a_mat_);
 
 		// compute fft of a_mat_ into fft_mat_ and other stuff
 /*		mytimer.start();
@@ -191,6 +194,10 @@ namespace hir {
 			gtile_.init_scale(pattern.data(), cucomplex_buff_, a_mat_.data(), mask.data(),
 								size_, block_x, block_y);
 			//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
+		#else
+			fft_in_ = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size_ * size_);
+			fft_out_ = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size_ * size_);
+			fft_plan_ = fftw_plan_dft_2d(size_, size_, fft_in_, fft_out_, FFTW_FORWARD, FFTW_ESTIMATE);
 		#endif // USE_GPU
 		mytimer.start();
 		compute_fft_mat();
@@ -199,6 +206,7 @@ namespace hir {
 					<< " ms." << std::endl;
 		mytimer.start();
 		compute_mod_mat(f_mat_i_);
+		normalize_mod(1 - mod_f_mat_i_);	//////////////////////////////////////////////////////
 		mytimer.stop();
 		std::cout << "**         Initial mod compute time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
@@ -223,8 +231,19 @@ namespace hir {
 					<< " ms." << std::endl;
 		std::cout << "++         Initial chi2-error value: " << prev_chi2_ << std::endl;
 		accepted_moves_ = 0;
+
 		return true;
-	} // Tile::init()
+	} // Tile::init_scale()
+
+
+	bool Tile::destroy_scale() {
+		#ifndef USE_GPU
+			fftw_destroy_plan(fft_plan_);
+			fftw_free(fft_out_);
+			fftw_free(fft_in_);
+		#endif
+		return true;
+	} // Tile::destroy_scale()
 
 
 	bool Tile::copy_mod_mat(unsigned int src_i) {
@@ -250,23 +269,41 @@ namespace hir {
 		mytimer_.start();
 		virtual_move_random_particle();
 		mytimer_.stop(); vmove_time += mytimer_.elapsed_msec();
+
 		mytimer_.start();
-		compute_dft2(vandermonde, f_mat_i_, f_scratch_i);
-		#ifndef USE_GPU
-			update_fft_mat(dft_mat_, f_mat_[f_mat_i_], f_mat_[f_scratch_i], f_mat_i_, f_scratch_i);
-		#endif // USE_GPU
+//		compute_dft2(vandermonde, f_mat_i_, f_scratch_i);
+//		#ifndef USE_GPU
+//			update_fft_mat(dft_mat_, f_mat_[f_mat_i_], f_mat_[f_scratch_i], f_mat_i_, f_scratch_i);
+//		#endif // USE_GPU
+		update_virtual_model();
+		//for(int i = 0; i < size_; ++ i) {
+		//	for(int j = 0; j < size_; ++ j) {
+		//		std::cout << virtual_a_mat_(i, j) << " ";
+		//	} // for
+		//	std::cout << std::endl;
+		//} // for
+		compute_fft_mat(f_scratch_i);
 		mytimer_.stop(); dft2_time += mytimer_.elapsed_msec();
 		//print_cmatrix("f_mat_[f_scratch_i]", f_mat_[f_scratch_i].data(), size_, size_);
+
 		mytimer_.start();
 		compute_mod_mat(f_scratch_i);
+		normalize_mod(mod_f_scratch_i);	//////////////////////////////////////////////////////
 		#ifndef USE_GPU
 //			mask_mat(mask, mod_f_scratch_i);
 		#endif // USE_GPU
 		mytimer_.stop(); mod_time += mytimer_.elapsed_msec();
+		//create_image("allmod", iter, mod_f_mat_[mod_f_scratch_i]);
+
 		// this should be here i think ...
 		mytimer_.start();
 		compute_model_norm(mod_f_scratch_i);
 		mytimer_.stop(); norm_time += mytimer_.elapsed_msec();
+
+//		std::cout << "---------------model_norm_ = " << model_norm_
+//					<< ", mod_f_mat_i_,mod_f_scratch_i: " << mod_f_mat_i_ << ", " << mod_f_scratch_i
+//					<< std::endl;
+
 		mytimer_.start();
 		double new_c_factor = base_norm / model_norm_;
 		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, new_c_factor, base_norm);
@@ -274,13 +311,14 @@ namespace hir {
 		mytimer_.stop(); chi2_time += mytimer_.elapsed_msec();
 //		std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
 //					<< "\t c_factor: " << new_c_factor << std::endl;
+
 		mytimer_.start();
 		bool accept = false;
 		if(diff_chi2 > 0.0) accept = true;
 		else {
-			real_t p = exp(diff_chi2 / tstar);
+			real_t p = exp(diff_chi2 / (2 / (0.01 * iter)));
 			real_t prand = ms_rand_01();
-			if(prand < p) accept = true;
+//			if(prand < p) accept = true;
 		} // if-else
 		if(accept) {	// accept the move
 			//std::cout << std::endl << "++++ accepting move..., chi2: " << new_chi2
@@ -288,12 +326,14 @@ namespace hir {
 			//			<< ", old cf: " << c_factor_ << std::endl;
 			// update to newly computed stuff
 			// make scratch as current
+			++ accepted_moves_;
+			create_image("mod", accepted_moves_, mod_f_mat_[mod_f_scratch_i]);
 			move_particle(new_chi2, base_norm);
 			c_factor_ = new_c_factor;
+//			std::cout << "------- c_factor_ = " << c_factor_ << std::endl;
 			chi2_list_.push_back(new_chi2);		// save this chi2 value
-			++ accepted_moves_;
 			update_model();
-			//save_mat_image_direct(9, iter);
+			create_image("newm", accepted_moves_, a_mat_);
 		} // if
 		mytimer_.stop(); rest_time += mytimer_.elapsed_msec();
 
@@ -301,10 +341,59 @@ namespace hir {
 	} // Tile::simulate_step()
 
 
+	void Tile::create_image(std::string str, unsigned int iter, const mat_real_t &mat) {
+		std::stringstream num;
+		num << std::setfill('0') << std::setw(8) << iter;
+		char str0[9];
+		num >> str0;
+/*		cv::Mat img(size_, size_, 0);
+		for(unsigned int i = 0; i < size_; ++ i) {
+			for(unsigned int j = 0; j < size_; ++ j) {
+				img.at<unsigned char>(i, j) = (unsigned char) 255 * mat(i, j);
+			} // for
+		} // for
+		// write it out
+		cv::imwrite(HipRMCInput::instance().label() + "/" + std::string(str0) + "_" + str + ".tif", img);
+*/		real_t * data = new (std::nothrow) real_t[size_ * size_];
+		for(int i = 0; i < size_; ++ i) {
+			for(int j = 0; j < size_; ++ j) {
+				int i_swap = (i + (size_ >> 1)) % size_;
+				int j_swap = (j + (size_ >> 1)) % size_;
+				data[size_ * i + j] = 255 * mat(i_swap, j_swap);
+			} // for j
+		} // for i
+		wil::Image img(size_, size_, 30, 30, 30);
+		img.construct_image(data);
+		img.save(HipRMCInput::instance().label() + "/" + std::string(str0) + "_" + str + ".tif");
+		delete[] data;
+	} // Tile::create_image()
+
+
 	bool Tile::update_model() {
 		update_a_mat();
 		return true;
 	} // Tile::update_model()
+
+
+	bool Tile::update_virtual_model() {
+		unsigned int x, y;
+		virtual_a_mat_.fill(0.0);
+		#pragma omp parallel for
+		for(unsigned int i = 0; i < num_particles_; ++ i) {
+			x = indices_[i] / size_;
+			y = indices_[i] % size_;
+			virtual_a_mat_(x, y) = 1.0;
+		} // for
+		x = old_index_ / size_;
+		y = old_index_ % size_;
+		if(virtual_a_mat_(x, y) != 1.0) std::cout << "OMGOMGOMGOMGOMG" << std::endl;
+		virtual_a_mat_(x, y) = 0.0;
+		x = new_index_ / size_;
+		y = new_index_ % size_;
+		if(virtual_a_mat_(x, y) != 0.0) std::cout << "LOLLOLLOLLOLLOL" << std::endl;
+		virtual_a_mat_(x, y) = 1.0;
+		return true;
+	} // Tile::update_virtual_model()
 
 
 	bool Tile::update_from_model() {
@@ -319,18 +408,26 @@ namespace hir {
 		std::cout << "++ Computing model FFT ..." << std::endl;
 
 		unsigned int size2 = size_ * size_;
-		fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
-		fftw_complex* mat_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
+		//fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
+		//fftw_complex* mat_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
+		//fftw_plan plan;
+		//plan = fftw_plan_dft_2d(size_, size_, input, output, FFTW_FORWARD, FFTW_ESTIMATE);
 		real_t* orig_a_mat = a_mat_.data();
 		for(int i = 0; i < size2; ++ i) {
-			mat_in[i][0] = orig_a_mat[i];
-			mat_in[i][1] = 0.0;
-			mat_out[i][0] = 0.0;
-			mat_out[i][1] = 0.0;
+			//mat_in[i][0] = orig_a_mat[i];
+			//mat_in[i][1] = 0.0;
+			//mat_out[i][0] = 0.0;
+			//mat_out[i][1] = 0.0;
+			fft_in_[i][0] = orig_a_mat[i];
+			fft_in_[i][1] = 0.0;
+			fft_out_[i][0] = 0.0;
+			fft_out_[i][1] = 0.0;
 		} // for
 		//print_fftwcmatrix("mat_in", mat_in, size_, size_);
 		// execute fft
-		execute_fftw(mat_in, mat_out);
+		//execute_fftw(mat_in, mat_out);
+		//fftw_execute(plan);
+		fftw_execute(fft_plan_);
 		#pragma omp parallel
 		{
 			#ifdef _OPENMP
@@ -341,7 +438,10 @@ namespace hir {
 			#pragma omp for collapse(2)
 			for(unsigned int i = 0; i < size_; ++ i) {
 				for(unsigned int j = 0; j < size_; ++ j) {
-					f_mat_[f_mat_i_](i, j) = complex_t(mat_out[size_ * i + j][0], mat_out[size_ * i + j][1]) /
+					//f_mat_[f_mat_i_](i, j) = complex_t(mat_out[size_ * i + j][0], mat_out[size_ * i + j][1]) /
+					//							(real_t) num_particles_;
+					f_mat_[f_mat_i_](i, j) = complex_t(fft_out_[size_ * i + j][0],
+														fft_out_[size_ * i + j][1]) /
 												(real_t) num_particles_;
 				} // for
 			} // for
@@ -350,8 +450,54 @@ namespace hir {
 		//print_fftwcmatrix("mat_out", mat_out, size_, size_);
 		//print_cmatrix("f_mat_[f_mat_i_]", f_mat_[f_mat_i_].data(), size_, size_);
 
-		fftw_free(mat_out);
-		fftw_free(mat_in);
+		// destroy fft plan
+		//fftw_destroy_plan(plan);
+
+		//fftw_free(mat_out);
+		//fftw_free(mat_in);
+		return true;
+	} // Tile::compute_fft_mat()
+
+
+	bool Tile::compute_fft_mat(unsigned int buff_i) {
+		unsigned int size2 = size_ * size_;
+		//fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
+		//fftw_complex* mat_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
+		//fftw_plan plan;
+		//plan = fftw_plan_dft_2d(size_, size_, mat_in, mat_out, FFTW_FORWARD, FFTW_ESTIMATE);
+		for(int i = 0; i < size2; ++ i) {
+			//mat_in[i][0] = virtual_a_mat_[i];
+			//mat_in[i][1] = 0.0;
+			//mat_out[i][0] = 0.0;
+			//mat_out[i][1] = 0.0;
+			fft_in_[i][0] = virtual_a_mat_[i];
+			fft_in_[i][1] = 0.0;
+			fft_out_[i][0] = 0.0;
+			fft_out_[i][1] = 0.0;
+		} // for
+		//print_fftwcmatrix("mat_in", mat_in, size_, size_);
+		// execute fft
+		//execute_fftw(mat_in, mat_out);
+		//fftw_execute(plan);
+		fftw_execute(fft_plan_);
+
+		#pragma omp parallel
+		{
+			#pragma omp for collapse(2)
+			for(unsigned int i = 0; i < size_; ++ i) {
+				for(unsigned int j = 0; j < size_; ++ j) {
+					//f_mat_[buff_i](i, j) = complex_t(mat_out[size_ * i + j][0], mat_out[size_ * i + j][1]) /
+					//							(real_t) num_particles_;
+					f_mat_[buff_i](i, j) = complex_t(fft_out_[size_ * i + j][0], fft_out_[size_ * i + j][1]) /
+												(real_t) num_particles_;
+				} // for
+			} // for
+		} // omp parallel
+
+		//fftw_destroy_plan(plan);
+
+		//fftw_free(mat_out);
+		//fftw_free(mat_in);
 		return true;
 	} // Tile::compute_fft_mat()
 
@@ -387,8 +533,11 @@ namespace hir {
 			for(unsigned int i = 0; i < size_; ++ i) {
 				for(unsigned int j = 0; j < size_; ++ j) {
 					complex_t temp_f = f_mat_[f_i](i, j);
-					mod_f_mat_[1 - mod_f_mat_i_](i, j) = fabs(temp_f.real() * temp_f.real() +
-														temp_f.imag() * temp_f.imag());
+					real_t temp = fabs((temp_f.real() * temp_f.real()) + (temp_f.imag() * temp_f.imag()));
+					if(temp != 0.0)
+						mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp;
+					else
+						mod_f_mat_[1 - mod_f_mat_i_](i, j) = 0.0;
 				} // for
 			} // for
 			//normalize_mod_mat(1 - mod_f_mat_i_);	///////////////////////////////////////////////// ...
@@ -398,11 +547,32 @@ namespace hir {
 	} // Tile::compute_mod_mat()
 
 
+	bool Tile::normalize_mod(unsigned int mat_i) {
+		real_t sum = 0.0;
+		for(int i = 0; i < size_; ++ i) {
+			for(int j = 0; j < size_; ++ j) {
+				if(i == 0 && j == 0) continue;
+				sum += mod_f_mat_[mat_i](i, j);
+			} // for j
+		} // for i
+		real_t avg = sum / (size_ * size_);
+		for(int i = 0; i < size_; ++ i) {
+			for(int j = 0; j < size_; ++ j) {
+				if(i == 0 && j == 0) continue;
+				mod_f_mat_[mat_i](i, j) /= avg;
+			} // for j
+		} // for i
+
+		return true;
+	} // Tile::normalize_mod()
+
+
 	bool Tile::normalize_mod_mat(unsigned int mat_i) {
 		real_t min_val, max_val;
-		min_val = max_val = mod_f_mat_[mat_i](0, 0);
+		min_val = max_val = mod_f_mat_[mat_i](1, 1);
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
+				if(i == 0 && j == 0) continue;
 				real_t temp = mod_f_mat_[mat_i](i, j);
 				min_val = (temp < min_val) ? temp : min_val;
 				max_val = (temp > max_val) ? temp : max_val;
@@ -411,6 +581,7 @@ namespace hir {
 		#pragma omp parallel for collapse(2)
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
+				if(i == 0 && j == 0) continue;
 				mod_f_mat_[mat_i](i, j) = (mod_f_mat_[mat_i](i, j) - min_val) / (max_val - min_val);
 			} // for
 		} // for
@@ -429,8 +600,9 @@ namespace hir {
 				#pragma omp for collapse(2) reduction(+:model_norm)
 				for(unsigned int i = 0; i < maxi; ++ i) {
 					for(unsigned int j = 0; j < maxi; ++ j) {
-						//model_norm += mod_f_mat_[buff_i](i, j); // * (j + 1);	// what is the Y matrix anyway ???
-						model_norm += mod_f_mat_[buff_i](i, j);
+						if(i == 0 && j == 0) continue;
+						model_norm += mod_f_mat_[buff_i](i, j) * (j + 1);	// what is the Y matrix anyway ???
+						//model_norm += mod_f_mat_[buff_i](i, j);
 					} // for
 				} // for
 			}
@@ -450,20 +622,21 @@ namespace hir {
 			#pragma omp parallel for collapse(2) reduction(+:chi2)
 			for(unsigned int i = 0; i < size_; ++ i) {
 				for(unsigned int j = 0; j < size_; ++ j) {
+					if(i == 0 && j == 0) continue;
 					int i_swap = (i + (size_ >> 1)) % size_;
 					int j_swap = (j + (size_ >> 1)) % size_;
-					real_t temp = fabs(pattern(i_swap, j_swap) - mod_f_mat_[mod_f_i](i, j) * c_factor);
-					//std::cout << "--------- pattern: " << pattern(i_swap, j_swap) << ", mod_f: "
-					//			<< mod_f_mat_[mod_f_i](i, j) * c_factor << ", c_fac: " << c_factor
-					//			<< ", chi: " << temp << std::endl;
-					chi2 += temp * temp;
+					real_t temp = pattern(i_swap, j_swap) - mod_f_mat_[mod_f_i](i, j);// * c_factor;
+//					std::cout << "--------- pattern: " << pattern(i_swap, j_swap) << ", mod_f: "
+//								<< mod_f_mat_[mod_f_i](i, j) * c_factor << ", c_fac: " << c_factor
+//								<< ", chi: " << temp << std::endl;
+					chi2 += fabs(temp * temp);
 					//if(pattern(i_swap, j_swap) != 0.0)
 					//	chi2 += temp * temp / pattern(i_swap, j_swap);
 				} // for
 			} // for
 		#endif // USE_GPU
 		// normalize with something ... norm for now
-		chi2 = 10e6 * chi2 / (base_norm * base_norm);
+//		chi2 = 1e4 * chi2 / (base_norm * base_norm);
 		return chi2;
 	} // Tile::compute_chi2()
 
@@ -552,8 +725,17 @@ namespace hir {
 		#ifdef USE_GPU
 			// this has been merged into compute_dft2 for gpu
 		#else
-			return woo::matrix_add(dft_mat, f_mat, new_f_mat);	// matrix operation
+			//return woo::matrix_add(dft_mat, f_mat, new_f_mat);	// matrix operation
+			#pragma omp parallel for collapse(2)
+			for(int i = 0; i < size_; ++ i) {
+				for(int j = 0; j < size_; ++ j) {
+					int i_swap = i; //(i + (size_ >> 1)) % size_;
+					int j_swap = j; //(j + (size_ >> 1)) % size_;
+					new_f_mat(i, j) = dft_mat(i_swap, j_swap) + f_mat(i, j);
+				} // for j
+			} // for i
 		#endif // USE_GPU
+		return true;
 	} // Tile::update_fft_mat()
 
 

@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Tue 06 Aug 2013 01:57:58 PM PDT
+  *  Modified: Fri 09 Aug 2013 03:32:04 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -21,6 +21,8 @@
 
 
 namespace hir {
+
+#include "temp.hpp"
 
 	RMC::RMC(char* filename) :
 			in_pattern_(0, 0),
@@ -238,13 +240,14 @@ namespace hir {
 					//unsigned int img_index = cols_ * ((i + hrow) % rows_) + (j + hcol) % cols_;
 					// or not ...
 					unsigned int img_index = cols_ * i + j;
-					//img_data[img_index] = (real_t) temp;
-					img_data[img_index] = (real_t) temp / 255;
+					img_data[img_index] = (real_t) temp;
+					//img_data[img_index] = (real_t) temp / 255;
 				} // for
 			} // for
 			for(unsigned int i = 0; i < rows_; ++ i) {
 				for(unsigned int j = 0; j < cols_; ++ j) {
-					img.at<unsigned char>(i, j) = (unsigned char) 255 * img_data[cols_ * i + j];
+					//img.at<unsigned char>(i, j) = (unsigned char) 255 * img_data[cols_ * i + j];
+					img.at<unsigned char>(i, j) = (unsigned char) img_data[cols_ * i + j];
 				} // for
 			} // for
 			// write it out
@@ -333,7 +336,8 @@ namespace hir {
 		// generate 1st order power (full 360 deg rotation in polar coords)
 		std::vector<complex_t> first_pow;
 		for(unsigned int i = 0; i < tile_size_; ++ i) {
-			real_t temp = 2.0 * PI_ * (1.0 - ((real_t) i / tile_size_));
+			//real_t temp = 2.0 * PI_ * (1.0 - ((real_t) i / tile_size_));
+			real_t temp = - 2.0 * PI_ * ((real_t) i / tile_size_);
 			real_t temp_r = cos(temp);
 			real_t temp_i = sin(temp);
 			first_pow.push_back(complex_t(temp_r, temp_i));
@@ -357,7 +361,7 @@ namespace hir {
 		for(; curr_citer != vandermonde_mat_.end_col(); ++ curr_citer, ++ prev_citer) {
 			for(unsigned int i = 0; i < tile_size_; ++ i) curr_citer[i] = prev_citer[i] * first_pow[i];
 		} // while
-		//print_cmatrix("vandermonde_mat", vandermonde_mat_.data(), size_, size_);
+		//print_cmatrix("vandermonde_mat", vandermonde_mat_.data(), tile_size_, tile_size_);
 
 		return true;
 	} // RMC::initialize_vandermonde()
@@ -421,7 +425,8 @@ namespace hir {
 		cv::Mat img(tile_size_, tile_size_, 0);
 		for(unsigned int i = 0; i < tile_size_; ++ i) {
 			for(unsigned int j = 0; j < tile_size_; ++ j) {
-				img.at<unsigned char>(i, j) = (unsigned char) 255 * cropped_pattern_[tile_size_ * i + j];
+				//img.at<unsigned char>(i, j) = (unsigned char) 255 * cropped_pattern_[tile_size_ * i + j];
+				img.at<unsigned char>(i, j) = (unsigned char) cropped_pattern_[tile_size_ * i + j];
 			} // for
 		} // for
 		// write it out
@@ -468,18 +473,39 @@ namespace hir {
 					//if(scaled_pattern_(i, j) > threshold) {
 					//	temp = 255 * (scaled_pattern_(i, j) - threshold) / (max_val - threshold);
 					if(cropped_pattern_(i, j) > threshold) {
-						temp = (cropped_pattern_(i, j) - threshold) / (max_val - threshold);
+			//			temp = (cropped_pattern_(i, j) - threshold) / (max_val - threshold);
 					} else {
-						temp = 0.0;
+			//			temp = 0.0;
 						mask_mat_(i, j) = 0;
 					} // if-else
 					//scaled_pattern_(i, j) = temp;
-					cropped_pattern_(i, j) = temp;
+			//		cropped_pattern_(i, j) = temp;
 				} // for
 			} // for
 		} // if
+
+		normalize_cropped_pattern();
+
 		return true;
 	} // RMC::preprocess_pattern_and_mask()
+
+	
+	bool RMC::normalize_cropped_pattern() {
+		real_t sum = 0.0;
+		for(int i = 0; i < tile_size_; ++ i) {
+			for(int j = 0; j < tile_size_; ++ j) {
+				sum += cropped_pattern_(i, j);
+			} // for j
+		} // for i
+		real_t avg = sum / (tile_size_ * tile_size_);
+		for(int i = 0; i < tile_size_; ++ i) {
+			for(int j = 0; j < tile_size_; ++ j) {
+				cropped_pattern_(i, j) /= avg;
+			} // for j
+		} // for i
+
+		return true;
+	} // RMC::normalize_cropped_pattern()
 
 
 	bool RMC::compute_base_norm() {
@@ -491,8 +517,8 @@ namespace hir {
 			#pragma omp for collapse(2) reduction(+:base_norm)
 			for(unsigned int i = 0; i < maxi; ++ i) {
 				for(unsigned int j = 0; j < maxi; ++ j) {
-					//base_norm += cropped_pattern_(i, j);	// * (j + 1);	// skipping creation of Y matrix
-					base_norm += cropped_pattern_(i, j);
+					base_norm += cropped_pattern_(i, j) * (j + 1);	// skipping creation of Y matrix
+					//base_norm += cropped_pattern_(i, j);
 					//base_norm += scaled_pattern_(i, j); // * (j + 1);	// skipping creation of Y matrix
 				} // for
 			} // for

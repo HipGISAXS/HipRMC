@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 02 Aug 2013 11:53:28 AM PDT
+  *  Modified: Fri 09 Aug 2013 03:33:22 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -58,6 +58,8 @@ namespace hir {
 			//bool scale_pattern_to_tile(unsigned int);
 			bool crop_pattern_to_tile(unsigned int);
 			bool preprocess_pattern_and_mask(unsigned int);
+
+			bool normalize_cropped_pattern();
 
 		public:
 			RMC(char*);
