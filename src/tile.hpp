@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 09 Aug 2013 03:33:02 PM PDT
+  *  Modified: Sun 11 Aug 2013 01:38:48 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -42,8 +42,9 @@ namespace hir {
 			// following define a tile
 			unsigned int size_;						// num rows = num cols = size
 			unsigned int final_size_;				// target model size (when using scaling)
-			mat_real_t a_mat_;						// A: the current model
-			mat_real_t virtual_a_mat_;						// A: the current model
+			mat_real_t a_mat_;						// the current model
+			mat_real_t virtual_a_mat_;				// the current virtual model
+			mat_real_t diff_mat_;					// mod difference matrix (temporary)
 
 			// buffers used only for cpu version
 			std::vector<mat_complex_t> f_mat_;		// F buffers
@@ -99,6 +100,7 @@ namespace hir {
 			//double compute_chi2(const mat_real_t&, unsigned int, real_t);
 			double compute_chi2(const mat_real_t&, unsigned int, real_t, real_t);
 			bool virtual_move_random_particle();
+			bool virtual_move_random_particle_restricted(unsigned int);
 			bool move_particle(double, real_t);
 			bool compute_dft2(mat_complex_t&, unsigned int, unsigned int);
 			bool update_fft_mat(mat_complex_t&, mat_complex_t&,
@@ -120,7 +122,7 @@ namespace hir {
 			bool init_scale(real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
 			bool destroy_scale();
 			// simulation functions
-			bool simulate_step(mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, real_t, unsigned int);
+			bool simulate_step(const mat_real_t&, const mat_complex_t&, const mat_uint_t&, real_t, real_t, unsigned int);
 			bool update_model();
 			bool update_virtual_model();
 			bool update_a_mat();
@@ -131,7 +133,7 @@ namespace hir {
 			bool print_times();
 			bool finalize_result(double&, mat_real_t&);
 
-			void create_image(std::string, unsigned int, const mat_real_t&);
+			void create_image(std::string, unsigned int, const mat_real_t&, bool);
 			bool scale_step();
 			bool print_a_mat();
 			unsigned int accepted_moves() const { return accepted_moves_; }
@@ -139,6 +141,7 @@ namespace hir {
 			bool normalize_mod(unsigned int);
 
 			bool save_mat_image(unsigned int i) {
+				//create_image("modfft", i, mod_f_mat_[mod_f_mat_i_], true);
 				unsigned int nrows = mod_f_mat_[mod_f_mat_i_].num_rows();
 				unsigned int ncols = mod_f_mat_[mod_f_mat_i_].num_cols();
 				wil::Image img(nrows, ncols, 30, 30, 30);
@@ -163,6 +166,7 @@ namespace hir {
 			} // save_mat_image()
 
 			bool save_fmat_image(unsigned int i) {
+//				create_image("fft", i, f_mat_[f_mat_i_], true);
 				unsigned int nrows = f_mat_[f_mat_i_].num_rows(), ncols = f_mat_[f_mat_i_].num_cols();
 				wil::Image img(nrows, ncols, 30, 30, 30);
 				real_t* data = new (std::nothrow) real_t[nrows * ncols];
@@ -198,7 +202,8 @@ namespace hir {
 			} // save_mat_image_direct()
 */
 			bool save_mat_image_direct(unsigned int i) {
-				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols(), 30, 30, 30);
+				create_image("model", i, a_mat_, false);
+/*				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols(), 30, 30, 30);
 				img.construct_image_direct(a_mat_.data());
 				std::string str("_model.tif");
 				std::stringstream num;
@@ -207,7 +212,7 @@ namespace hir {
 				num >> str0;
 				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
 				img.save(str);
-			} // save_mat_image_direct()
+*/			} // save_mat_image_direct()
 
 			bool save_chi2_list(unsigned int i) {
 				std::stringstream num;

@@ -4,9 +4,9 @@
   *  File: tile.cpp
   *  Created: Jan 25, 2013
 <<<<<<< HEAD
-  *  Modified: Fri 09 Aug 2013 03:51:08 PM PDT
+  *  Modified: Mon 12 Aug 2013 08:19:29 AM PDT
 =======
-  *  Modified: Fri 09 Aug 2013 03:51:08 PM PDT
+  *  Modified: Mon 12 Aug 2013 08:19:29 AM PDT
 >>>>>>> master
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
@@ -33,6 +33,7 @@ namespace hir {
 				unsigned int final_size) :
 		a_mat_(rows, cols),
 		virtual_a_mat_(rows, cols),
+		diff_mat_(rows, cols),
 		f_mat_i_(0),
 		mod_f_mat_i_(0),
 		indices_(indices),
@@ -71,7 +72,8 @@ namespace hir {
 		size_(tile.size_),
 		final_size_(tile.final_size_),
 		a_mat_(tile.a_mat_),
-		virtual_a_mat_(tile.a_mat_),
+		virtual_a_mat_(tile.virtual_a_mat_),
+		diff_mat_(tile.diff_mat_),
 		f_mat_(tile.f_mat_),
 		mod_f_mat_(tile.mod_f_mat_),
 		indices_(tile.indices_),
@@ -143,7 +145,7 @@ namespace hir {
 		} // for
 		// write it out
 		cv::imwrite(HipRMCInput::instance().label() + "/init_model.tif", img);
-*///		create_image("init_model", 0, a_mat_);
+*///		create_image("init_model", 0, a_mat_, false);
 
 		// compute fft of a_mat_ into fft_mat_ and other stuff
 /*		mytimer.start();
@@ -210,7 +212,7 @@ namespace hir {
 					<< " ms." << std::endl;
 		mytimer.start();
 		compute_mod_mat(f_mat_i_);
-		normalize_mod(1 - mod_f_mat_i_);	//////////////////////////////////////////////////////
+//		normalize_mod(1 - mod_f_mat_i_);	//////////////////////////////////////////////////////
 		mytimer.stop();
 		std::cout << "**         Initial mod compute time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
@@ -261,17 +263,19 @@ namespace hir {
 
 
 	// in case of gpu version, this assumes all data is already on the gpu
-	bool Tile::simulate_step(mat_real_t& pattern,
-							mat_complex_t& vandermonde,
+	bool Tile::simulate_step(const mat_real_t& pattern,
+							const mat_complex_t& vandermonde,
 							const mat_uint_t& mask,
 							real_t tstar, real_t base_norm, unsigned int iter) {
+		//create_image("pattern", iter, pattern, false);
 		//std::cout << "++ simulate_step" << std::endl;
 		// do all computations in scratch buffers
 		unsigned int f_scratch_i = 1 - f_mat_i_;
 		unsigned int mod_f_scratch_i = 1 - mod_f_mat_i_;
 
 		mytimer_.start();
-		virtual_move_random_particle();
+		//virtual_move_random_particle();
+		virtual_move_random_particle_restricted(70);
 		mytimer_.stop(); vmove_time += mytimer_.elapsed_msec();
 
 		mytimer_.start();
@@ -292,16 +296,18 @@ namespace hir {
 
 		mytimer_.start();
 		compute_mod_mat(f_scratch_i);
-		normalize_mod(mod_f_scratch_i);	//////////////////////////////////////////////////////
+//		normalize_mod(mod_f_scratch_i);	//////////////////////////////////////////////////////
 		#ifndef USE_GPU
 //			mask_mat(mask, mod_f_scratch_i);
 		#endif // USE_GPU
 		mytimer_.stop(); mod_time += mytimer_.elapsed_msec();
-		//create_image("allmod", iter, mod_f_mat_[mod_f_scratch_i]);
+		//create_image("allnewm", iter, virtual_a_mat_, false);
+		//create_image("allmod", iter, mod_f_mat_[mod_f_scratch_i], true);
 
 		// this should be here i think ...
 		mytimer_.start();
 		compute_model_norm(mod_f_scratch_i);
+		double new_c_factor = base_norm / model_norm_;
 		mytimer_.stop(); norm_time += mytimer_.elapsed_msec();
 
 //		std::cout << "---------------model_norm_ = " << model_norm_
@@ -309,20 +315,19 @@ namespace hir {
 //					<< std::endl;
 
 		mytimer_.start();
-		double new_c_factor = base_norm / model_norm_;
 		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, new_c_factor, base_norm);
-		double diff_chi2 = prev_chi2_ - new_chi2;
 		mytimer_.stop(); chi2_time += mytimer_.elapsed_msec();
-//		std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
-//					<< "\t c_factor: " << new_c_factor << std::endl;
 
 		mytimer_.start();
+		double diff_chi2 = prev_chi2_ - new_chi2;
+//		std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
+//					<< "\t c_factor: " << new_c_factor << std::endl;
 		bool accept = false;
 		if(diff_chi2 > 0.0) accept = true;
 		else {
 			real_t p = exp(diff_chi2 / (2 / (0.01 * iter)));
 			real_t prand = ms_rand_01();
-//			if(prand < p) accept = true;
+			if(prand < p) accept = true;
 		} // if-else
 		if(accept) {	// accept the move
 			//std::cout << std::endl << "++++ accepting move..., chi2: " << new_chi2
@@ -331,13 +336,13 @@ namespace hir {
 			// update to newly computed stuff
 			// make scratch as current
 			++ accepted_moves_;
-			create_image("mod", accepted_moves_, mod_f_mat_[mod_f_scratch_i]);
+			//create_image("diff", accepted_moves_, diff_mat_, true);
+			//create_image("mod", accepted_moves_, mod_f_mat_[mod_f_scratch_i], true);
 			move_particle(new_chi2, base_norm);
 			c_factor_ = new_c_factor;
-//			std::cout << "------- c_factor_ = " << c_factor_ << std::endl;
 			chi2_list_.push_back(new_chi2);		// save this chi2 value
 			update_model();
-			create_image("newm", accepted_moves_, a_mat_);
+			//create_image("newm", accepted_moves_, a_mat_, false);
 		} // if
 		mytimer_.stop(); rest_time += mytimer_.elapsed_msec();
 
@@ -345,20 +350,25 @@ namespace hir {
 	} // Tile::simulate_step()
 
 
-	void Tile::create_image(std::string str, unsigned int iter, const mat_real_t &mat) {
+	void Tile::create_image(std::string str, unsigned int iter, const mat_real_t &mat, bool swapped) {
 		std::stringstream num;
 		num << std::setfill('0') << std::setw(8) << iter;
 		char str0[9];
 		num >> str0;
-/*		cv::Mat img(size_, size_, 0);
+		cv::Mat img(size_, size_, 0);
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
-				img.at<unsigned char>(i, j) = (unsigned char) 255 * mat(i, j);
+				int i_swap = i, j_swap = j;
+				if(swapped) {
+					i_swap = (i + (size_ >> 1)) % size_;
+					j_swap = (j + (size_ >> 1)) % size_;
+				}
+				img.at<unsigned char>(i, j) = (unsigned char) 255 * mat(i_swap, j_swap);
 			} // for
 		} // for
 		// write it out
 		cv::imwrite(HipRMCInput::instance().label() + "/" + std::string(str0) + "_" + str + ".tif", img);
-*/		real_t * data = new (std::nothrow) real_t[size_ * size_];
+/*		real_t * data = new (std::nothrow) real_t[size_ * size_];
 		for(int i = 0; i < size_; ++ i) {
 			for(int j = 0; j < size_; ++ j) {
 				int i_swap = (i + (size_ >> 1)) % size_;
@@ -370,7 +380,7 @@ namespace hir {
 		img.construct_image(data);
 		img.save(HipRMCInput::instance().label() + "/" + std::string(str0) + "_" + str + ".tif");
 		delete[] data;
-	} // Tile::create_image()
+*/	} // Tile::create_image()
 
 
 	bool Tile::update_model() {
@@ -605,7 +615,7 @@ namespace hir {
 				for(unsigned int i = 0; i < maxi; ++ i) {
 					for(unsigned int j = 0; j < maxi; ++ j) {
 						if(i == 0 && j == 0) continue;
-						model_norm += mod_f_mat_[buff_i](i, j) * (j + 1);	// what is the Y matrix anyway ???
+						model_norm += mod_f_mat_[buff_i](i, j);// * (j + 1);	// what is the Y matrix anyway ???
 						//model_norm += mod_f_mat_[buff_i](i, j);
 					} // for
 				} // for
@@ -629,18 +639,20 @@ namespace hir {
 					if(i == 0 && j == 0) continue;
 					int i_swap = (i + (size_ >> 1)) % size_;
 					int j_swap = (j + (size_ >> 1)) % size_;
-					real_t temp = pattern(i_swap, j_swap) - mod_f_mat_[mod_f_i](i, j);// * c_factor;
-//					std::cout << "--------- pattern: " << pattern(i_swap, j_swap) << ", mod_f: "
-//								<< mod_f_mat_[mod_f_i](i, j) * c_factor << ", c_fac: " << c_factor
-//								<< ", chi: " << temp << std::endl;
-					chi2 += fabs(temp * temp);
+					real_t temp = fabs(pattern(i_swap, j_swap) - mod_f_mat_[mod_f_i](i, j));// * c_factor);
+					diff_mat_(i, j) = temp;
+					//std::cout << "--------- pattern: " << pattern(i_swap, j_swap) << ", mod_f: "
+					//			<< mod_f_mat_[mod_f_i](i, j) * c_factor << ", c_fac: " << c_factor
+					//			<< ", chi: " << temp << std::endl;
+					chi2 += temp * temp;
 					//if(pattern(i_swap, j_swap) != 0.0)
-					//	chi2 += temp * temp / pattern(i_swap, j_swap);
+					//	chi2 += temp * temp / fabs(pattern(i_swap, j_swap));
 				} // for
 			} // for
 		#endif // USE_GPU
 		// normalize with something ... norm for now
-//		chi2 = 1e4 * chi2 / (base_norm * base_norm);
+		chi2 = 2e9 * chi2 / (base_norm * base_norm);	// with 128x128
+		//chi2 = 2e6 * chi2 / (base_norm * base_norm);	// with 32x32
 		return chi2;
 	} // Tile::compute_chi2()
 
@@ -676,6 +688,24 @@ namespace hir {
 		//std::cout << "++++ old_pos,new_pos: " << old_pos_ << "," << new_pos_
 		//			<< ", old_index,new_index: " << old_index_ << "," << new_index_ << std::endl;
 		return true;
+	} // Tile::virtual_move_random_particle()
+
+
+	bool Tile::virtual_move_random_particle_restricted(unsigned int dist) {
+		while(1) {
+			old_pos_ = floor(ms_rand_01() * num_particles_);
+			new_pos_ = floor(ms_rand_01() *	(size_ * size_ - num_particles_)) + num_particles_;
+			old_index_ = indices_[old_pos_];
+			new_index_ = indices_[new_pos_];
+			int old_x = old_index_ / size_, old_y = old_index_ % size_;
+			int new_x = new_index_ / size_, new_y = new_index_ % size_;
+			if((fabs(new_x - old_x) < dist || (size_ - fabs(new_x - old_x)) < dist) &&
+					(fabs(new_y - old_y) < dist || (size_ - fabs(new_y - old_y)) < dist))
+				return true;
+		} // while
+		//std::cout << "++++ old_pos,new_pos: " << old_pos_ << "," << new_pos_
+		//			<< ", old_index,new_index: " << old_index_ << "," << new_index_ << std::endl;
+		return false;
 	} // Tile::virtual_move_random_particle()
 
 

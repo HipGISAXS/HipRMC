@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 09 Aug 2013 03:32:04 PM PDT
+  *  Modified: Sun 11 Aug 2013 01:23:10 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -150,7 +150,7 @@ namespace hir {
 			double min_val, max_val;
 			cv::minMaxIdx(img, &min_val, &max_val);
 			double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
-			std::cout << "MIN: " << min_val << ", MAX: " << max_val << ", THRESH: " << threshold << std::endl;
+			//std::cout << "MIN: " << min_val << ", MAX: " << max_val << ", THRESH: " << threshold << std::endl;
 			cv::threshold(img, img, threshold, max_val, cv::THRESH_TOZERO);
 			// scale pixel intensities to span all of 0 - 255
 			scale_image_colormap(img, threshold, max_val);
@@ -269,7 +269,7 @@ namespace hir {
 		//print_matrix("img_data:", in_pattern_.data(), rows_, cols_);
 		//print_array("mask_data:", mask_data, mask_count);
 
-		initialize_simulation(1);
+//		initialize_simulation(1);
 		initialize_tiles(indices, &(HipRMCInput::instance().loading()[0]));
 
 		//delete[] mask_data;
@@ -440,8 +440,8 @@ namespace hir {
 		//woo::matrix_min_max(scaled_pattern_, min_val, max_val);
 		woo::matrix_min_max(cropped_pattern_, min_val, max_val);
 		double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
-		//std::cout << "MIN: " << min_val << ", MAX: " << max_val
-		//			<< ", THRESH: " << threshold << std::endl;
+		std::cout << "MIN: " << min_val << ", MAX: " << max_val
+					<< ", THRESH: " << threshold << std::endl;
 		// sanity check
 		//if(scaled_pattern_.num_rows() != tile_size_) {
 		if(cropped_pattern_.num_rows() != tile_size_) {
@@ -486,21 +486,45 @@ namespace hir {
 
 		normalize_cropped_pattern();
 
+		cv::Mat img(tile_size_, tile_size_, 0);
+		for(unsigned int i = 0; i < tile_size_; ++ i) {
+			for(unsigned int j = 0; j < tile_size_; ++ j) {
+				img.at<unsigned char>(i, j) = (unsigned char) 255 * cropped_pattern_[tile_size_ * i + j];
+				//img.at<unsigned char>(i, j) = (unsigned char) cropped_pattern_[tile_size_ * i + j];
+			} // for
+		} // for
+		// write it out
+		cv::imwrite(HipRMCInput::instance().label() + "/normalized_pattern.tif", img);
+
+		/*real_t * data = new (std::nothrow) real_t[tile_size_ * tile_size_];
+		for(int i = 0; i < tile_size_; ++ i) {
+			for(int j = 0; j < tile_size_; ++ j) {
+				int i_swap = i;//(i + (size_ >> 1)) % size_;
+				int j_swap = j;//(j + (size_ >> 1)) % size_;
+				data[tile_size_ * i + j] = 255 * cropped_pattern_(i_swap, j_swap);
+			} // for j
+		} // for i
+		wil::Image img2(tile_size_, tile_size_, 30, 30, 30);
+		img2.construct_image(data);
+		img2.save(HipRMCInput::instance().label() + "/my_normalized_pattern.tif");
+		delete[] data;*/
+
 		return true;
 	} // RMC::preprocess_pattern_and_mask()
 
 	
 	bool RMC::normalize_cropped_pattern() {
-		real_t sum = 0.0;
+		//real_t sum = 0.0;
+		//for(int i = 0; i < tile_size_; ++ i) {
+		//	for(int j = 0; j < tile_size_; ++ j) {
+		//		sum += cropped_pattern_(i, j);
+		//	} // for j
+		//} // for i
+		//real_t avg = sum / (tile_size_ * tile_size_);
 		for(int i = 0; i < tile_size_; ++ i) {
 			for(int j = 0; j < tile_size_; ++ j) {
-				sum += cropped_pattern_(i, j);
-			} // for j
-		} // for i
-		real_t avg = sum / (tile_size_ * tile_size_);
-		for(int i = 0; i < tile_size_; ++ i) {
-			for(int j = 0; j < tile_size_; ++ j) {
-				cropped_pattern_(i, j) /= avg;
+				//cropped_pattern_(i, j) /= avg;
+				cropped_pattern_(i, j) /= 255.0;
 			} // for j
 		} // for i
 
@@ -517,7 +541,7 @@ namespace hir {
 			#pragma omp for collapse(2) reduction(+:base_norm)
 			for(unsigned int i = 0; i < maxi; ++ i) {
 				for(unsigned int j = 0; j < maxi; ++ j) {
-					base_norm += cropped_pattern_(i, j) * (j + 1);	// skipping creation of Y matrix
+					base_norm += cropped_pattern_(i, j);// * (j + 1);	// skipping creation of Y matrix
 					//base_norm += cropped_pattern_(i, j);
 					//base_norm += scaled_pattern_(i, j); // * (j + 1);	// skipping creation of Y matrix
 				} // for
@@ -583,7 +607,8 @@ namespace hir {
 			} // if
 			for(unsigned int i = 0; i < num_tiles_; ++ i) {
 				//tiles_[i].simulate_step(scaled_pattern_, vandermonde_mat_, mask_mat_, tstar, base_norm_);
-				tiles_[i].simulate_step(cropped_pattern_, vandermonde_mat_, mask_mat_, tstar, base_norm_, step);
+				tiles_[i].simulate_step(cropped_pattern_, vandermonde_mat_, mask_mat_,
+										tstar, base_norm_, step);
 				if((step + 1) % rate == 0) tiles_[i].update_model();
 				/*if(step % 100 == 0) {
 					tiles_[i].update_model();
