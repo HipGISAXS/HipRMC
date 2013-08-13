@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 09 Aug 2013 03:33:22 PM PDT
+  *  Modified: Tue 13 Aug 2013 11:40:01 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -52,6 +52,7 @@ namespace hir {
 			bool initialize_particles_random(vec_uint_t&);
 			bool initialize_simulation(unsigned int);
 			bool initialize_simulation_tiles();
+			bool destroy_simulation_tiles();
 			bool compute_base_norm();
 			bool initialize_mask();
 			bool scale_image_colormap(cv::Mat&, double, double);

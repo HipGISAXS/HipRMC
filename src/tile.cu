@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Sun 04 Aug 2013 11:16:35 AM PDT
+  *  Modified: Tue 13 Aug 2013 12:03:55 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -25,7 +25,7 @@ namespace hir {
 
 	__host__ GTile::GTile():
 		final_size_(0), tile_size_(0),
-		pattern_(NULL), vandermonde_(NULL), a_mat_(NULL), mask_mat_(NULL),
+		pattern_(NULL), vandermonde_(NULL), a_mat_(NULL), virtual_a_mat_(NULL), mask_mat_(NULL),
 		real_buff_d_(NULL),
 		complex_buff_h_(NULL), real_buff_h_(NULL) {
 
@@ -43,6 +43,7 @@ namespace hir {
 		if(mod_f_mat_[0] != NULL) cudaFree(mod_f_mat_[0]);
 		if(f_mat_[1] != NULL) cudaFree(f_mat_[1]);
 		if(f_mat_[0] != NULL) cudaFree(f_mat_[0]);
+		if(virtual_a_mat_ != NULL) cudaFree(virtual_a_mat_);
 		if(a_mat_ != NULL) cudaFree(a_mat_);
 		if(vandermonde_ != NULL) cudaFree(vandermonde_);
 		if(pattern_ != NULL) cudaFree(pattern_);
@@ -60,6 +61,7 @@ namespace hir {
 		cudaMalloc((void**) &pattern_, size2 * sizeof(real_t));
 		cudaMalloc((void**) &vandermonde_, size2 * sizeof(cucomplex_t));
 		cudaMalloc((void**) &a_mat_, size2 * sizeof(cucomplex_t));
+		cudaMalloc((void**) &virtual_a_mat_, size2 * sizeof(cucomplex_t));
 		cudaMalloc((void**) &f_mat_[0], size2 * sizeof(cucomplex_t));
 		cudaMalloc((void**) &f_mat_[1], size2 * sizeof(cucomplex_t));
 		cudaMalloc((void**) &mod_f_mat_[0], size2 * sizeof(real_t));
@@ -68,7 +70,7 @@ namespace hir {
 		cudaMalloc((void**) &real_buff_d_, size2 * sizeof(real_t));
 		complex_buff_h_ = new (std::nothrow) cucomplex_t[size2];
 		real_buff_h_ = new (std::nothrow) real_t[size2];
-		if(pattern_ == NULL || vandermonde_ == NULL || a_mat_ == NULL ||
+		if(pattern_ == NULL || vandermonde_ == NULL || a_mat_ == NULL || virtual_a_mat_ == NULL ||
 				f_mat_[0] == NULL || f_mat_[1] == NULL ||
 				mod_f_mat_[0] == NULL || mod_f_mat_[1] == NULL ||
 				mask_mat_ == NULL || real_buff_d_ == NULL) {
@@ -106,8 +108,57 @@ namespace hir {
 		block_dims_ = dim3(block_x, block_y, 1);
 		grid_dims_ = dim3(grid_x, grid_y, 1);
 
+        cufftResult res = create_cufft_plan(plan_, virtual_a_mat_);
+        if(res != CUFFT_SUCCESS) {
+            std::cerr << "error: " << res << ": fft plan could not be created" << std::endl;
+            return false;
+        } // if
+
 		return true;
-	} // GTile::scale_init()
+	} // GTile::init_scale()
+
+
+	__host__ bool GTile::destroy_scale() {
+        // destroy fft plan
+        cufftDestroy(plan_);
+		return true;
+	} // GTile::destroy_scale()
+
+
+	__host__ bool GTile::copy_mod_mat(unsigned int src_i) {
+		cudaMemcpy(mod_f_mat_[1 - src_i], mod_f_mat_[src_i], tile_size_ * tile_size_ * sizeof(real_t),
+					cudaMemcpyDeviceToDevice);
+		cudaThreadSynchronize();	// not needed
+		return true;
+	} // GTile::copy_mod_mat()
+
+
+	__host__ bool GTile::copy_model(mat_real_t& a) {
+		for(int i = 0; i < tile_size_; ++ i) {
+			for(int j = 0; j < tile_size_; ++ j) {
+				complex_t temp = a(i, j);
+				complex_buff_h_[tile_size_ * i + j].x = temp.real();
+				complex_buff_h_[tile_size_ * i + j].y = 0.0;
+			} // for j
+		} // for i
+		cudaMemcpy(a_mat_, complex_buff_h_, tile_size_ * tile_size_ * sizeof(cucomplex_t),
+					cudaMemcpyHostToDevice);
+		return true;
+	} // GTile::copy_model()
+
+
+	__host__ bool GTile::copy_virtual_model(mat_real_t& a) {
+		for(int i = 0; i < tile_size_; ++ i) {
+			for(int j = 0; j < tile_size_; ++ j) {
+				complex_t temp = a(i, j);
+				complex_buff_h_[tile_size_ * i + j].x = temp.real();
+				complex_buff_h_[tile_size_ * i + j].y = 0.0;
+			} // for j
+		} // for i
+		cudaMemcpy(virtual_a_mat_, complex_buff_h_, tile_size_ * tile_size_ * sizeof(cucomplex_t),
+					cudaMemcpyHostToDevice);
+		return true;
+	} // GTile::copy_model()
 
 
 	__host__ bool GTile::copy_f_mats_to_host(cucomplex_t* f_buff, real_t* mod_f_buff,
@@ -119,26 +170,49 @@ namespace hir {
 	} // GTile::copy_f_mats_to_host()
 
 
-	__host__ bool GTile::compute_fft_mat(unsigned int buff_i) {
+	__host__ bool GTile::compute_virtual_fft_mat(unsigned int buff_i) {
         // create fft plan
-        cufftHandle plan;
+        //cufftHandle plan;
         cufftResult res;
-        res = create_cufft_plan(plan, a_mat_);
-        if(res != CUFFT_SUCCESS) {
-            std::cerr << "error: " << res << ": fft plan could not be created" << std::endl;
-            return false;
-        } // if
-		res = execute_cufft(plan, a_mat_, f_mat_[buff_i]);
+        //res = create_cufft_plan(plan, virtual_a_mat_);
+        //if(res != CUFFT_SUCCESS) {
+        //    std::cerr << "error: " << res << ": fft plan could not be created" << std::endl;
+        //    return false;
+        //} // if
+		res = execute_cufft(plan_, virtual_a_mat_, f_mat_[buff_i]);
         if(res != CUFFT_SUCCESS) {
             std::cerr << "error: " << res << ": fft could not be executed" << std::endl;
             return false;
         } // if
         cudaThreadSynchronize();
         // destroy fft plan
-        cufftDestroy(plan);
+        //cufftDestroy(plan);
         return true;
     } // GTile::compute_fft_mat()
 
+
+	__host__ bool GTile::compute_fft_mat(unsigned int buff_i) {
+        // create fft plan
+        //cufftHandle plan;
+        cufftResult res;
+        //res = create_cufft_plan(plan, a_mat_);
+        //if(res != CUFFT_SUCCESS) {
+        //    std::cerr << "error: " << res << ": fft plan could not be created" << std::endl;
+        //    return false;
+        //} // if
+		res = execute_cufft(plan_, a_mat_, f_mat_[buff_i]);
+        if(res != CUFFT_SUCCESS) {
+            std::cerr << "error: " << res << ": fft could not be executed" << std::endl;
+            return false;
+        } // if
+        cudaThreadSynchronize();
+        // destroy fft plan
+        //cufftDestroy(plan);
+        return true;
+    } // GTile::compute_fft_mat()
+
+
+	// specializations for float and double
 
 	__host__ cufftResult GTile::create_cufft_plan(cufftHandle& plan, cuFloatComplex* a) {
         return cufftPlan2d(&plan, tile_size_, tile_size_, CUFFT_C2C);
@@ -175,14 +249,6 @@ namespace hir {
 	} // GTile::compute_mod_mat()
 
 
-	__host__ bool GTile::copy_mod_mat(unsigned int src_i) {
-		cudaMemcpy(mod_f_mat_[1 - src_i], mod_f_mat_[src_i], tile_size_ * tile_size_ * sizeof(real_t),
-					cudaMemcpyDeviceToDevice);
-		cudaThreadSynchronize();	// not needed
-		return true;
-	} // GTile::copy_mod_mat()
-
-
 	// reduction functor
 	typedef struct {
 		__host__ __device__
@@ -205,13 +271,13 @@ namespace hir {
 		plus_t plus_op;
 		//model_norm = woo::cuda::reduce_multiple<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (maxi * maxi),
 		//													0.0, plus_op);
-		model_norm = woo::cuda::reduce_single<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (maxi * maxi),
-															0.0, plus_op);
+		model_norm = woo::cuda::reduce_single<real_t*, real_t, plus_t>(mod_f_mat_[buff_i],
+												mod_f_mat_[buff_i] + (maxi * maxi), 0.0, plus_op);
 		return model_norm;
 	} // GTile::compute_model_norm()
 
 
-	__host__ double GTile::compute_chi2(unsigned int buff_i, real_t c_factor) {
+	__host__ double GTile::compute_chi2(unsigned int buff_i, real_t c_factor, real_t base_norm) {
 		double chi2 = 0.0;
 		compute_chi2_kernel <<< grid_dims_, block_dims_ >>> (pattern_, mod_f_mat_[buff_i], tile_size_,
 															c_factor, real_buff_d_);
@@ -225,9 +291,7 @@ namespace hir {
 		//													real_buff_d_ + (tile_size_ * tile_size_),
 		//													0.0, plus_op);
 		chi2 = woo::cuda::reduce_single<real_t*, real_t, plus_t>(real_buff_d_,
-															real_buff_d_ + (tile_size_ * tile_size_),
-															0.0, plus_op);
-		
+										real_buff_d_ + (tile_size_ * tile_size_), 0.0, plus_op);
 		return chi2;
 	} // GTile::compute_chi2()
 
@@ -283,12 +347,13 @@ namespace hir {
 		if(i_x < size && i_y < size) {
 			unsigned int index = size * i_y + i_x;
 			cucomplex_t temp = inmat[index];
-			//outmat[index] = temp.x * temp.x + temp.y * temp.y;
-			outmat[index] = mask[index] * (temp.x * temp.x + temp.y * temp.y);
+			outmat[index] = temp.x * temp.x + temp.y * temp.y;
+			//outmat[index] = mask[index] * (temp.x * temp.x + temp.y * temp.y);
 		} // if
 	} // compute_mod_mat_kernel()
 
 
+	// this is not used
 	__global__ void compute_model_norm_kernel(real_t* inmat, unsigned int size,
 												unsigned int size2, real_t* outmat) {
 		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
@@ -310,7 +375,8 @@ namespace hir {
 			unsigned int swap_i_y = (i_y + (size >> 1)) % size;
 			unsigned int index = size * i_y + i_x;
 			unsigned int swap_index = size * swap_i_y + swap_i_x;
-			real_t temp = pattern[index] - mod_mat[swap_index] * c_factor;
+			//real_t temp = pattern[swap_index] - mod_mat[index] * c_factor;
+			real_t temp = pattern[swap_index] - 2.5 * mod_mat[index];
 			out[index] = temp * temp;
 		} // if
 	} // compute_chi2_kernel()

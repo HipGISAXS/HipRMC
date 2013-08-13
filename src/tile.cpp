@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 12 Aug 2013 05:14:24 PM PDT
+  *  Modified: Tue 13 Aug 2013 11:57:49 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -113,7 +113,7 @@ namespace hir {
 
 		// fill a_mat_ with particles
 		mytimer.start();
-		update_a_mat();
+		update_model();
 		mytimer.stop();
 		std::cout << "**  Initial model construction time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		std::cout << "++              Number of particles: " << num_particles_ << std::endl;
@@ -239,7 +239,9 @@ namespace hir {
 
 
 	bool Tile::destroy_scale() {
-		#ifndef USE_GPU
+		#ifdef USE_GPU
+			gtile_.destroy_scale();
+		#else	// use CPU
 			fftw_destroy_plan(fft_plan_);
 			fftw_free(fft_out_);
 			fftw_free(fft_in_);
@@ -402,6 +404,9 @@ namespace hir {
 		y = new_index_ % size_;
 		if(virtual_a_mat_(x, y) != 0.0) std::cout << "LOLLOLLOLLOLLOL" << std::endl;
 		virtual_a_mat_(x, y) = 1.0;
+		#ifdef USE_GPU
+			gtile_.copy_virtual_model(virtual_a_mat_);
+		#endif
 		return true;
 	} // Tile::update_virtual_model()
 
@@ -532,6 +537,15 @@ namespace hir {
 		return true;
 	} // Tile::compute_fft_mat()
 
+
+	bool Tile::compute_fft_mat(unsigned int buff_i) {
+		//std::cout << "++ Computing model FFT on GPU ..." << std::endl;
+
+		gtile_.compute_virtual_fft_mat(buff_i);
+		gtile_.normalize_fft_mat(buff_i, num_particles_);
+		return true;
+	} // Tile::compute_fft_mat()
+
 	#endif // USE_GPU
 
 
@@ -544,10 +558,11 @@ namespace hir {
 				for(unsigned int j = 0; j < size_; ++ j) {
 					complex_t temp_f = f_mat_[f_i](i, j);
 					real_t temp = fabs((temp_f.real() * temp_f.real()) + (temp_f.imag() * temp_f.imag()));
-					if(temp != 0.0)
-						mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp;
-					else
-						mod_f_mat_[1 - mod_f_mat_i_](i, j) = 0.0;
+					//if(temp != 0.0)
+					//	mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp;
+					//else
+					//	mod_f_mat_[1 - mod_f_mat_i_](i, j) = 0.0;
+					mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp;
 				} // for
 			} // for
 			//normalize_mod_mat(1 - mod_f_mat_i_);	///////////////////////////////////////////////// ...
@@ -627,7 +642,7 @@ namespace hir {
 								real_t base_norm) {
 		double chi2 = 0.0;
 		#ifdef USE_GPU
-			chi2 = gtile_.compute_chi2(mod_f_i, c_factor);
+			chi2 = gtile_.compute_chi2(mod_f_i, c_factor, base_norm);
 		#else
 			#pragma omp parallel for collapse(2) reduction(+:chi2)
 			for(unsigned int i = 0; i < size_; ++ i) {
@@ -791,7 +806,7 @@ namespace hir {
 
 	bool Tile::finalize_result(double& chi2, mat_real_t& a) {
 		// populate a_mat_
-		update_a_mat();
+		update_model();
 		#ifdef USE_GPU
 			// also copy f mat data to main memory from GPU
 			update_f_mats();
@@ -811,6 +826,10 @@ namespace hir {
 			unsigned int y = indices_[i] % size_;
 			a_mat_(x, y) = 1.0;
 		} // for
+		// also copy to GPU ... temporary?
+		#ifdef USE_GPU
+			gtile_.copy_model(a_mat_);
+		#endif
 		return true;
 	} // Tile::update_a_mat()
 

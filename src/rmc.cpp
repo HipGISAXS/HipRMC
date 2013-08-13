@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 12 Aug 2013 05:13:38 PM PDT
+  *  Modified: Tue 13 Aug 2013 11:54:31 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -201,7 +201,7 @@ namespace hir {
 
 
 	bool RMC::init() {
-		std::cout << "+++++++++++++++++++++ Initializing HipRMC ..." << std::endl;
+		std::cout << "++ Initializing HipRMC ..." << std::endl;
 
 		#ifdef USE_MPI
 		if(main_comm.rank() == 0) {
@@ -316,6 +316,14 @@ namespace hir {
 		} // for
 		return true;
 	} // RMC::initialize_simulation_tiles()
+
+
+	bool RMC::destroy_simulation_tiles() {
+		for(unsigned int i = 0; i < num_tiles_; ++ i) {
+			tiles_[i].destroy_scale();
+		} // for
+		return true;
+	} // RMC::destroy_simulation_tiles()
 
 
 	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading) {
@@ -621,6 +629,7 @@ namespace hir {
 			} // for
 		} // for
 		std::cout << "++ Simulation done." << std::endl;
+		destroy_simulation_tiles();
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			double chi2 = 0.0;
 			mat_real_t a(tile_size_, tile_size_);
