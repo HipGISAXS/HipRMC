@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 11 Aug 2013 01:23:10 PM PDT
+  *  Modified: Mon 12 Aug 2013 05:13:38 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -440,8 +440,8 @@ namespace hir {
 		//woo::matrix_min_max(scaled_pattern_, min_val, max_val);
 		woo::matrix_min_max(cropped_pattern_, min_val, max_val);
 		double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
-		std::cout << "MIN: " << min_val << ", MAX: " << max_val
-					<< ", THRESH: " << threshold << std::endl;
+		//std::cout << "MIN: " << min_val << ", MAX: " << max_val
+		//			<< ", THRESH: " << threshold << std::endl;
 		// sanity check
 		//if(scaled_pattern_.num_rows() != tile_size_) {
 		if(cropped_pattern_.num_rows() != tile_size_) {
@@ -640,7 +640,7 @@ namespace hir {
 											sizeof(cucomplex_t);
 				unsigned int write_bytes = num_blocks * CUDA_BLOCK_SIZE_X_ * CUDA_BLOCK_SIZE_Y_ *
 											sizeof(cucomplex_t);
-				std::cout << "+++++++ DFT2: "
+				std::cout << "++ DFT2 Bandwidth: "
 						<< (float) (read_bytes + write_bytes) * num_steps * 1000 /
 							(tiles_[i].dft2_time * 1024 * 1024)
 						<< " MB/s" << std::endl;

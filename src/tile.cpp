@@ -3,11 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-<<<<<<< HEAD
-  *  Modified: Mon 12 Aug 2013 08:19:29 AM PDT
-=======
-  *  Modified: Mon 12 Aug 2013 08:19:29 AM PDT
->>>>>>> master
+  *  Modified: Mon 12 Aug 2013 05:14:24 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -61,9 +57,9 @@ namespace hir {
 			unsigned int size2 = final_size_ * final_size_;
 			cucomplex_buff_ = new (std::nothrow) cucomplex_t[size2];
 			mytimer.stop();
+		#endif // USE_GPU
 		std::cout << "**       Memory initialization time: " << mytimer.elapsed_msec()
 						<< " ms." << std::endl;
-		#endif // USE_GPU
 	} // Tile::Tile()
 
 
@@ -275,7 +271,7 @@ namespace hir {
 
 		mytimer_.start();
 		//virtual_move_random_particle();
-		virtual_move_random_particle_restricted(70);
+		virtual_move_random_particle_restricted(130);
 		mytimer_.stop(); vmove_time += mytimer_.elapsed_msec();
 
 		mytimer_.start();
@@ -325,7 +321,7 @@ namespace hir {
 		bool accept = false;
 		if(diff_chi2 > 0.0) accept = true;
 		else {
-			real_t p = exp(diff_chi2 / (2 / (0.01 * iter)));
+			real_t p = exp(diff_chi2 / 0.5);//(2 / (0.001 * iter)));
 			real_t prand = ms_rand_01();
 			if(prand < p) accept = true;
 		} // if-else
@@ -639,11 +635,15 @@ namespace hir {
 					if(i == 0 && j == 0) continue;
 					int i_swap = (i + (size_ >> 1)) % size_;
 					int j_swap = (j + (size_ >> 1)) % size_;
-					real_t temp = fabs(pattern(i_swap, j_swap) - mod_f_mat_[mod_f_i](i, j));// * c_factor);
+					real_t temp = fabs(pattern(i_swap, j_swap) - 2.5 * mod_f_mat_[mod_f_i](i, j));
+					//real_t temp = fabs(pattern(i_swap, j_swap) - mod_f_mat_[mod_f_i](i, j) * c_factor);
 					diff_mat_(i, j) = temp;
-					//std::cout << "--------- pattern: " << pattern(i_swap, j_swap) << ", mod_f: "
-					//			<< mod_f_mat_[mod_f_i](i, j) * c_factor << ", c_fac: " << c_factor
-					//			<< ", chi: " << temp << std::endl;
+					//std::cout << "--------- pattern: " << pattern(i_swap, j_swap)
+					//			<< ", mod_f: " << mod_f_mat_[mod_f_i](i, j)
+					//			<< ", c_factor: " << c_factor
+					//			<< ", mod2: " << c_factor * mod_f_mat_[mod_f_i](i, j)
+					//			<< ", chi: " << temp
+					//			<< ", chi2: " << temp * temp << std::endl;
 					chi2 += temp * temp;
 					//if(pattern(i_swap, j_swap) != 0.0)
 					//	chi2 += temp * temp / fabs(pattern(i_swap, j_swap));
@@ -651,8 +651,9 @@ namespace hir {
 			} // for
 		#endif // USE_GPU
 		// normalize with something ... norm for now
-		chi2 = 2e9 * chi2 / (base_norm * base_norm);	// with 128x128
-		//chi2 = 2e6 * chi2 / (base_norm * base_norm);	// with 32x32
+		//chi2 = 1e10 * chi2 / (base_norm * base_norm);	// with 128x128
+		//chi2 = 2e7 * chi2 / (base_norm * base_norm);	// with 32x32
+		chi2 = (pow((real_t) size_, 5) / 1.0) * chi2 / (base_norm * base_norm);
 		return chi2;
 	} // Tile::compute_chi2()
 
