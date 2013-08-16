@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Tue 13 Aug 2013 11:40:01 AM PDT
+  *  Modified: Thu 15 Aug 2013 10:07:43 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -47,7 +47,7 @@ namespace hir {
 			// initializes with raw data
 			//bool init(real_t*, unsigned int, unsigned int*, real_t*);
 			// initialization for each set of simulation runs
-			bool initialize_tiles(const vec_uint_t&, const real_t*);
+			bool initialize_tiles(const vec_uint_t&, const real_t*, const real_t*, const real_t*, unsigned int);
 			bool initialize_vandermonde(unsigned int);
 			bool initialize_particles_random(vec_uint_t&);
 			bool initialize_simulation(unsigned int);
@@ -66,8 +66,8 @@ namespace hir {
 			RMC(char*);
 			RMC(int, char**, unsigned int, unsigned int, const char*, unsigned int, unsigned int, real_t*);
 			~RMC();
-			bool simulate(int, real_t, unsigned int, unsigned int);
-			bool simulate_and_scale(int, unsigned int, real_t, unsigned int);
+			bool simulate(int, unsigned int, unsigned int);
+			bool simulate_and_scale(int, unsigned int, unsigned int);
 			bool simulate_and_scale();
 
 			// for testing ...

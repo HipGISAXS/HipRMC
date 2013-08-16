@@ -3,7 +3,7 @@
   *
   *  File: tile_scale.cpp
   *  Created: Mar 04, 2013
-  *  Modified: Sun 11 Aug 2013 12:03:05 PM PDT
+  *  Modified: Tue 13 Aug 2013 03:07:32 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -169,7 +169,9 @@ namespace hir {
 		mod_f_mat_[0].incr_rows(1); mod_f_mat_[0].incr_columns(1);
 		mod_f_mat_[1].incr_rows(1); mod_f_mat_[1].incr_columns(1);
 		dft_mat_.incr_rows(1); dft_mat_.incr_columns(1);
-		virtual_a_mat_.incr_rows(1); virtual_a_mat_.incr_columns(1);
+		#ifndef USE_DFT
+			virtual_a_mat_.incr_rows(1); virtual_a_mat_.incr_columns(1);
+		#endif
 		diff_mat_.incr_rows(1); diff_mat_.incr_columns(1);
 		// clear chi2 list
 		chi2_list_.clear();

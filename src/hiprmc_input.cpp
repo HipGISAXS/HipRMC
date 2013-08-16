@@ -3,7 +3,7 @@
   *
   *  File: hiprmc_input.cpp
   *  Created: Jun 11, 2013
-  *  Modified: Mon 05 Aug 2013 12:25:35 PM PDT
+  *  Modified: Thu 15 Aug 2013 09:52:46 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -27,12 +27,16 @@ namespace hir {
 
 
 	void HipRMCInput::init() {
+		// assign default values
 		image_size_[0] = 0; image_size_[1] = 0;
 		num_tiles_ = 1;
 		loading_factors_.clear();
+		tstar_.clear();
+		cooling_factors_.clear();
 		model_start_size_[0] = 0; model_start_size_[1] = 0;
 		num_steps_factor_ = 100;
 		scale_factor_ = 1;
+		max_move_distance_ = 0;
 	} // HipRMCInput::init();
 
 
@@ -62,6 +66,12 @@ namespace hir {
 
 		// set defaults in case they were not included in the config
 		if(model_start_size_[0] == 0 || model_start_size_[1] == 0) model_start_size_ = image_size_;
+		if(max_move_distance_ == 0) max_move_distance_ = image_size_[0];	// default: full freedom
+		if(loading_factors_.size() != tstar_.size() || loading_factors_.size() != num_tiles_ ||
+				cooling_factors_.size() != num_tiles_) {
+			std::cerr << "error: check your number of tiles and all vector sizes" << std::endl;
+			return false;
+		} // if
 
 		return true;
 	} // HipRMCInput::construct_input_config()
@@ -194,6 +204,34 @@ namespace hir {
 						num_tiles_ = loading_factors_.size();
 						break;
 
+					case instrument_tstar_token:
+						if(curr_vector_.size() < 1) {
+							std::cerr << "error: there should be temperature for each tile" << std::endl;
+							return false;
+						} // if
+						for(vec_real_t::iterator i = curr_vector_.begin(); i != curr_vector_.end(); ++ i) {
+							if(*i < 0.0) {
+								std::cerr << "error: temperature cannot be negative" << std::endl;
+								return false;
+							} // if
+							tstar_.push_back(*i);
+						} // for
+						break;
+
+					case instrument_cooling_factor_token:
+						if(curr_vector_.size() < 1) {
+							std::cerr << "error: there should be a cooling factor for each tile" << std::endl;
+							return false;
+						} // if
+						for(vec_real_t::iterator i = curr_vector_.begin(); i != curr_vector_.end(); ++ i) {
+							if(*i < 0.0) {
+								std::cerr << "error: cooling factor cannot be negative" << std::endl;
+								return false;
+							} // if
+							cooling_factors_.push_back(*i);
+						} // for
+						break;
+
 					case compute_model_start_size_token:
 						if(curr_vector_.size() != 2) {
 							std::cerr << "error: there should be 2 numbers for modelstartsize" << std::endl;
@@ -309,10 +347,13 @@ namespace hir {
 			case instrument_image_size_token:
 			case instrument_num_tiles_token:
 			case instrument_loading_token:
+			case instrument_tstar_token:
+			case instrument_cooling_factor_token:
 			case compute_token:
 			case compute_model_start_size_token:
 			case compute_num_steps_factor_token:
 			case compute_scale_factor_token:
+			case compute_max_move_distance_token:
 			case compute_label_token:
 				break;
 
@@ -368,6 +409,14 @@ namespace hir {
 				curr_vector_.push_back(num);
 				break;
 
+			case instrument_tstar_token:
+				curr_vector_.push_back(num);
+				break;
+
+			case instrument_cooling_factor_token:
+				curr_vector_.push_back(num);
+				break;
+
 			case compute_model_start_size_token:
 				curr_vector_.push_back(num);
 				if(curr_vector_.size() > 2) {
@@ -382,6 +431,10 @@ namespace hir {
 
 			case compute_scale_factor_token:
 				scale_factor_ = (unsigned int) num;
+				break;
+
+			case compute_max_move_distance_token:
+				max_move_distance_ = (unsigned int) num;
 				break;
 
 			default:
@@ -431,9 +484,18 @@ namespace hir {
 		for(vec_real_t::iterator i = loading_factors_.begin(); i != loading_factors_.end(); ++ i)
 			std::cout << *i << " ";
 		std::cout << std::endl;
+		std::cout << "            Temperatures = ";
+		for(vec_real_t::iterator i = tstar_.begin(); i != tstar_.end(); ++ i)
+			std::cout << *i << " ";
+		std::cout << std::endl;
+		std::cout << "         Cooling factors = ";
+		for(vec_real_t::iterator i = cooling_factors_.begin(); i != cooling_factors_.end(); ++ i)
+			std::cout << *i << " ";
+		std::cout << std::endl;
 		std::cout << "        Model start size = " << model_start_size_[0] << " x " << model_start_size_[1] << std::endl;
 		std::cout << "  Number of steps factor = " << num_steps_factor_ << std::endl;
 		std::cout << "          Scaling factor = " << scale_factor_ << std::endl;
+		std::cout << "   Maximum move distance = " << max_move_distance_ << std::endl;
 		std::cout << "                Run name = " << label_ << std::endl;
 		std::cout << std::endl << std::flush;
 	} // HipRMCInput::print_all()

@@ -3,7 +3,7 @@
   *
   *  File: token_mapper.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Thu 01 Aug 2013 11:31:52 AM PDT
+  *  Modified: Thu 15 Aug 2013 09:54:50 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -65,9 +65,12 @@ namespace hir {
 				KeyWords_[std::string("imagesize")]			= instrument_image_size_token;
 				KeyWords_[std::string("numtiles")]			= instrument_num_tiles_token;
 				KeyWords_[std::string("loadingfactors")]	= instrument_loading_token;
+				KeyWords_[std::string("temperatures")]		= instrument_tstar_token;
+				KeyWords_[std::string("coolingfactors")]	= instrument_cooling_factor_token;
 				KeyWords_[std::string("modelstartsize")]	= compute_model_start_size_token;
 				KeyWords_[std::string("numstepsfactor")]	= compute_num_steps_factor_token;
 				KeyWords_[std::string("scalefactor")]		= compute_scale_factor_token;
+				KeyWords_[std::string("maxmovedistance")]	= compute_max_move_distance_token;
 				KeyWords_[std::string("runname")]			= compute_label_token;
 			
 		} // TokenMapper()

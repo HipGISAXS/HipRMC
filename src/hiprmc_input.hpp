@@ -3,7 +3,7 @@
   *
   *  File: hiprmc_input.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Thu 01 Aug 2013 12:01:04 PM PDT
+  *  Modified: Thu 15 Aug 2013 09:53:50 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -32,14 +32,17 @@ namespace hir {
 
 			/* containers */
 
-			std::string input_image_;
-			vec2_int_t image_size_;
+			std::string input_image_;		// input image filename
+			vec2_int_t image_size_;			// target image size
 			unsigned int num_tiles_;		// this can be removed ...
-			vec_real_t loading_factors_;
+			vec_real_t loading_factors_;	// loading factor of each tile
+			vec_real_t tstar_;				// temperature for each tile
+			vec_real_t cooling_factors_;	// cooling factor with iteration number for each tile
 
-			vec2_int_t model_start_size_;
-			unsigned int num_steps_factor_;
-			unsigned int scale_factor_;
+			vec2_int_t model_start_size_;	// size of starting model (when using scaling)
+			unsigned int num_steps_factor_;	// this * image_size = total number of simulation steps
+			unsigned int scale_factor_;		// number of rows and columns to increase at each scale step
+			unsigned int max_move_distance_;	// distance limit on moving a particle, in pixels
 
 			std::string label_;				// run name given by user
 
@@ -105,8 +108,11 @@ namespace hir {
 			unsigned int model_start_num_cols() const { return model_start_size_[1]; }
 			const char* input_image() const { return input_image_.c_str(); }
 			vec_real_t loading() const { return loading_factors_; }
+			vec_real_t tstar() const { return tstar_; }
+			vec_real_t cooling() const { return cooling_factors_; }
 			unsigned int num_steps_factor() const { return num_steps_factor_; }
 			unsigned int scale_factor() const { return scale_factor_; }
+			unsigned int max_move_distance() const { return max_move_distance_; }
 			std::string label() const { return label_; }
 
 			/* printing for testing */

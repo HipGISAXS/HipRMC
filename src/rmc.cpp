@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Tue 13 Aug 2013 11:54:31 AM PDT
+  *  Modified: Thu 15 Aug 2013 10:09:02 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -117,7 +117,7 @@ namespace hir {
 	} // RMC::~RMC()
 
 
-	// idea is that this can be replaced easily for other types of raw inputs (non image)
+	// idea is that this can be replaced easily for other types of raw inputs (non image) -- NOT USED
 	bool RMC::init(int narg, char** args, const char* img_file, real_t* loading) {
 		std::cout << "++ init" << std::endl;
 		#ifdef USE_GPU
@@ -192,7 +192,9 @@ namespace hir {
 		initialize_particles_random(indices);
 
 		initialize_simulation(1);
-		initialize_tiles(indices, loading);
+		initialize_tiles(indices, loading, &(HipRMCInput::instance().tstar()[0]),
+							&(HipRMCInput::instance().cooling()[0]),
+							HipRMCInput::instance().max_move_distance());
 
 		//delete[] mask_data;
 		delete[] img_data;
@@ -220,10 +222,7 @@ namespace hir {
 			// extract the input image raw data (grayscale values)
 			// and create mask array = indices in image data where value is min
 			real_t *img_data = new (std::nothrow) real_t[rows_ * cols_];
-			//unsigned int *mask_data = new (std::nothrow) unsigned int[rows_ * cols_];
 			unsigned int mask_count = 0;
-			unsigned int hrow = rows_ >> 1;
-			unsigned int hcol = cols_ >> 1;
 			double min_val, max_val;
 			cv::minMaxIdx(img, &min_val, &max_val);
 			double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
@@ -236,9 +235,6 @@ namespace hir {
 			for(unsigned int i = 0; i < rows_; ++ i) {
 				for(unsigned int j = 0; j < cols_; ++ j) {
 					unsigned int temp = (unsigned int) img.at<unsigned char>(i, j);
-					// do the quadrant swap thingy ...
-					//unsigned int img_index = cols_ * ((i + hrow) % rows_) + (j + hcol) % cols_;
-					// or not ...
 					unsigned int img_index = cols_ * i + j;
 					img_data[img_index] = (real_t) temp;
 					//img_data[img_index] = (real_t) temp / 255;
@@ -260,6 +256,52 @@ namespace hir {
 		} // if-else
 		#endif
 
+		//////////////////// temporary ... reading in model and computing fft as pattern
+		for(int i = 0; i < rows_ * cols_; ++ i) img_data[i] = (img_data[i] < 128) ? 0 : 1;
+		fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * rows_ * cols_);
+        fftw_complex* mat_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * rows_ * cols_);
+        for(int i = 0; i < rows_; ++ i) {
+            for(int j = 0; j < cols_; ++ j) {
+				//std::cout << img_data[cols_ * i + j] << " ";
+                mat_in[cols_ * i + j][0] = (double) img_data[cols_ * i + j];
+                mat_in[cols_ * i + j][1] = 0.0;
+                mat_out[cols_ * i + j][0] = 0.0;
+                mat_out[cols_ * i + j][1] = 0.0;
+            } // for
+            //std::cout << std::endl;
+        } // for
+		fftw_plan plan;
+        plan = fftw_plan_dft_2d(rows_, cols_, mat_in, mat_out, FFTW_FORWARD, FFTW_ESTIMATE);
+        fftw_execute(plan);
+		max_val = 0.0, min_val = 1e10;
+		for(int i = 0; i < rows_; ++ i) {
+			for(int j = 0; j < cols_; ++ j) {
+				real_t temp = pow(mat_out[cols_ * i + j][0], 2) + pow(mat_out[cols_ * i + j][1], 2);
+				min_val = (temp < min_val) ? temp : min_val;
+				max_val = (temp > max_val) ? temp : max_val;
+				img_data[((i + (rows_ >> 1)) % rows_) * cols_ + ((j + (cols_ >> 1)) % cols_)] = temp;
+			} // if j
+		} // if i
+        fftw_destroy_plan(plan);
+		//for(unsigned int i = 0; i < rows_; ++ i) {
+		//	for(unsigned int j = 0; j < cols_; ++ j) {
+		//		std::cout << img_data[cols_ * i + j] << " ";
+		//	} // for
+		//	std::cout << std::endl;
+		//} // for
+		//std::cout << "---------------------------------------------------------" << std::endl;
+		for(unsigned int i = 0; i < rows_; ++ i) {
+			for(unsigned int j = 0; j < cols_; ++ j) {
+				real_t temp = (img_data[cols_ * i + j] - min_val) / (max_val - min_val);
+				//std::cout << temp << " ";
+				img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
+			} // for
+			//std::cout << std::endl;
+		} // for
+		// write it out
+		cv::imwrite(HipRMCInput::instance().label() + "/base_fft_pattern.tif", img);
+		//////////////////////// end temporary
+
 		// TODO: for now, limit to max num procs == num tiles ...
 
 		in_pattern_.populate(img_data);
@@ -270,7 +312,9 @@ namespace hir {
 		//print_array("mask_data:", mask_data, mask_count);
 
 //		initialize_simulation(1);
-		initialize_tiles(indices, &(HipRMCInput::instance().loading()[0]));
+		initialize_tiles(indices, &(HipRMCInput::instance().loading()[0]), &(HipRMCInput::instance().tstar()[0]),
+							&(HipRMCInput::instance().cooling()[0]),
+							HipRMCInput::instance().max_move_distance());
 
 		//delete[] mask_data;
 		delete[] img_data;
@@ -326,13 +370,14 @@ namespace hir {
 	} // RMC::destroy_simulation_tiles()
 
 
-	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading) {
+	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading, const real_t* tstar,
+								const real_t* cooling, unsigned int max_dist) {
 		std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
 		// initialize tiles
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
 			tiles_.push_back(Tile(tile_size_, tile_size_, indices, size_));
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
-			tiles_[i].init(loading[i], base_norm_, cropped_pattern_, vandermonde_mat_, mask_mat_);
+			tiles_[i].init(loading[i], tstar[i], cooling[i], max_dist, base_norm_, cropped_pattern_, vandermonde_mat_, mask_mat_);
 			//tiles_[i].init(loading[i], base_norm_, scaled_pattern_, vandermonde_mat_, mask_mat_);
 		return true;
 	} // RMC::initialize_tiles()
@@ -370,6 +415,17 @@ namespace hir {
 			for(unsigned int i = 0; i < tile_size_; ++ i) curr_citer[i] = prev_citer[i] * first_pow[i];
 		} // while
 		//print_cmatrix("vandermonde_mat", vandermonde_mat_.data(), tile_size_, tile_size_);
+
+		/*// initialize first row
+		typename mat_complex_t::row_iterator riter = vandermonde_mat_.row(0);
+		for(unsigned int i = 0; i < riter.size(); ++ i) riter[i] = complex_t(1.0, 0.0);
+		// compute rest of the matrix
+		typename mat_complex_t::row_iterator curr_riter = vandermonde_mat_.begin_row();
+		typename mat_complex_t::row_iterator prev_riter = vandermonde_mat_.begin_row();
+		++ curr_riter;
+		for(; curr_riter != vandermonde_mat_.end_row(); ++ curr_riter, ++ prev_riter) {
+			for(unsigned int i = 0; i < tile_size_; ++ i) curr_riter[i] = prev_riter[i] * first_pow[i];
+		} // while*/
 
 		return true;
 	} // RMC::initialize_vandermonde()
@@ -425,16 +481,22 @@ namespace hir {
 			for(int i = 0; i < tile_size_; ++ i) {
 				for(int j = 0; j < tile_size_; ++ j) {
 					cropped_pattern_(i, j) = in_pattern_(skip_rows + i, skip_cols + j);
-					//cropped_pattern_[tile_size_ * i + j] =
-					//							in_pattern_[size_ * (skip_rows + i) + skip_cols + j];
 				} // for j
 			} // for i
 		} // if-else
+		real_t max_val = 0.0, min_val = 1e10;
+		for(int i = 0; i < tile_size_; ++ i) {
+			for(int j = 0; j < tile_size_; ++ j) {
+				real_t temp = cropped_pattern_(i, j);
+				min_val = (temp < min_val) ? temp : min_val;
+				max_val = (temp > max_val) ? temp : max_val;
+			} // for j
+		} // for i
 		cv::Mat img(tile_size_, tile_size_, 0);
 		for(unsigned int i = 0; i < tile_size_; ++ i) {
 			for(unsigned int j = 0; j < tile_size_; ++ j) {
-				//img.at<unsigned char>(i, j) = (unsigned char) 255 * cropped_pattern_[tile_size_ * i + j];
-				img.at<unsigned char>(i, j) = (unsigned char) cropped_pattern_[tile_size_ * i + j];
+				real_t temp = (cropped_pattern_[tile_size_ * i + j] - min_val) / (max_val - min_val);
+				img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
 			} // for
 		} // for
 		// write it out
@@ -492,13 +554,13 @@ namespace hir {
 			} // for
 		} // if
 
-		normalize_cropped_pattern();
+		//normalize_cropped_pattern();
 
 		cv::Mat img(tile_size_, tile_size_, 0);
 		for(unsigned int i = 0; i < tile_size_; ++ i) {
 			for(unsigned int j = 0; j < tile_size_; ++ j) {
-				img.at<unsigned char>(i, j) = (unsigned char) 255 * cropped_pattern_[tile_size_ * i + j];
-				//img.at<unsigned char>(i, j) = (unsigned char) cropped_pattern_[tile_size_ * i + j];
+				real_t temp = (cropped_pattern_[tile_size_ * i + j] - min_val) / (max_val - min_val);
+				img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
 			} // for
 		} // for
 		// write it out
@@ -581,7 +643,7 @@ namespace hir {
 
 
 	// simulate RMC
-	bool RMC::simulate(int num_steps, real_t tstar, unsigned int rate, unsigned int scale_factor = 1) {
+	bool RMC::simulate(int num_steps, unsigned int rate, unsigned int scale_factor = 1) {
 
 		std::cout << "++                Current tile size: " << tile_size_ << " x " << tile_size_
 					<< std::endl;
@@ -614,9 +676,9 @@ namespace hir {
 				curr_percent += 10;
 			} // if
 			for(unsigned int i = 0; i < num_tiles_; ++ i) {
-				//tiles_[i].simulate_step(scaled_pattern_, vandermonde_mat_, mask_mat_, tstar, base_norm_);
+				//tiles_[i].simulate_step(scaled_pattern_, vandermonde_mat_, mask_mat_, base_norm_);
 				tiles_[i].simulate_step(cropped_pattern_, vandermonde_mat_, mask_mat_,
-										tstar, base_norm_, step);
+										base_norm_, step);
 				if((step + 1) % rate == 0) tiles_[i].update_model();
 				/*if(step % 100 == 0) {
 					tiles_[i].update_model();
@@ -666,12 +728,11 @@ namespace hir {
 	} // RMC::simulate()
 
 
-	bool RMC::simulate_and_scale(int num_steps_fac, unsigned int scale_factor,
-								real_t tstar, unsigned int rate) {
+	bool RMC::simulate_and_scale(int num_steps_fac, unsigned int scale_factor, unsigned int rate) {
 		std::cout << std::endl << "++ Performing simulation with scaling ..." << std::endl;
 		unsigned int num_steps = num_steps_fac * tile_size_;
 		unsigned int curr_scale_fac = scale_factor;
-		simulate(num_steps, tstar, rate, scale_factor);
+		simulate(num_steps, rate, scale_factor);
 		for(unsigned int tsize = tile_size_, iter = 0; tsize < size_; tsize += curr_scale_fac, ++ iter) {
 			if(tile_size_ < size_) {
 				for(unsigned int i = 0; i < num_tiles_; ++ i) {
@@ -691,7 +752,7 @@ namespace hir {
 				tile_size_ += curr_scale_fac;
 			} // if
 			num_steps = num_steps_fac * tile_size_;
-			simulate(num_steps, tstar, rate, curr_scale_fac);
+			simulate(num_steps, rate, curr_scale_fac);
 		} // for
 		return true;
 	} // RMC::simulate_and_scale()
@@ -701,11 +762,10 @@ namespace hir {
 		std::cout << std::endl << "++ Performing simulation with scaling ..." << std::endl << std::endl;
 		int num_steps_fac = HipRMCInput::instance().num_steps_factor();
 		unsigned int scale_factor = HipRMCInput::instance().scale_factor();
-		real_t tstar = 1;				// FIXME ... hardcoded ...
 		unsigned int rate = 10000;		// FIXME ... hardcoded ...
 		unsigned int num_steps = num_steps_fac * tile_size_;
 		unsigned int curr_scale_fac = scale_factor;
-		simulate(num_steps, tstar, rate, scale_factor);
+		simulate(num_steps, rate, scale_factor);
 		for(unsigned int tsize = tile_size_, iter = 0; tsize < size_; tsize += curr_scale_fac, ++ iter) {
 			if(tile_size_ < size_) {
 				for(unsigned int i = 0; i < num_tiles_; ++ i) {
@@ -725,7 +785,7 @@ namespace hir {
 				tile_size_ += curr_scale_fac;
 			} // if
 			num_steps = num_steps_fac * tile_size_;
-			simulate(num_steps, tstar, rate, curr_scale_fac);
+			simulate(num_steps, rate, curr_scale_fac);
 		} // for
 		return true;
 	} // RMC::simulate_and_scale()

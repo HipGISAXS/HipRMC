@@ -3,7 +3,7 @@
   *
   *  File: tokens.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Thu 01 Aug 2013 11:32:26 AM PDT
+  *  Modified: Thu 15 Aug 2013 09:55:24 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -69,11 +69,14 @@ namespace hir {
 		instrument_image_size_token,	/* input image size token */
 		instrument_num_tiles_token,		/* number of tiles token */
 		instrument_loading_token,		/* loading factors array token */
+		instrument_tstar_token,			/* temperature array token */
+		instrument_cooling_factor_token,	/* cooling factors array token */
 
 		compute_token,					/* computation object token */
 		compute_model_start_size_token,	/* size of the starting model token */
 		compute_num_steps_factor_token,	/* num steps factor token */
 		compute_scale_factor_token,		/* scaling factor token */
+		compute_max_move_distance_token,	/* max move distance token */
 		compute_label_token				/* a label for output directory */
 	}; // enum TokenType
 

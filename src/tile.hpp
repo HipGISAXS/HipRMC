@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 11 Aug 2013 01:38:48 PM PDT
+  *  Modified: Thu 15 Aug 2013 10:42:17 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -43,8 +43,6 @@ namespace hir {
 			unsigned int size_;						// num rows = num cols = size
 			unsigned int final_size_;				// target model size (when using scaling)
 			mat_real_t a_mat_;						// the current model
-			mat_real_t virtual_a_mat_;				// the current virtual model
-			mat_real_t diff_mat_;					// mod difference matrix (temporary)
 
 			// buffers used only for cpu version
 			std::vector<mat_complex_t> f_mat_;		// F buffers
@@ -56,7 +54,10 @@ namespace hir {
 			unsigned int f_mat_i_;								// current f buffer index
 			unsigned int mod_f_mat_i_;							// current mod_f buffer index
 			real_t loading_factor_;								// loading factor
+			real_t tstar_;										// temperature factor
+			real_t cooling_factor_;								// cooling with iteration number
 			unsigned int num_particles_;						// number of particles (duh!)
+			unsigned int max_move_distance_;					// limit on particle movement
 			double model_norm_;									// norm of current model
 			double c_factor_;									// c factor
 
@@ -87,6 +88,12 @@ namespace hir {
 
 			woo::BoostChronoTimer mytimer_;
 
+			// some temporary variables ...
+			#ifndef USE_DFT
+				mat_real_t virtual_a_mat_;			// the current virtual model
+			#endif
+			mat_real_t diff_mat_;					// mod difference matrix (temporary)
+
 
 			// functions
 			bool compute_fft_mat();
@@ -102,9 +109,11 @@ namespace hir {
 			bool virtual_move_random_particle();
 			bool virtual_move_random_particle_restricted(unsigned int);
 			bool move_particle(double, real_t);
-			bool compute_dft2(mat_complex_t&, unsigned int, unsigned int);
-			bool update_fft_mat(mat_complex_t&, mat_complex_t&,
-								mat_complex_t&, unsigned int, unsigned int);
+			#ifdef USE_DFT
+				bool compute_dft2(mat_complex_t&, unsigned int, unsigned int);
+				bool update_fft_mat(mat_complex_t&, mat_complex_t&,
+									mat_complex_t&, unsigned int, unsigned int);
+			#endif
 			bool mask_mat(const mat_uint_t&, unsigned int);
 			bool copy_mod_mat(unsigned int);
 			bool update_indices();
@@ -118,13 +127,15 @@ namespace hir {
 			~Tile();
 
 			// initialize with raw data
-			bool init(real_t, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
+			bool init(real_t, real_t, real_t, unsigned int, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
 			bool init_scale(real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
 			bool destroy_scale();
 			// simulation functions
-			bool simulate_step(const mat_real_t&, const mat_complex_t&, const mat_uint_t&, real_t, real_t, unsigned int);
+			bool simulate_step(const mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, unsigned int);
 			bool update_model();
-			bool update_virtual_model();
+			#ifndef USE_DFT
+				bool update_virtual_model();
+			#endif
 			bool update_a_mat();
 			#ifdef USE_GPU
 				bool update_f_mats();
@@ -141,8 +152,8 @@ namespace hir {
 			bool normalize_mod(unsigned int);
 
 			bool save_mat_image(unsigned int i) {
-				//create_image("modfft", i, mod_f_mat_[mod_f_mat_i_], true);
-				unsigned int nrows = mod_f_mat_[mod_f_mat_i_].num_rows();
+				create_image("modfft", i, mod_f_mat_[mod_f_mat_i_], true);
+				/*unsigned int nrows = mod_f_mat_[mod_f_mat_i_].num_rows();
 				unsigned int ncols = mod_f_mat_[mod_f_mat_i_].num_cols();
 				wil::Image img(nrows, ncols, 30, 30, 30);
 				real_t* data = new (std::nothrow) real_t[nrows * ncols];
@@ -162,12 +173,13 @@ namespace hir {
 				num >> str0;
 				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
 				img.save(str);
-				delete[] data;
+				delete[] data;*/
+				return true;
 			} // save_mat_image()
 
 			bool save_fmat_image(unsigned int i) {
-//				create_image("fft", i, f_mat_[f_mat_i_], true);
-				unsigned int nrows = f_mat_[f_mat_i_].num_rows(), ncols = f_mat_[f_mat_i_].num_cols();
+				//create_image("fft", i, f_mat_[f_mat_i_], true);
+				/*unsigned int nrows = f_mat_[f_mat_i_].num_rows(), ncols = f_mat_[f_mat_i_].num_cols();
 				wil::Image img(nrows, ncols, 30, 30, 30);
 				real_t* data = new (std::nothrow) real_t[nrows * ncols];
 				for(int i = 0; i < nrows; ++ i) {
@@ -186,7 +198,8 @@ namespace hir {
 				num >> str0;
 				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
 				img.save(str);
-				delete[] data;
+				delete[] data;*/
+				return true;
 			} // save_mat_image()
 
 /*			bool save_mat_image_direct(unsigned int i, unsigned int iter) {
@@ -211,8 +224,9 @@ namespace hir {
 				char str0[7];
 				num >> str0;
 				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
-				img.save(str);
-*/			} // save_mat_image_direct()
+				img.save(str);*/
+				return true;
+			} // save_mat_image_direct()
 
 			bool save_chi2_list(unsigned int i) {
 				std::stringstream num;
@@ -227,6 +241,7 @@ namespace hir {
 							<< chi2_list_[i] << std::endl;
 				} // for
 				chi2out.close();
+				return true;
 			} // save_chi2_list()
 
 			// accessors
