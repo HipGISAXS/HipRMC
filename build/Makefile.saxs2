@@ -8,7 +8,7 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = y
+USE_GPU = n
 
 ## base directories
 BOOST_DIR = /usr/local/boost_1_49_0
@@ -103,6 +103,8 @@ MISC_FLAGS = -DUSE_GPU
 else
 MISC_FLAGS =
 endif
+
+MISC_FLAGS += -DUSE_DFT
 
 ## choose optimization levels, debug flags, gprof flag, etc
 OPT_FLAGS = -g #-DDEBUG #-v #-pg
