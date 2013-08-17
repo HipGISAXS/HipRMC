@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 16 Aug 2013 08:55:36 AM PDT
+  *  Modified: Fri 16 Aug 2013 05:37:44 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -356,10 +356,16 @@ namespace hir {
 			move_particle(new_chi2, base_norm);
 			c_factor_ = new_c_factor;
 			chi2_list_.push_back(new_chi2);		// save this chi2 value
-			update_model();
+			//update_model();
 			//create_image("newm", accepted_moves_, a_mat_, false);
 		} // if
 		mytimer_.stop(); rest_time += mytimer_.elapsed_msec();
+
+		// write current model at every "steps"
+		if(iter % 1000 == 0) {
+			update_model();
+			create_image("currmodel", iter / 1000, a_mat_, false);
+		} // if
 
 		return true;
 	} // Tile::simulate_step()
