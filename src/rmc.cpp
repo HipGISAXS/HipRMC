@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Thu 15 Aug 2013 10:09:02 PM PDT
+  *  Modified: Sat 17 Aug 2013 08:36:34 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -258,6 +258,12 @@ namespace hir {
 
 		//////////////////// temporary ... reading in model and computing fft as pattern
 		for(int i = 0; i < rows_ * cols_; ++ i) img_data[i] = (img_data[i] < 128) ? 0 : 1;
+		for(unsigned int i = 0; i < rows_; ++ i) {
+			for(unsigned int j = 0; j < cols_; ++ j) {
+				img.at<unsigned char>(i, j) = (unsigned char) (255 * img_data[cols_ * i + j]);
+			} // for
+		} // for
+		cv::imwrite(HipRMCInput::instance().label() + "/base_01_pattern.tif", img);
 		fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * rows_ * cols_);
         fftw_complex* mat_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * rows_ * cols_);
         for(int i = 0; i < rows_; ++ i) {
