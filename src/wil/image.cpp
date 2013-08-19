@@ -3,7 +3,7 @@
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Wed 07 Aug 2013 09:24:54 AM PDT
+  *  Modified: Mon 19 Aug 2013 09:01:06 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -120,7 +120,7 @@ namespace wil {
 	 * in case of 3d (not implemented), nx_ images will be created into image_buffer_
 	 */
 	// parallelize this for multicore
-	bool Image::construct_image(real_t* data) {						// and here ...
+	bool Image::construct_log_image(real_t* data) {						// and here ...
 		if(data == NULL) {
 			std::cerr << "empty data found while constructing image" << std::endl;
 			return false;
@@ -158,10 +158,10 @@ namespace wil {
 		} // if-else
 
 		return true;
-	} // Image::construct_image()
+	} // Image::construct_log_image()
 
 
-	bool Image::construct_image_direct(real_t* data) {						// and here ...
+	bool Image::construct_image(real_t* data) {						// and here ...
 		if(data == NULL) {
 			std::cerr << "empty data found while constructing image" << std::endl;
 			return false;
