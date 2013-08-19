@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 17 Aug 2013 08:36:34 PM PDT
+  *  Modified: Mon 19 Aug 2013 12:32:17 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -237,13 +237,15 @@ namespace hir {
 					unsigned int temp = (unsigned int) img.at<unsigned char>(i, j);
 					unsigned int img_index = cols_ * i + j;
 					img_data[img_index] = (real_t) temp;
-					//img_data[img_index] = (real_t) temp / 255;
+					min_val = (min_val > img_data[img_index]) ? img_data[img_index] : min_val;
+					max_val = (max_val < img_data[img_index]) ? img_data[img_index] : max_val;
 				} // for
 			} // for
 			for(unsigned int i = 0; i < rows_; ++ i) {
 				for(unsigned int j = 0; j < cols_; ++ j) {
-					//img.at<unsigned char>(i, j) = (unsigned char) 255 * img_data[cols_ * i + j];
-					img.at<unsigned char>(i, j) = (unsigned char) img_data[cols_ * i + j];
+					real_t temp = (img_data[cols_ * i + j] - min_val) / (max_val - min_val);
+					img.at<unsigned char>(i, j) = (unsigned char) temp;
+					img_data[cols_ * i + j] = temp;
 				} // for
 			} // for
 			// write it out
@@ -257,7 +259,7 @@ namespace hir {
 		#endif
 
 		//////////////////// temporary ... reading in model and computing fft as pattern
-		for(int i = 0; i < rows_ * cols_; ++ i) img_data[i] = (img_data[i] < 128) ? 0 : 1;
+/*		for(int i = 0; i < rows_ * cols_; ++ i) img_data[i] = (img_data[i] < 128) ? 0 : 1;
 		for(unsigned int i = 0; i < rows_; ++ i) {
 			for(unsigned int j = 0; j < cols_; ++ j) {
 				img.at<unsigned char>(i, j) = (unsigned char) (255 * img_data[cols_ * i + j]);
@@ -301,12 +303,13 @@ namespace hir {
 				real_t temp = (img_data[cols_ * i + j] - min_val) / (max_val - min_val);
 				//std::cout << temp << " ";
 				img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
+				img_data[i * cols_ + j] = temp;
 			} // for
 			//std::cout << std::endl;
 		} // for
 		// write it out
 		cv::imwrite(HipRMCInput::instance().label() + "/base_fft_pattern.tif", img);
-		//////////////////////// end temporary
+*/		//////////////////////// end temporary
 
 		// TODO: for now, limit to max num procs == num tiles ...
 
@@ -317,8 +320,8 @@ namespace hir {
 		//print_matrix("img_data:", in_pattern_.data(), rows_, cols_);
 		//print_array("mask_data:", mask_data, mask_count);
 
-//		initialize_simulation(1);
-		initialize_tiles(indices, &(HipRMCInput::instance().loading()[0]), &(HipRMCInput::instance().tstar()[0]),
+		initialize_tiles(indices, &(HipRMCInput::instance().loading()[0]),
+							&(HipRMCInput::instance().tstar()[0]),
 							&(HipRMCInput::instance().cooling()[0]),
 							HipRMCInput::instance().max_move_distance());
 

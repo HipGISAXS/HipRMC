@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 16 Aug 2013 05:37:44 PM PDT
+  *  Modified: Mon 19 Aug 2013 12:07:22 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -15,7 +15,7 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
-#include <opencv2/opencv.hpp>
+//#include <opencv2/opencv.hpp>
 #include <woo/timer/woo_boostchronotimers.hpp>
 
 #include "tile.hpp"
@@ -146,15 +146,7 @@ namespace hir {
 			//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
 		#endif // USE_GPU
 
-/*		cv::Mat img(size_, size_, 0);
-		for(unsigned int i = 0; i < size_; ++ i) {
-			for(unsigned int j = 0; j < size_; ++ j) {
-				img.at<unsigned char>(i, j) = (unsigned char) 255 * a_mat_(i, j);
-			} // for
-		} // for
-		// write it out
-		cv::imwrite(HipRMCInput::instance().label() + "/init_model.tif", img);
-*///		create_image("init_model", 0, a_mat_, false);
+		//create_image("init_model", 0, a_mat_, false);
 
 		// compute fft of a_mat_ into fft_mat_ and other stuff
 /*		mytimer.start();
@@ -378,7 +370,8 @@ namespace hir {
 		num >> str0;
 		double min_val, max_val;
 		woo::matrix_min_max(mat, min_val, max_val);
-		cv::Mat img(size_, size_, 0);
+
+		/*cv::Mat img(size_, size_, 0);
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
 				int i_swap = i, j_swap = j;
@@ -392,19 +385,20 @@ namespace hir {
 		} // for
 		// write it out
 		cv::imwrite(HipRMCInput::instance().label() + "/" + std::string(str0) + "_" + str + ".tif", img);
-/*		real_t * data = new (std::nothrow) real_t[size_ * size_];
+		*/
+		real_t * data = new (std::nothrow) real_t[size_ * size_];
 		for(int i = 0; i < size_; ++ i) {
 			for(int j = 0; j < size_; ++ j) {
 				int i_swap = (i + (size_ >> 1)) % size_;
 				int j_swap = (j + (size_ >> 1)) % size_;
-				data[size_ * i + j] = 255 * mat(i_swap, j_swap);
+				data[size_ * i + j] = 255 * ((mat(i_swap, j_swap) - min_val) / (max_val - min_val));
 			} // for j
 		} // for i
 		wil::Image img(size_, size_, 30, 30, 30);
 		img.construct_image(data);
 		img.save(HipRMCInput::instance().label() + "/" + std::string(str0) + "_" + str + ".tif");
 		delete[] data;
-*/	} // Tile::create_image()
+	} // Tile::create_image()
 
 
 	bool Tile::update_model() {
@@ -605,14 +599,14 @@ namespace hir {
 					mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp;
 				} // for
 			} // for
-			//normalize_mod_mat(1 - mod_f_mat_i_);	///////////////////////////////////////////////// ...
+			normalize_mod_mat(1 - mod_f_mat_i_);	///////////////////////////////////////////////// ...
 			//print_matrix("mod_f_mat_[1 - mod_f_mat_i_]", mod_f_mat_[1 - mod_f_mat_i_].data(), size_, size_);
 			return true;
 		#endif // USE_GPU
 	} // Tile::compute_mod_mat()
 
 
-	bool Tile::normalize_mod(unsigned int mat_i) {
+	/*bool Tile::normalize_mod(unsigned int mat_i) {
 		real_t sum = 0.0;
 		for(int i = 0; i < size_; ++ i) {
 			for(int j = 0; j < size_; ++ j) {
@@ -629,12 +623,13 @@ namespace hir {
 		} // for i
 
 		return true;
-	} // Tile::normalize_mod()
+	} // Tile::normalize_mod()*/
 
 
 	bool Tile::normalize_mod_mat(unsigned int mat_i) {
 		real_t min_val, max_val;
-		min_val = max_val = mod_f_mat_[mat_i](1, 1);
+		woo::matrix_min_max(mod_f_mat_[mat_i], min_val, max_val);
+		/*min_val = max_val = mod_f_mat_[mat_i](1, 1);
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
 				if(i == 0 && j == 0) continue;
@@ -642,7 +637,7 @@ namespace hir {
 				min_val = (temp < min_val) ? temp : min_val;
 				max_val = (temp > max_val) ? temp : max_val;
 			} // for
-		} // for
+		} // for*/
 		#pragma omp parallel for collapse(2)
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {

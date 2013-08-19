@@ -3,7 +3,7 @@
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Mon 19 Aug 2013 09:01:06 AM PDT
+  *  Modified: Mon 19 Aug 2013 12:06:32 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -167,10 +167,10 @@ namespace wil {
 			return false;
 		} // if
 		if(nx_ == 1) {	// a single slice
-			if(!translate_pixels_to_positive(ny_, nz_, data)) {
-				std::cerr << "error: something went awfully wrong in data translation" << std::endl;
-				return false;
-			} // if
+			//if(!translate_pixels_to_positive(ny_, nz_, data)) {
+			//	std::cerr << "error: something went awfully wrong in data translation" << std::endl;
+			//	return false;
+			//} // if
 
 			if(!normalize_pixels(ny_, nz_, data)) {
 				std::cerr << "error: something went awfully wrong in pixel normalization" << std::endl;
@@ -241,6 +241,9 @@ namespace wil {
 	} // Image::translate_pixels()
 
 
+	/**
+	 * Normalize data in pixels to be in [0, 1]
+	 */
 	bool Image::normalize_pixels(unsigned int nx, unsigned int ny, real_t* &pixels) {
 		vector2_t pixel_minmax = minmax(nx * ny, pixels);
 		if(pixel_minmax[0] == pixel_minmax[1]) {	// all pixels have the same value

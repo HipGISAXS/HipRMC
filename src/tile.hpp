@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Thu 15 Aug 2013 10:42:17 PM PDT
+  *  Modified: Mon 19 Aug 2013 11:16:14 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -24,7 +24,6 @@
 
 #include <woo/timer/woo_boostchronotimers.hpp>
 
-//#include <woo/visual/image.hpp>
 #include "wil/image.hpp"
 
 #include "typedefs.hpp"
