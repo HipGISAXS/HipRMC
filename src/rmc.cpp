@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 19 Aug 2013 12:32:17 PM PDT
+  *  Modified: Mon 19 Aug 2013 01:36:28 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -244,7 +244,7 @@ namespace hir {
 			for(unsigned int i = 0; i < rows_; ++ i) {
 				for(unsigned int j = 0; j < cols_; ++ j) {
 					real_t temp = (img_data[cols_ * i + j] - min_val) / (max_val - min_val);
-					img.at<unsigned char>(i, j) = (unsigned char) temp;
+					img.at<unsigned char>(i, j) = (unsigned char) (255 * temp);
 					img_data[cols_ * i + j] = temp;
 				} // for
 			} // for
