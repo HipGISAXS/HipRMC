@@ -37,6 +37,7 @@ else
 NVCC =
 endif
 
+
 ## compiler flags
 CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
 ## gnu c++ compilers >= 4.3 support -std=c++0x [requirement for hipgisaxs 4.3.x <= g++ <= 4.6.x]
@@ -59,10 +60,10 @@ BOOST_LIBS = -L $(BOOST_DIR)/lib -lboost_system -lboost_filesystem -lboost_timer
 ## cuda
 ifeq ($(USE_GPU), y)
 CUDA_INCL = -I$(CUDA_DIR)/include
-CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft
-NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64
+CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft -lnvToolsExt
+NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64 #-dc
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
-NVCC_FLAGS += -gencode=arch=compute_20,code=compute_20
+NVCC_FLAGS += -gencode arch=compute_20,code=compute_20
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
 NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
 NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
@@ -105,9 +106,11 @@ else
 MISC_FLAGS =
 endif
 
+MISC_FLAGS += -DUSE_DFT
+
 ## choose optimization levels, debug flags, gprof flag, etc
-OPT_FLAGS = -g -DDEBUG #-v #-pg
-#OPT_FLAGS = -O3 -DNDEBUG #-v
+OPT_FLAGS = -g #-DDEBUG #-v #-pg
+OPT_FLAGS += -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
 #PREC_FLAG =			# leave empty for single precision
@@ -128,7 +131,7 @@ OBJ_DIR = $(PREFIX)/obj
 SRC_DIR = $(PREFIX)/src
 
 ## all objects
-OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o
+OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o
 ifeq ($(USE_GPU), y)
 OBJECTS_SIM += cutile.o
 endif
@@ -141,7 +144,7 @@ $(BINARY_SIM): $(OBJ_BIN_SIM)
 
 
 BINARY_SCALE = hiprmc-scale
-OBJECTS_SCALE = testscale.o tile.o tile_scale.o image.o utilities.o
+OBJECTS_SCALE = testscale.o tile.o tile_scale.o utilities.o image.o
 OBJ_BIN_SCALE = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SCALE))
 
 $(BINARY_SCALE): $(OBJ_BIN_SCALE)
@@ -162,7 +165,7 @@ $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS_CXX)
 	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
 
 _DEPS_WIL = wil/%.hpp
-DEPS_WIL = $(patsubst %,$(SRC_DIR)/%,$(_DEPS_WIL))
+DEPS_WIL = $(patsubst %,$(SRC_DIR)/wil/%,$(_DEPS_CXX))
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/wil/%.cpp $(DEPS_WIL)
 	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
@@ -175,7 +178,35 @@ $(OBJ_DIR)/cutile.o: $(SRC_DIR)/tile.cu
 	$(NVCC) -c $< -o $@ $(OPT_FLAGS) $(NVCC_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
 endif
 
-all: hiprmc
+all: $(BINARY_SIM)
+
+
+## compute fft tool
+
+BINARY_COMPUTE_FFT = compute-fft
+OBJECTS_COMPUTE_FFT = generate.o utilities.o image.o
+OBJ_BIN_COMPUTE_FFT = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_COMPUTE_FFT))
+
+computefft: $(BINARY_COMPUTE_FFT)
+
+$(BINARY_COMPUTE_FFT): $(OBJ_BIN_COMPUTE_FFT)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+
+$(OBJ_DIR)/generate.o: $(SRC_DIR)/generate.cpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+BINARY_LOADING = compute-loading
+OBJECTS_LOADING = compute_loading.o utilities.o image.o
+OBJ_BIN_LOADING = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_LOADING))
+
+computeloading: $(BINARY_LOADING)
+
+$(BINARY_LOADING): $(OBJ_BIN_LOADING)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+
+$(OBJ_DIR)/compute_loading.o: $(SRC_DIR)/compute_loading.cpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
 
 .PHONY: clean
 

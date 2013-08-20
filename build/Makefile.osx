@@ -36,6 +36,7 @@ else
 NVCC =
 endif
 
+
 ## compiler flags
 CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
 ## gnu c++ compilers >= 4.3 support -std=c++0x [requirement for hipgisaxs 4.3.x <= g++ <= 4.6.x]
@@ -61,7 +62,7 @@ CUDA_INCL = -I$(CUDA_DIR)/include
 CUDA_LIBS = -L$(CUDA_DIR)/lib -lcudart -lcufft
 NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
-NVCC_FLAGS += -gencode=arch=compute_20,code=compute_20
+NVCC_FLAGS += -gencode arch=compute_20,code=compute_20
 NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
 NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
 NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
@@ -79,7 +80,7 @@ endif
 
 ## opencv
 OPENCV_INCL = -I $(OPENCV_DIR)/include
-OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui
+OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
 
 ## woo
 WOO_INCL = -I $(WOO_DIR)
@@ -101,13 +102,15 @@ else
 MISC_FLAGS =
 endif
 
+MISC_FLAGS += -DUSE_DFT
+
 ## choose optimization levels, debug flags, gprof flag, etc
-#OPT_FLAGS = -g -DDEBUG #-v #-pg
-OPT_FLAGS = -O3 -DNDEBUG #-v
+OPT_FLAGS = -g #-DDEBUG #-v #-pg
+OPT_FLAGS += -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
-PREC_FLAG =			# leave empty for single precision
-#PREC_FLAG = -DDOUBLEP	# define this for double precision
+#PREC_FLAG =			# leave empty for single precision
+PREC_FLAG = -DDOUBLEP	# define this for double precision
 
 
 ## all includes
@@ -124,7 +127,7 @@ OBJ_DIR = $(PREFIX)/obj
 SRC_DIR = $(PREFIX)/src
 
 ## all objects
-OBJECTS_SIM = hiprmc.o tile.o
+OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o
 ifeq ($(USE_GPU), y)
 OBJECTS_SIM += cutile.o
 endif
@@ -135,11 +138,32 @@ OBJ_BIN_SIM = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SIM))
 $(BINARY_SIM): $(OBJ_BIN_SIM)
 	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS)
 
+
+BINARY_SCALE = hiprmc-scale
+OBJECTS_SCALE = testscale.o tile.o tile_scale.o utilities.o image.o
+OBJ_BIN_SCALE = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SCALE))
+
+$(BINARY_SCALE): $(OBJ_BIN_SCALE)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS)
+
+$(OBJ_DIR)/tile_scale.o: $(SRC_DIR)/tile_scale.cpp $(SRC_DIR)/tile.hpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+$(OBJ_DIR)/testscale.o: $(SRC_DIR)/testscale.cpp $(SRC_DIR)/rmc.hpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+
 ## c++ compilation
 _DEPS_CXX = %.hpp
 DEPS_CXX = $(patsubst %,$(SRC_DIR)/%,$(_DEPS_CXX))
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS_CXX)
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+_DEPS_WIL = wil/%.hpp
+DEPS_WIL = $(patsubst %,$(SRC_DIR)/wil/%,$(_DEPS_CXX))
+
+$(OBJ_DIR)/%.o: $(SRC_DIR)/wil/%.cpp $(DEPS_WIL)
 	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
 
 $(OBJ_DIR)/hiprmc.o: $(SRC_DIR)/hiprmc.cpp $(SRC_DIR)/rmc.hpp
@@ -150,7 +174,35 @@ $(OBJ_DIR)/cutile.o: $(SRC_DIR)/tile.cu
 	$(NVCC) -c $< -o $@ $(OPT_FLAGS) $(NVCC_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
 endif
 
-all: hiprmc
+all: $(BINARY_SIM)
+
+
+## compute fft tool
+
+BINARY_COMPUTE_FFT = compute-fft
+OBJECTS_COMPUTE_FFT = generate.o utilities.o image.o
+OBJ_BIN_COMPUTE_FFT = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_COMPUTE_FFT))
+
+computefft: $(BINARY_COMPUTE_FFT)
+
+$(BINARY_COMPUTE_FFT): $(OBJ_BIN_COMPUTE_FFT)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+
+$(OBJ_DIR)/generate.o: $(SRC_DIR)/generate.cpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
+BINARY_LOADING = compute-loading
+OBJECTS_LOADING = compute_loading.o utilities.o image.o
+OBJ_BIN_LOADING = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_LOADING))
+
+computeloading: $(BINARY_LOADING)
+
+$(BINARY_LOADING): $(OBJ_BIN_LOADING)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+
+$(OBJ_DIR)/compute_loading.o: $(SRC_DIR)/compute_loading.cpp
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+
 
 .PHONY: clean
 
