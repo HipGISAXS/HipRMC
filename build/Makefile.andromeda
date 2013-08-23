@@ -8,7 +8,7 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = n
+USE_GPU = y
 
 ## base directories
 BOOST_DIR = /usr/local/boost_1_49_0
@@ -102,6 +102,7 @@ MISC_FLAGS =
 endif
 
 MISC_FLAGS += -DUSE_DFT
+MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
 
 ## choose optimization levels, debug flags, gprof flag, etc
 OPT_FLAGS = -g #-DDEBUG #-v #-pg
@@ -207,3 +208,10 @@ $(OBJ_DIR)/compute_loading.o: $(SRC_DIR)/compute_loading.cpp
 
 clean:
 	rm -f $(OBJ_BIN_SIM) $(BIN_DIR)/$(BINARY_SIM)
+
+.PHONY: cleanall
+
+cleanall:
+	rm -f $(OBJ_BIN_SIM) $(BIN_DIR)/$(BINARY_SIM) \
+		$(OBJ_BIN_COMPUTE_FFT) $(BIN_DIR)/$(BINARY_COMPUTE_FFT) \
+		$(OBJ_BIN_LOADING) $(BIN_DIR)/$(BINARY_LOADING)

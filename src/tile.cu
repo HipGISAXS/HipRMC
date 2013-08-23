@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Fri 23 Aug 2013 12:04:56 PM PDT
+  *  Modified: Fri 23 Aug 2013 12:36:18 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -482,7 +482,7 @@ namespace hir {
 		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
 		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
 		if(i_x < size && i_y < size) {
-			unsigned int index = size * i_y + i_x;
+			//unsigned int index = size * i_y + i_x;
 			unsigned int index_t = size * i_x + i_y;	// transpose
 			cucomplex_t new_temp = complex_mul(vandermonde[size * i_y + new_col],
 												vandermonde[size * new_row + i_x]);
