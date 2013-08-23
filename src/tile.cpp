@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 19 Aug 2013 12:07:22 PM PDT
+  *  Modified: Fri 23 Aug 2013 12:03:56 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -110,8 +110,9 @@ namespace hir {
 
 
 	// initialize with raw data
-	bool Tile::init(real_t loading, real_t tstar, real_t cooling, unsigned int max_move_dist, real_t base_norm,
-					mat_real_t& pattern, const mat_complex_t& vandermonde, mat_uint_t& mask) {
+	bool Tile::init(real_t loading, real_t tstar, real_t cooling, unsigned int max_move_dist,
+					real_t base_norm, mat_real_t& pattern,
+					const mat_complex_t& vandermonde, mat_uint_t& mask) {
 		woo::BoostChronoTimer mytimer;
 		unsigned seed = time(NULL); //std::chrono::system_clock::now().time_since_epoch().count();
 		ms_rand_gen_.seed(seed);
@@ -146,34 +147,6 @@ namespace hir {
 			//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
 		#endif // USE_GPU
 
-		//create_image("init_model", 0, a_mat_, false);
-
-		// compute fft of a_mat_ into fft_mat_ and other stuff
-/*		mytimer.start();
-		compute_fft_mat();
-		mytimer.stop();
-		std::cout << "**** FFT time: " << mytimer.elapsed_msec() << " ms." << std::endl;
-		mytimer.start();
-		compute_mod_mat(f_mat_i_);
-		mytimer.stop();
-		std::cout << "**** mod F time: " << mytimer.elapsed_msec() << " ms." << std::endl;
-		mytimer.start();
-		#ifndef USE_GPU
-			mask_mat(mask, 1 - mod_f_mat_i_);
-		#endif // USE_GPU
-		copy_mod_mat(1 - mod_f_mat_i_);
-		mytimer.stop();
-		std::cout << "**** Mask/copy time: " << mytimer.elapsed_msec() << " ms." << std::endl;
-		mytimer.start();
-		compute_model_norm(1 - mod_f_mat_i_);
-		mytimer.stop();
-		std::cout << "**** model norm time: " << mytimer.elapsed_msec() << " ms." << std::endl;
-		c_factor_ = base_norm / model_norm_;
-		mytimer.start();
-		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, c_factor_);
-		std::cout << "++++ initial chi2 = " << prev_chi2_ << std::endl;
-		mytimer.stop();
-		std::cout << "**** chi2 time: " << mytimer.elapsed_msec() << " ms." << std::endl;*/
 		return true;
 	} // Tile::init()
 
@@ -213,7 +186,6 @@ namespace hir {
 					<< " ms." << std::endl;
 		mytimer.start();
 		compute_mod_mat(f_mat_i_);
-//		normalize_mod(1 - mod_f_mat_i_);	//////////////////////////////////////////////////////
 		mytimer.stop();
 		std::cout << "**         Initial mod compute time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
@@ -325,8 +297,8 @@ namespace hir {
 
 		mytimer_.start();
 		double diff_chi2 = prev_chi2_ - new_chi2;
-//		std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
-//					<< "\t c_factor: " << new_c_factor << std::endl;
+		//std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
+		//			<< "\t c_factor: " << new_c_factor << std::endl;
 		bool accept = false;
 		if(diff_chi2 > 0.0) accept = true;
 		else {
@@ -389,8 +361,11 @@ namespace hir {
 		real_t * data = new (std::nothrow) real_t[size_ * size_];
 		for(int i = 0; i < size_; ++ i) {
 			for(int j = 0; j < size_; ++ j) {
-				int i_swap = (i + (size_ >> 1)) % size_;
-				int j_swap = (j + (size_ >> 1)) % size_;
+				int i_swap = i, j_swap = j;
+				if(swapped) {
+					i_swap = (i + (size_ >> 1)) % size_;
+					j_swap = (j + (size_ >> 1)) % size_;
+				} // if
 				data[size_ * i + j] = 255 * ((mat(i_swap, j_swap) - min_val) / (max_val - min_val));
 			} // for j
 		} // for i
@@ -447,28 +422,14 @@ namespace hir {
 		std::cout << "++ Computing model FFT ..." << std::endl;
 
 		unsigned int size2 = size_ * size_;
-		//fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
-		//fftw_complex* mat_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
-		//fftw_plan plan;
-		//plan = fftw_plan_dft_2d(size_, size_, input, output, FFTW_FORWARD, FFTW_ESTIMATE);
 		real_t* orig_a_mat = a_mat_.data();
 		for(int i = 0; i < size2; ++ i) {
-			//mat_in[i][0] = orig_a_mat[i];
-			//mat_in[i][1] = 0.0;
-			//mat_out[i][0] = 0.0;
-			//mat_out[i][1] = 0.0;
 			fft_in_[i][0] = a_mat_[i];
 			fft_in_[i][1] = 0.0;
 			fft_out_[i][0] = 0.0;
 			fft_out_[i][1] = 0.0;
-
-			//std::cout << a_mat_[i] << " ";
-			//if((i + 1) % size_ == 0) std::cout << std::endl;
 		} // for
-		//print_fftwcmatrix("mat_in", mat_in, size_, size_);
 		// execute fft
-		//execute_fftw(mat_in, mat_out);
-		//fftw_execute(plan);
 		fftw_execute(fft_plan_);
 		#pragma omp parallel
 		{
@@ -480,23 +441,12 @@ namespace hir {
 			#pragma omp for collapse(2)
 			for(unsigned int i = 0; i < size_; ++ i) {
 				for(unsigned int j = 0; j < size_; ++ j) {
-					//f_mat_[f_mat_i_](i, j) = complex_t(fft_out_[size_ * i + j][0],
-					//									fft_out_[size_ * i + j][1]) /
-					//							(real_t) num_particles_;
 					f_mat_[f_mat_i_](i, j) = complex_t(fft_out_[size_ * i + j][0],
 														fft_out_[size_ * i + j][1]);
 				} // for
 			} // for
 		} // omp parallel
 
-		//print_fftwcmatrix("mat_out", mat_out, size_, size_);
-		//print_cmatrix("f_mat_[f_mat_i_]", f_mat_[f_mat_i_].data(), size_, size_);
-
-		// destroy fft plan
-		//fftw_destroy_plan(plan);
-
-		//fftw_free(mat_out);
-		//fftw_free(mat_in);
 		return true;
 	} // Tile::compute_fft_mat()
 
@@ -505,24 +455,13 @@ namespace hir {
 
 	bool Tile::compute_fft_mat(unsigned int buff_i) {
 		unsigned int size2 = size_ * size_;
-		//fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
-		//fftw_complex* mat_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size2);
-		//fftw_plan plan;
-		//plan = fftw_plan_dft_2d(size_, size_, mat_in, mat_out, FFTW_FORWARD, FFTW_ESTIMATE);
 		for(int i = 0; i < size2; ++ i) {
-			//mat_in[i][0] = virtual_a_mat_[i];
-			//mat_in[i][1] = 0.0;
-			//mat_out[i][0] = 0.0;
-			//mat_out[i][1] = 0.0;
 			fft_in_[i][0] = virtual_a_mat_[i];
 			fft_in_[i][1] = 0.0;
 			fft_out_[i][0] = 0.0;
 			fft_out_[i][1] = 0.0;
 		} // for
-		//print_fftwcmatrix("mat_in", mat_in, size_, size_);
 		// execute fft
-		//execute_fftw(mat_in, mat_out);
-		//fftw_execute(plan);
 		fftw_execute(fft_plan_);
 
 		#pragma omp parallel
@@ -530,17 +469,11 @@ namespace hir {
 			#pragma omp for collapse(2)
 			for(unsigned int i = 0; i < size_; ++ i) {
 				for(unsigned int j = 0; j < size_; ++ j) {
-					//f_mat_[buff_i](i, j) = complex_t(fft_out_[size_ * i + j][0], fft_out_[size_ * i + j][1]) /
-					//							(real_t) num_particles_;
 					f_mat_[buff_i](i, j) = complex_t(fft_out_[size_ * i + j][0], fft_out_[size_ * i + j][1]);
 				} // for
 			} // for
 		} // omp parallel
 
-		//fftw_destroy_plan(plan);
-
-		//fftw_free(mat_out);
-		//fftw_free(mat_in);
 		return true;
 	} // Tile::compute_fft_mat()
 
@@ -563,7 +496,6 @@ namespace hir {
 		std::cout << "++ Computing model FFT on GPU ..." << std::endl;
 
 		gtile_.compute_fft_mat(f_mat_i_);
-		gtile_.normalize_fft_mat(f_mat_i_, num_particles_);
 		return true;
 	} // Tile::compute_fft_mat()
 
@@ -574,7 +506,6 @@ namespace hir {
 		//std::cout << "++ Computing model FFT on GPU ..." << std::endl;
 
 		gtile_.compute_virtual_fft_mat(buff_i);
-		gtile_.normalize_fft_mat(buff_i, num_particles_);
 		return true;
 	} // Tile::compute_fft_mat()
 
@@ -585,21 +516,25 @@ namespace hir {
 
 	bool Tile::compute_mod_mat(unsigned int f_i) {
 		#ifdef USE_GPU
-			return gtile_.compute_mod_mat(f_i, 1 - mod_f_mat_i_);
+			gtile_.compute_mod_mat(f_i, 1 - mod_f_mat_i_);
+			////////// for testing
+			//std::cout << " ===============================================================" << std::endl;
+			//gtile_.print_f_mat(f_i);
+			//std::cout << " ===============================================================" << std::endl;
+			//gtile_.print_modf_mat(1 - mod_f_mat_i_);
+			//std::cout << " ===============================================================" << std::endl;
+			////////////////// end
+			gtile_.normalize_mod_mat(1 - mod_f_mat_i_);
 		#else // USE CPU
 			#pragma omp parallel for collapse(2)
 			for(unsigned int i = 0; i < size_; ++ i) {
 				for(unsigned int j = 0; j < size_; ++ j) {
 					complex_t temp_f = f_mat_[f_i](i, j);
 					real_t temp = temp_f.real() * temp_f.real() + temp_f.imag() * temp_f.imag();
-					//if(temp != 0.0)
-					//	mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp;
-					//else
-					//	mod_f_mat_[1 - mod_f_mat_i_](i, j) = 0.0;
 					mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp;
 				} // for
 			} // for
-			normalize_mod_mat(1 - mod_f_mat_i_);	///////////////////////////////////////////////// ...
+			normalize_mod_mat(1 - mod_f_mat_i_);
 			//print_matrix("mod_f_mat_[1 - mod_f_mat_i_]", mod_f_mat_[1 - mod_f_mat_i_].data(), size_, size_);
 			return true;
 		#endif // USE_GPU
@@ -661,8 +596,7 @@ namespace hir {
 				for(unsigned int i = 0; i < maxi; ++ i) {
 					for(unsigned int j = 0; j < maxi; ++ j) {
 						if(i == 0 && j == 0) continue;
-						model_norm += mod_f_mat_[buff_i](i, j);// * (j + 1);	// what is the Y matrix anyway ???
-						//model_norm += mod_f_mat_[buff_i](i, j);
+						model_norm += mod_f_mat_[buff_i](i, j);
 					} // for
 				} // for
 			}

@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 19 Aug 2013 11:16:14 AM PDT
+  *  Modified: Fri 23 Aug 2013 09:18:13 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -199,7 +199,7 @@ namespace hir {
 				img.save(str);
 				delete[] data;*/
 				return true;
-			} // save_mat_image()
+			} // save_fmat_image()
 
 /*			bool save_mat_image_direct(unsigned int i, unsigned int iter) {
 				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols(), 30, 30, 30);

@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 19 Aug 2013 01:36:28 PM PDT
+  *  Modified: Fri 23 Aug 2013 09:27:59 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -173,7 +173,7 @@ namespace hir {
 				} // for
 			} // for
 			// write it out
-			cv::imwrite("base_pattern.tif", img);
+			cv::imwrite("input_image.tif", img);
 
 		#ifdef USE_MPI
 			// TODO: send img_data to all procs ...
@@ -249,7 +249,7 @@ namespace hir {
 				} // for
 			} // for
 			// write it out
-			cv::imwrite(HipRMCInput::instance().label() + "/base_pattern.tif", img);
+			cv::imwrite(HipRMCInput::instance().label() + "/input_image.tif", img);
 
 		#ifdef USE_MPI
 			// TODO: send img_data to all procs ...
@@ -258,46 +258,77 @@ namespace hir {
 		} // if-else
 		#endif
 
-		//////////////////// temporary ... reading in model and computing fft as pattern
-/*		for(int i = 0; i < rows_ * cols_; ++ i) img_data[i] = (img_data[i] < 128) ? 0 : 1;
+		#ifdef USE_MODEL_INPUT	// for testing/debugging
+		for(int i = 0; i < rows_ * cols_; ++ i) img_data[i] = (255 * img_data[i] < 128) ? 0 : 1;
 		for(unsigned int i = 0; i < rows_; ++ i) {
 			for(unsigned int j = 0; j < cols_; ++ j) {
 				img.at<unsigned char>(i, j) = (unsigned char) (255 * img_data[cols_ * i + j]);
 			} // for
 		} // for
 		cv::imwrite(HipRMCInput::instance().label() + "/base_01_pattern.tif", img);
-		fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * rows_ * cols_);
-        fftw_complex* mat_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * rows_ * cols_);
-        for(int i = 0; i < rows_; ++ i) {
-            for(int j = 0; j < cols_; ++ j) {
-				//std::cout << img_data[cols_ * i + j] << " ";
-                mat_in[cols_ * i + j][0] = (double) img_data[cols_ * i + j];
-                mat_in[cols_ * i + j][1] = 0.0;
-                mat_out[cols_ * i + j][0] = 0.0;
-                mat_out[cols_ * i + j][1] = 0.0;
-            } // for
-            //std::cout << std::endl;
-        } // for
-		fftw_plan plan;
-        plan = fftw_plan_dft_2d(rows_, cols_, mat_in, mat_out, FFTW_FORWARD, FFTW_ESTIMATE);
-        fftw_execute(plan);
 		max_val = 0.0, min_val = 1e10;
-		for(int i = 0; i < rows_; ++ i) {
-			for(int j = 0; j < cols_; ++ j) {
-				real_t temp = pow(mat_out[cols_ * i + j][0], 2) + pow(mat_out[cols_ * i + j][1], 2);
-				min_val = (temp < min_val) ? temp : min_val;
-				max_val = (temp > max_val) ? temp : max_val;
-				img_data[((i + (rows_ >> 1)) % rows_) * cols_ + ((j + (cols_ >> 1)) % cols_)] = temp;
-			} // if j
-		} // if i
-        fftw_destroy_plan(plan);
-		//for(unsigned int i = 0; i < rows_; ++ i) {
-		//	for(unsigned int j = 0; j < cols_; ++ j) {
-		//		std::cout << img_data[cols_ * i + j] << " ";
-		//	} // for
-		//	std::cout << std::endl;
-		//} // for
-		//std::cout << "---------------------------------------------------------" << std::endl;
+		#ifdef USE_GPU
+			cucomplex_t *mat_in_h, *mat_out_h;
+			cucomplex_t *mat_in_d, *mat_out_d;
+			mat_in_h = new (std::nothrow) cucomplex_t[rows_ * cols_];
+			mat_out_h = new (std::nothrow) cucomplex_t[rows_ * cols_];
+			cudaMalloc((void**) &mat_in_d, rows_ * cols_ * sizeof(cucomplex_t));
+			cudaMalloc((void**) &mat_out_d, rows_ * cols_ * sizeof(cucomplex_t));
+        	for(int i = 0; i < rows_; ++ i) {
+            	for(int j = 0; j < cols_; ++ j) {
+                	mat_in_h[cols_ * i + j].x = (double) img_data[cols_ * i + j];
+	                mat_in_h[cols_ * i + j].y = 0.0;
+    	            mat_out_h[cols_ * i + j].x = 0.0;
+        	        mat_out_h[cols_ * i + j].y = 0.0;
+            	} // for
+	        } // for
+			cudaMemcpy(mat_in_d, mat_in_h, rows_ * cols_ * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
+			cudaMemcpy(mat_out_d, mat_out_h, rows_ * cols_ * sizeof(cucomplex_t), cudaMemcpyHostToDevice);
+			cufftHandle plan;
+			cufftPlan2d(&plan, rows_, cols_, CUFFT_Z2Z);
+			cufftExecZ2Z(plan, mat_in_d, mat_out_d, CUFFT_FORWARD);
+			cudaThreadSynchronize();
+			cudaMemcpy(mat_out_h, mat_out_d, rows_ * cols_ * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
+			cudaThreadSynchronize();
+        	for(int i = 0; i < rows_; ++ i) {
+            	for(int j = 0; j < cols_; ++ j) {
+    	            real_t temp = pow(mat_out_h[cols_ * i + j].x, 2) + pow(mat_out_h[cols_ * i + j].y, 2);
+					min_val = (temp < min_val) ? temp : min_val;
+					max_val = (temp > max_val) ? temp : max_val;
+					img_data[((i + (rows_ >> 1)) % rows_) * cols_ + ((j + (cols_ >> 1)) % cols_)] = temp;
+            	} // for
+	        } // for
+			cufftDestroy(plan);
+			cudaFree(mat_out_d);
+			cudaFree(mat_in_d);
+			delete[] mat_out_h;
+			delete[] mat_in_h;
+		#else
+			fftw_complex* mat_in = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * rows_ * cols_);
+    	    fftw_complex* mat_out = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * rows_ * cols_);
+        	for(int i = 0; i < rows_; ++ i) {
+            	for(int j = 0; j < cols_; ++ j) {
+                	mat_in[cols_ * i + j][0] = (double) img_data[cols_ * i + j];
+	                mat_in[cols_ * i + j][1] = 0.0;
+    	            mat_out[cols_ * i + j][0] = 0.0;
+        	        mat_out[cols_ * i + j][1] = 0.0;
+            	} // for
+	        } // for
+			fftw_plan plan;
+        	plan = fftw_plan_dft_2d(rows_, cols_, mat_in, mat_out, FFTW_FORWARD, FFTW_ESTIMATE);
+	        fftw_execute(plan);
+			for(int i = 0; i < rows_; ++ i) {
+				for(int j = 0; j < cols_; ++ j) {
+					real_t temp = pow(mat_out[cols_ * i + j][0], 2) + pow(mat_out[cols_ * i + j][1], 2);
+					min_val = (temp < min_val) ? temp : min_val;
+					max_val = (temp > max_val) ? temp : max_val;
+					img_data[((i + (rows_ >> 1)) % rows_) * cols_ + ((j + (cols_ >> 1)) % cols_)] = temp;
+				} // if j
+			} // if i
+    	    fftw_destroy_plan(plan);
+			fftw_free(mat_out);
+			fftw_free(mat_in);
+		#endif // USE_GPU
 		for(unsigned int i = 0; i < rows_; ++ i) {
 			for(unsigned int j = 0; j < cols_; ++ j) {
 				real_t temp = (img_data[cols_ * i + j] - min_val) / (max_val - min_val);
@@ -309,7 +340,7 @@ namespace hir {
 		} // for
 		// write it out
 		cv::imwrite(HipRMCInput::instance().label() + "/base_fft_pattern.tif", img);
-*/		//////////////////////// end temporary
+		#endif // USE_MODEL_INPUT
 
 		// TODO: for now, limit to max num procs == num tiles ...
 
@@ -666,13 +697,13 @@ namespace hir {
 			return false;
 		} // if
 
-		#ifdef USE_GPU
-			tiles_[0].update_f_mats();
-		#endif
+		std::cout << "++ Saving initial images ..." << std::endl;
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
-			std::cout << "++ Saving initial images ..." << std::endl;
+			#ifdef USE_GPU
+				tiles_[i].update_f_mats();
+			#endif
 			tiles_[i].save_mat_image(i);
-			tiles_[i].save_fmat_image(i);
+			//tiles_[i].save_fmat_image(i);
 			tiles_[i].save_mat_image_direct(i);
 		} // for
 		unsigned int ten_percent = floor(num_steps / 10);

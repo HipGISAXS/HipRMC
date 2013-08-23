@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Tue 13 Aug 2013 12:03:55 PM PDT
+  *  Modified: Fri 23 Aug 2013 12:04:56 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -25,7 +25,10 @@ namespace hir {
 
 	__host__ GTile::GTile():
 		final_size_(0), tile_size_(0),
-		pattern_(NULL), vandermonde_(NULL), a_mat_(NULL), virtual_a_mat_(NULL), mask_mat_(NULL),
+		pattern_(NULL), vandermonde_(NULL), a_mat_(NULL), mask_mat_(NULL),
+		#ifndef USE_DFT
+		virtual_a_mat_(NULL),
+		#endif
 		real_buff_d_(NULL),
 		complex_buff_h_(NULL), real_buff_h_(NULL) {
 
@@ -43,7 +46,9 @@ namespace hir {
 		if(mod_f_mat_[0] != NULL) cudaFree(mod_f_mat_[0]);
 		if(f_mat_[1] != NULL) cudaFree(f_mat_[1]);
 		if(f_mat_[0] != NULL) cudaFree(f_mat_[0]);
+		#ifndef USE_DFT
 		if(virtual_a_mat_ != NULL) cudaFree(virtual_a_mat_);
+		#endif
 		if(a_mat_ != NULL) cudaFree(a_mat_);
 		if(vandermonde_ != NULL) cudaFree(vandermonde_);
 		if(pattern_ != NULL) cudaFree(pattern_);
@@ -61,7 +66,9 @@ namespace hir {
 		cudaMalloc((void**) &pattern_, size2 * sizeof(real_t));
 		cudaMalloc((void**) &vandermonde_, size2 * sizeof(cucomplex_t));
 		cudaMalloc((void**) &a_mat_, size2 * sizeof(cucomplex_t));
+		#ifndef USE_DFT
 		cudaMalloc((void**) &virtual_a_mat_, size2 * sizeof(cucomplex_t));
+		#endif
 		cudaMalloc((void**) &f_mat_[0], size2 * sizeof(cucomplex_t));
 		cudaMalloc((void**) &f_mat_[1], size2 * sizeof(cucomplex_t));
 		cudaMalloc((void**) &mod_f_mat_[0], size2 * sizeof(real_t));
@@ -70,7 +77,10 @@ namespace hir {
 		cudaMalloc((void**) &real_buff_d_, size2 * sizeof(real_t));
 		complex_buff_h_ = new (std::nothrow) cucomplex_t[size2];
 		real_buff_h_ = new (std::nothrow) real_t[size2];
-		if(pattern_ == NULL || vandermonde_ == NULL || a_mat_ == NULL || virtual_a_mat_ == NULL ||
+		if(pattern_ == NULL || vandermonde_ == NULL || a_mat_ == NULL ||
+				#ifndef USE_DFT
+				virtual_a_mat_ == NULL ||
+				#endif
 				f_mat_[0] == NULL || f_mat_[1] == NULL ||
 				mod_f_mat_[0] == NULL || mod_f_mat_[1] == NULL ||
 				mask_mat_ == NULL || real_buff_d_ == NULL) {
@@ -108,7 +118,7 @@ namespace hir {
 		block_dims_ = dim3(block_x, block_y, 1);
 		grid_dims_ = dim3(grid_x, grid_y, 1);
 
-        cufftResult res = create_cufft_plan(plan_, virtual_a_mat_);
+        cufftResult res = create_cufft_plan(plan_, a_mat_);
         if(res != CUFFT_SUCCESS) {
             std::cerr << "error: " << res << ": fft plan could not be created" << std::endl;
             return false;
@@ -147,6 +157,30 @@ namespace hir {
 	} // GTile::copy_model()
 
 
+	__host__ bool GTile::copy_f_mats_to_host(cucomplex_t* f_buff, real_t* mod_f_buff,
+												unsigned int f_i, unsigned int mod_f_i) {
+		unsigned int size2 = tile_size_ * tile_size_;
+		cudaMemcpy(f_buff, f_mat_[f_i], size2 * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
+		cudaMemcpy(mod_f_buff, mod_f_mat_[mod_f_i], size2 * sizeof(real_t), cudaMemcpyDeviceToHost);
+		//for(int i = 0; i < tile_size_; ++ i) {
+		//	for(int j = 0; j < tile_size_; ++ j) {
+		//		std::cout << f_buff[tile_size_ * i + j].x << "+" << f_buff[tile_size_ * i + j].y << " ";
+		//	} // for
+		//	std::cout << std::endl;
+		//} // for 
+		//std::cout << " +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ " << std::endl;
+		//for(int i = 0; i < tile_size_; ++ i) {
+		//	for(int j = 0; j < tile_size_; ++ j) {
+		//		std::cout << mod_f_buff[tile_size_ * i + j] << " ";
+		//	} // for
+		//	std::cout << std::endl;
+		//} // for 
+		return true;
+	} // GTile::copy_f_mats_to_host()
+
+
+	#ifndef USE_DFT
+
 	__host__ bool GTile::copy_virtual_model(mat_real_t& a) {
 		for(int i = 0; i < tile_size_; ++ i) {
 			for(int j = 0; j < tile_size_; ++ j) {
@@ -161,53 +195,26 @@ namespace hir {
 	} // GTile::copy_model()
 
 
-	__host__ bool GTile::copy_f_mats_to_host(cucomplex_t* f_buff, real_t* mod_f_buff,
-												unsigned int f_i, unsigned int mod_f_i) {
-		unsigned int size2 = tile_size_ * tile_size_;
-		cudaMemcpy(f_buff, f_mat_[f_i], size2 * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
-		cudaMemcpy(mod_f_buff, mod_f_mat_[mod_f_i], size2 * sizeof(real_t), cudaMemcpyDeviceToHost);
-		return true;
-	} // GTile::copy_f_mats_to_host()
-
-
 	__host__ bool GTile::compute_virtual_fft_mat(unsigned int buff_i) {
-        // create fft plan
-        //cufftHandle plan;
-        cufftResult res;
-        //res = create_cufft_plan(plan, virtual_a_mat_);
-        //if(res != CUFFT_SUCCESS) {
-        //    std::cerr << "error: " << res << ": fft plan could not be created" << std::endl;
-        //    return false;
-        //} // if
-		res = execute_cufft(plan_, virtual_a_mat_, f_mat_[buff_i]);
+        cufftResult res = execute_cufft(plan_, virtual_a_mat_, f_mat_[buff_i]);
         if(res != CUFFT_SUCCESS) {
             std::cerr << "error: " << res << ": fft could not be executed" << std::endl;
             return false;
         } // if
         cudaThreadSynchronize();
-        // destroy fft plan
-        //cufftDestroy(plan);
         return true;
-    } // GTile::compute_fft_mat()
+    } // GTile::compute_virtual_fft_mat()
+
+	#endif // USE_DFT
 
 
 	__host__ bool GTile::compute_fft_mat(unsigned int buff_i) {
-        // create fft plan
-        //cufftHandle plan;
-        cufftResult res;
-        //res = create_cufft_plan(plan, a_mat_);
-        //if(res != CUFFT_SUCCESS) {
-        //    std::cerr << "error: " << res << ": fft plan could not be created" << std::endl;
-        //    return false;
-        //} // if
-		res = execute_cufft(plan_, a_mat_, f_mat_[buff_i]);
+		cufftResult res = execute_cufft(plan_, a_mat_, f_mat_[buff_i]);
         if(res != CUFFT_SUCCESS) {
             std::cerr << "error: " << res << ": fft could not be executed" << std::endl;
             return false;
         } // if
         cudaThreadSynchronize();
-        // destroy fft plan
-        //cufftDestroy(plan);
         return true;
     } // GTile::compute_fft_mat()
 
@@ -249,6 +256,42 @@ namespace hir {
 	} // GTile::compute_mod_mat()
 
 
+	typedef struct {
+		__host__ __device__
+		real_t operator()(real_t a, real_t b) {
+			return ((a < b) ? a : b);
+		} // operator()()
+	} min_t;
+
+	typedef struct {
+		__host__ __device__
+		real_t operator()(real_t a, real_t b) {
+			return ((a > b) ? a : b);
+		} // operator()()
+	} max_t;
+
+
+	__host__ bool GTile::normalize_mod_mat(unsigned int buff_i) {
+		min_t min_op;
+		max_t max_op;
+		//std::cout << "****************************************************" << std::endl;
+		//print_modf_mat(buff_i);
+		//std::cout << "****************************************************" << std::endl;
+		real_t min_val = woo::cuda::reduce_single<real_t*, real_t, min_t>(mod_f_mat_[buff_i],
+										mod_f_mat_[buff_i] + (tile_size_ * tile_size_), 1e10, min_op);
+		//std::cout << "****************************************************" << std::endl;
+		//print_modf_mat(buff_i);
+		//std::cout << "****************************************************" << std::endl;
+		real_t max_val = woo::cuda::reduce_single<real_t*, real_t, max_t>(mod_f_mat_[buff_i],
+										mod_f_mat_[buff_i] + (tile_size_ * tile_size_), 0.0, max_op);
+		//std::cout << "MIN: " << min_val << ", MAX: " << max_val << std::endl;
+		normalize_mod_mat_kernel <<< grid_dims_, block_dims_ >>> (mod_f_mat_[buff_i], tile_size_,
+										min_val, max_val);
+		cudaThreadSynchronize();
+		return true;
+	} // GTile::normalize_mod_mat()
+
+
 	// reduction functor
 	typedef struct {
 		__host__ __device__
@@ -260,16 +303,17 @@ namespace hir {
 
 	__host__ double GTile::compute_model_norm(unsigned int buff_i) {
 		double model_norm = 0.0;
-		unsigned int maxi = tile_size_; // >> 1;
-//		compute_model_norm_kernel <<< grid_dims_, block_dims_ >>> (mod_f_mat_[buff_i], tile_size_,
-//																	maxi, real_buff_d_);
-//		cudaThreadSynchronize();
+		unsigned int maxi = tile_size_;
+		//compute_model_norm_kernel <<< grid_dims_, block_dims_ >>> (mod_f_mat_[buff_i], tile_size_,
+		//															maxi, real_buff_d_);
+		//cudaThreadSynchronize();
 		/*thrust::device_ptr<real_t> buff_p(real_buff_d_);
 		thrust::plus<real_t> plus;
 		model_norm = thrust::reduce(buff_p, buff_p + (maxi * maxi), 0.0, plus);
 		*/
 		plus_t plus_op;
-		//model_norm = woo::cuda::reduce_multiple<real_t*, real_t, plus_t>(real_buff_d_, real_buff_d_ + (maxi * maxi),
+		//model_norm = woo::cuda::reduce_multiple<real_t*, real_t, plus_t>(real_buff_d_,
+		//													real_buff_d_ + (maxi * maxi),
 		//													0.0, plus_op);
 		model_norm = woo::cuda::reduce_single<real_t*, real_t, plus_t>(mod_f_mat_[buff_i],
 												mod_f_mat_[buff_i] + (maxi * maxi), 0.0, plus_op);
@@ -296,32 +340,66 @@ namespace hir {
 	} // GTile::compute_chi2()
 
 
+	#ifdef USE_DFT
 	__host__ bool GTile::compute_dft2(unsigned int old_row, unsigned int old_col,
 										unsigned int new_row, unsigned int new_col,
 										unsigned int num_particles,
 										unsigned int in_buff_i, unsigned int out_buff_i) {
 		//nvtxRangeId_t nvtx0 = nvtxRangeStart("dft2_compute");
 		cudaProfilerStart();
-		//compute_dft2_kernel <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
-		//compute_dft2_kernel_shared <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
-		//compute_dft2_kernel_shared_opt2 <<< grid_dims_, block_dims_ >>> (vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		compute_dft2_kernel <<< grid_dims_, block_dims_ >>>
+								(vandermonde_, tile_size_, old_row, old_col, new_row, new_col,
+								num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		//compute_dft2_kernel_shared <<< grid_dims_, block_dims_ >>>
+		//						(vandermonde_, tile_size_, old_row, old_col, new_row, new_col,
+		//						num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		//compute_dft2_kernel_shared_opt2 <<< grid_dims_, block_dims_ >>>
+		//						(vandermonde_, tile_size_, old_row, old_col, new_row, new_col,
+		//						num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		//compute_dft2_kernel_shared_opt3 <<< grid_dims_, block_dims_ >>>
+		//						(vandermonde_, tile_size_, old_row, old_col, new_row, new_col,
+		//						num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
 		unsigned int block_x = CUDA_BLOCK_SIZE_X_;
 		unsigned int block_y = CUDA_BLOCK_SIZE_Y_;
 		unsigned int grid_x = (unsigned int) ceil((real_t) tile_size_ / block_x);
 		unsigned int grid_y = (unsigned int) ceil((real_t) tile_size_ / (block_y * CUDA_DFT2_SUBTILES_));
 		dim3 block_dims = dim3(block_x, block_y, 1);
 		dim3 grid_dims = dim3(grid_x, grid_y, 1);
-		/*compute_dft2_kernel_shared_opt3 <<< grid_dims_, block_dims_ >>>
-			(vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles,
-			 f_mat_[in_buff_i], f_mat_[out_buff_i]);*/
-		compute_dft2_kernel_shared_opt4 <<< grid_dims_, block_dims_ >>>
-			(vandermonde_, tile_size_, old_row, old_col, new_row, new_col, num_particles,
-			 f_mat_[in_buff_i], f_mat_[out_buff_i]);
+		//compute_dft2_kernel_shared_opt4 <<< grid_dims_, block_dims_ >>>
+		//						(vandermonde_, tile_size_, old_row, old_col, new_row, new_col,
+		//						num_particles, f_mat_[in_buff_i], f_mat_[out_buff_i]);
 		cudaProfilerStop();
 		//nvtxRangeEnd(nvtx0);
 		cudaThreadSynchronize();
 		return true;
 	} // GTile::compute_dft2()
+	#endif
+
+
+	// ////
+	// Testing functions
+	// ////
+
+	__host__ void GTile::print_f_mat(unsigned int buff_i) {
+		cudaMemcpy(complex_buff_h_, f_mat_[buff_i], tile_size_ * tile_size_ * sizeof(cucomplex_t), cudaMemcpyDeviceToHost);
+		for(int i = 0; i < tile_size_; ++ i) {
+			for(int j = 0; j < tile_size_; ++ j) {
+				std::cout << complex_buff_h_[tile_size_ * i + j].x << "+" << complex_buff_h_[tile_size_ * i + j].y << " ";
+			} // for
+			std::cout << std::endl;
+		} // for 
+	} // GTile::print_f_mat()
+
+
+	__host__ void GTile::print_modf_mat(unsigned int buff_i) {
+		cudaMemcpy(real_buff_h_, mod_f_mat_[buff_i], tile_size_ * tile_size_ * sizeof(real_t), cudaMemcpyDeviceToHost);
+		for(int i = 0; i < tile_size_; ++ i) {
+			for(int j = 0; j < tile_size_; ++ j) {
+				std::cout << real_buff_h_[tile_size_ * i + j] << " ";
+			} // for
+			std::cout << std::endl;
+		} // for 
+	} // GTile::print_f_mat()
 
 
 	// ////
@@ -353,6 +431,17 @@ namespace hir {
 	} // compute_mod_mat_kernel()
 
 
+	__global__ void normalize_mod_mat_kernel(real_t* mod_mat, unsigned int size,
+												real_t min_val, real_t max_val) {
+		unsigned int i_x = blockDim.x * blockIdx.x + threadIdx.x;
+		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
+		if(i_x < size && i_y < size) {
+			unsigned int index = size * i_y + i_x;
+			mod_mat[index] = (mod_mat[index] - min_val) / (max_val - min_val);
+		} // if
+	} // normalize_mod_mat_kernel()
+
+
 	// this is not used
 	__global__ void compute_model_norm_kernel(real_t* inmat, unsigned int size,
 												unsigned int size2, real_t* outmat) {
@@ -376,12 +465,14 @@ namespace hir {
 			unsigned int index = size * i_y + i_x;
 			unsigned int swap_index = size * swap_i_y + swap_i_x;
 			//real_t temp = pattern[swap_index] - mod_mat[index] * c_factor;
-			real_t temp = pattern[swap_index] - 2.5 * mod_mat[index];
+			//real_t temp = pattern[swap_index] - 2.5 * mod_mat[index];
+			real_t temp = pattern[swap_index] - mod_mat[index];
 			out[index] = temp * temp;
 		} // if
 	} // compute_chi2_kernel()
 
 
+	#ifdef USE_DFT
 	// base kernel - no shared mem
 	__global__ void compute_dft2_kernel(cucomplex_t* vandermonde, unsigned int size,
 										unsigned int old_row, unsigned int old_col,
@@ -392,12 +483,14 @@ namespace hir {
 		unsigned int i_y = blockDim.y * blockIdx.y + threadIdx.y;
 		if(i_x < size && i_y < size) {
 			unsigned int index = size * i_y + i_x;
+			unsigned int index_t = size * i_x + i_y;	// transpose
 			cucomplex_t new_temp = complex_mul(vandermonde[size * i_y + new_col],
 												vandermonde[size * new_row + i_x]);
 			cucomplex_t old_temp = complex_mul(vandermonde[size * i_y + old_col],
 												vandermonde[size * old_row + i_x]);
-			cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)), (real_t)num_particles);
-			fout[index] = complex_add(dft_temp, fin[index]);
+			cucomplex_t dft_temp = complex_sub(new_temp, old_temp);
+			//cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)), (real_t)num_particles);
+			fout[index_t] = complex_add(dft_temp, fin[index_t]);
 		} // if
 	} // compute_dft2_kernel()
 
@@ -436,6 +529,7 @@ namespace hir {
 		__syncthreads();	// make sure all data is available
 
 		unsigned int index = size * i_y + i_x;
+		unsigned int index_t = size * i_x + i_y;	// transpose
 		if(i_x < size && i_y < size) {
 			cucomplex_t new_temp = complex_mul(vander_new_col[threadIdx.y],
 								vander_new_row[threadIdx.x]);
@@ -443,7 +537,7 @@ namespace hir {
 								vander_old_row[threadIdx.x]);
 			cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)),
 								(real_t)num_particles);
-			fout[index] = complex_add(dft_temp, fin[index]);
+			fout[index_t] = complex_add(dft_temp, fin[index]);
 		} // if
 	} // compute_dft2_kernel_shared()
 
@@ -482,6 +576,7 @@ namespace hir {
 		__syncthreads();	// make sure all data is available
 
 		unsigned int index = size * i_y + i_x;
+		unsigned int index_t = size * i_x + i_y;	// transpose
 		if(i_x < size && i_y < size) {
 			for(int i = 0; i < blockDim.x; ++ i) {		// to remove shared mem bank conflicts
 				if(threadIdx.x == i) {
@@ -493,7 +588,7 @@ namespace hir {
 										vander_old_row[threadIdx.x]);
 					cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)),
 										(real_t)num_particles);
-					fout[index] = complex_add(dft_temp, fin[index]);
+					fout[index_t] = complex_add(dft_temp, fin[index]);
 				} // if
 			} // for
 		} // if
@@ -561,6 +656,7 @@ namespace hir {
 		//unsigned int r_iter = blockDim.x >> 3;
 		//unsigned int c_iter = blockDim.y >> 3;
 		unsigned int index = size * i_y + i_x;
+		unsigned int index_t = size * i_x + i_y;	// transpose
 		if(i_x < size && i_y < size) {
 			//for(int r = 0; r < r_iter; ++ r) {
 			//	if(threadIdx.x >= r << 3 && threadIdx.x < (r + 1) << 3) {
@@ -578,7 +674,7 @@ namespace hir {
 							cucomplex_t old_temp = complex_mul(old_col, old_row);
 							cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)),
 																(real_t) num_particles);
-							fout[index] = complex_add(dft_temp, fin[index]);
+							fout[index_t] = complex_add(dft_temp, fin[index]);
 					//	} // if c
 					//} // for c
 			//	} // if r
@@ -626,6 +722,7 @@ namespace hir {
 			__syncthreads();	// make sure all data is available
 
 			unsigned int index = size * i_y + size * blockDim.y * s + i_x;
+			unsigned int index_t = size * i_y + size * blockDim.y * s + i_x;	// transpose
 			if(i_x < size && i_y < size) {
 				cucomplex_t new_temp = complex_mul(vander_new_col[threadIdx.y],
 									vander_new_row[threadIdx.x]);
@@ -633,7 +730,7 @@ namespace hir {
 									vander_old_row[threadIdx.x]);
 				cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)),
 									(real_t)num_particles);
-				fout[index] = complex_add(dft_temp, fin[index]);
+				fout[index_t] = complex_add(dft_temp, fin[index]);
 			} // if
 		}
 	} // compute_dft2_kernel_shared_opt3()
@@ -691,6 +788,7 @@ namespace hir {
 			__syncthreads();	// make sure all data is available
 
 			unsigned int index = size * i_y + size * blockDim.y * s + i_x;
+			unsigned int index_t = size * i_x + size * blockDim.x * s + i_y; // for transpose
 			if(i_x < size && i_y < size) {
 				cucomplex_t new_row = make_cuComplex(vander_new_row[t_i_x], vander_new_row[t_i_x + 1]);
 				cucomplex_t old_row = make_cuComplex(vander_old_row[t_i_x], vander_old_row[t_i_x + 1]);
@@ -699,7 +797,7 @@ namespace hir {
 				cucomplex_t new_temp = complex_mul(new_col, new_row);
 				cucomplex_t old_temp = complex_mul(old_col, old_row);
 				cucomplex_t dft_temp = complex_div((complex_sub(new_temp, old_temp)), (real_t) num_particles);
-				fout[index] = complex_add(dft_temp, fin[index]);
+				fout[index_t] = complex_add(dft_temp, fin[index]);
 			} // if
 		} // for
 	} // compute_dft2_kernel_shared_opt4()
@@ -756,5 +854,6 @@ namespace hir {
 		} // if
 	} // compute_dft2_kernel_shared()
 
+	#endif // USE_DFT
 
 } // namespace hir
