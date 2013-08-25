@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 23 Aug 2013 09:27:59 AM PDT
+  *  Modified: Sun 25 Aug 2013 09:40:09 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -753,7 +753,7 @@ namespace hir {
 											sizeof(cucomplex_t);
 				std::cout << "++ DFT2 Bandwidth: "
 						<< (float) (read_bytes + write_bytes) * num_steps * 1000 /
-							(tiles_[i].dft2_time * 1024 * 1024)
+							(tiles_[i].dft2_time() * 1024 * 1024)
 						<< " MB/s" << std::endl;
 			#endif
 

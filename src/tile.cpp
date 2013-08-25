@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 23 Aug 2013 12:03:56 PM PDT
+  *  Modified: Sun 25 Aug 2013 09:39:03 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -159,6 +159,10 @@ namespace hir {
 						<< std::endl;
 			return false;
 		} // if
+
+		// reset all timers to 0
+		vmove_time_ = dft2_time_ = mod_time_ = norm_time_ = chi2_time_ = rest_time_ = 0.0;
+
 		// compute fft of a_mat_ into fft_mat_ and other stuff
 		woo::BoostChronoTimer mytimer;
 		#ifdef USE_GPU
@@ -257,7 +261,7 @@ namespace hir {
 		mytimer_.start();
 		//virtual_move_random_particle();
 		virtual_move_random_particle_restricted(max_move_distance_);
-		mytimer_.stop(); vmove_time += mytimer_.elapsed_msec();
+		mytimer_.stop(); vmove_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
 		#ifdef USE_DFT
@@ -269,7 +273,7 @@ namespace hir {
 			update_virtual_model();
 			compute_fft_mat(f_scratch_i);
 		#endif
-		mytimer_.stop(); dft2_time += mytimer_.elapsed_msec();
+		mytimer_.stop(); dft2_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
 		compute_mod_mat(f_scratch_i);
@@ -277,7 +281,7 @@ namespace hir {
 		#ifndef USE_GPU
 //			mask_mat(mask, mod_f_scratch_i);
 		#endif // USE_GPU
-		mytimer_.stop(); mod_time += mytimer_.elapsed_msec();
+		mytimer_.stop(); mod_time_ += mytimer_.elapsed_msec();
 		//create_image("allnewm", iter, virtual_a_mat_, false);
 		//create_image("allmod", iter, mod_f_mat_[mod_f_scratch_i], true);
 
@@ -285,7 +289,7 @@ namespace hir {
 		mytimer_.start();
 		compute_model_norm(mod_f_scratch_i);
 		double new_c_factor = base_norm / model_norm_;
-		mytimer_.stop(); norm_time += mytimer_.elapsed_msec();
+		mytimer_.stop(); norm_time_ += mytimer_.elapsed_msec();
 
 //		std::cout << "---------------model_norm_ = " << model_norm_
 //					<< ", mod_f_mat_i_,mod_f_scratch_i: " << mod_f_mat_i_ << ", " << mod_f_scratch_i
@@ -293,7 +297,7 @@ namespace hir {
 
 		mytimer_.start();
 		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, new_c_factor, base_norm);
-		mytimer_.stop(); chi2_time += mytimer_.elapsed_msec();
+		mytimer_.stop(); chi2_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
 		double diff_chi2 = prev_chi2_ - new_chi2;
@@ -323,7 +327,7 @@ namespace hir {
 			//update_model();
 			//create_image("newm", accepted_moves_, a_mat_, false);
 		} // if
-		mytimer_.stop(); rest_time += mytimer_.elapsed_msec();
+		mytimer_.stop(); rest_time_ += mytimer_.elapsed_msec();
 
 		// write current model at every "steps"
 		if(iter % 1000 == 0) {
@@ -852,12 +856,12 @@ namespace hir {
 
 
 	bool Tile::print_times() {
-		std::cout << "**               Particle move time: " << vmove_time << " ms." << std::endl;
-		std::cout << "**                 DFT compute time: " << dft2_time  << " ms." << std::endl;
-		std::cout << "**          Mod matrix compute time: " << mod_time   << " ms." << std::endl;
-		std::cout << "**          Model norm compute time: " << norm_time  << " ms." << std::endl;
-		std::cout << "**          Chi2-error compute time: " << chi2_time  << " ms." << std::endl;
-		std::cout << "**                       Other time: " << rest_time  << " ms." << std::endl;
+		std::cout << "**               Particle move time: " << vmove_time_ << " ms." << std::endl;
+		std::cout << "**                 DFT compute time: " << dft2_time_  << " ms." << std::endl;
+		std::cout << "**          Mod matrix compute time: " << mod_time_   << " ms." << std::endl;
+		std::cout << "**          Model norm compute time: " << norm_time_  << " ms." << std::endl;
+		std::cout << "**          Chi2-error compute time: " << chi2_time_  << " ms." << std::endl;
+		std::cout << "**                       Other time: " << rest_time_  << " ms." << std::endl;
 		return true;
 	} // Tile::print_times()
 

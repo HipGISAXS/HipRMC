@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 23 Aug 2013 09:18:13 AM PDT
+  *  Modified: Sun 25 Aug 2013 09:40:36 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -117,10 +117,11 @@ namespace hir {
 			bool copy_mod_mat(unsigned int);
 			bool update_indices();
 
-		public:
-			double vmove_time, dft2_time, mod_time, norm_time, chi2_time;
-			double rest_time;
+			// to record timings
+			double vmove_time_, dft2_time_, mod_time_, norm_time_, chi2_time_;
+			double rest_time_;
 
+		public:
 			Tile(unsigned int, unsigned int, const std::vector<unsigned int>&, unsigned int);
 			Tile(const Tile&);
 			~Tile();
@@ -252,6 +253,9 @@ namespace hir {
 				return ((real_t) (ms_rand_gen_() - ms_rand_gen_.min()) /
 									(ms_rand_gen_.max() - ms_rand_gen_.min()));
 			} // ms_rand_01()
+
+
+			double dft2_time() const { return dft2_time_; }
 
 	}; // class Tile
 
