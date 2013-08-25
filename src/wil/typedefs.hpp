@@ -1,9 +1,9 @@
 /***
-  *  Project:
+  *  Project: WOO Image Library
   *
   *  File: typedefs.hpp
   *  Created: Jul 08, 2012
-  *  Modified: Wed 07 Aug 2013 09:25:09 AM PDT
+  *  Modified: Sun 25 Aug 2013 09:23:31 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */

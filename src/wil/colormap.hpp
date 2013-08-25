@@ -1,9 +1,9 @@
 /***
-  *  Project:
+  *  Project: WOO Image Library
   *
   *  File: colormap.hpp
   *  Created: Jul 02, 2012
-  *  Modified: Wed 07 Aug 2013 09:24:34 AM PDT
+  *  Modified: Sun 25 Aug 2013 09:26:21 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -15,12 +15,18 @@
 #include <boost/array.hpp>
 
 #include "globals.hpp"
-#include "../constants.hpp"
 
 namespace wil {		// woo image library
 
 	typedef boost::array <unsigned char, 3> color8_t;
-	
+	typedef boost::array <unsigned int, 3> palette_t;
+
+	const double PI_ = 3.14159265358979323846;
+
+
+	/**
+	 * 8-bit color map
+	 */	
 	class ColorMap8 {
 		private:
 			unsigned char* color_palette_;	// make this a vector ... ?
@@ -165,12 +171,13 @@ namespace wil {		// woo image library
 	}; // class ColorMap8
 
 
-	typedef boost::array <unsigned int, 3> palette_t;
-
+	/**
+	 * Full color map
+	 */
 	class ColorMap {
 		public:
 			ColorMap() {
-				palette_[0] = 38;
+				palette_[0] = 38;		// default palette
 				palette_[1] = 39;
 				palette_[2] = 40;
 				construct_channel_limits();
@@ -298,11 +305,11 @@ namespace wil {		// woo image library
 						return sqrt(sqrt(x));
 
 					case 9:
-						temp = sin(hir::PI_ * x);
+						temp = sin(PI_ * x);
 						return temp;// < 0.0 ? 0.0 : temp;
 
 					case 10:
-						temp = cos(hir::PI_ * x);
+						temp = cos(PI_ * x);
 						return temp;// < 0.0 ? 0.0 : temp;
 
 					case 11:
@@ -312,31 +319,31 @@ namespace wil {		// woo image library
 						return pow((2 * x - 1.0), 2);
 
 					case 13:
-						temp = sin(2 * hir::PI_ * x);
+						temp = sin(2 * PI_ * x);
 						return temp;// < 0.0 ? 0.0 : temp;
 
 					case 14:
-						return fabs(cos(2 * hir::PI_ * x));
+						return fabs(cos(2 * PI_ * x));
 
 					case 15:
-						temp = sin(4 * hir::PI_ * x);
+						temp = sin(4 * PI_ * x);
 						return temp;// < 0.0 ? 0.0 : temp;
 
 					case 16:
-						temp = cos(4 * hir::PI_ * x);
+						temp = cos(4 * PI_ * x);
 						return temp;// < 0.0 ? 0.0 : temp;
 
 					case 17:
-						return fabs(sin(4.0 * hir::PI_ * x));
+						return fabs(sin(4.0 * PI_ * x));
 
 					case 18:
-						return fabs(cos(4.0 * hir::PI_ * x));
+						return fabs(cos(4.0 * PI_ * x));
 
 					case 19:
-						return fabs(sin(8.0 * hir::PI_ * x));
+						return fabs(sin(8.0 * PI_ * x));
 
 					case 20:
-						return fabs(cos(8.0 * hir::PI_ * x));
+						return fabs(cos(8.0 * PI_ * x));
 
 					case 21:
 						return 3.0 * x;
@@ -402,19 +409,19 @@ namespace wil {		// woo image library
 					case 38:
 						//temp = cos(PI_ / 2 * (x - 1));
 						//temp = sin(4 * PI_ * x / 3 - 9 * PI_ / 16);
-						temp = sin(25 * hir::PI_ * x / 24 - 7 * hir::PI_ / 32);
+						temp = sin(25 * PI_ * x / 24 - 7 * PI_ / 32);
 						return temp < 0.0 ? 0.0 : temp;
 
 					case 39:
 						//temp = - sin(7 * PI_ / 6 * (x - 1));
 						//temp = -sin(3 * PI_ * x / 2 + 5 * PI_ / 8);
-						temp = -sin(4 * hir::PI_ * x / 3 + 13 * hir::PI_ / 16);
+						temp = -sin(4 * PI_ * x / 3 + 13 * PI_ / 16);
 						return temp < 0.0 ? 0.0 : temp;
 
 					case 40:
 						//temp = sin(2 * PI_ * x);
 						//temp = -sin(7 * PI_ * x / 4 - 7 * PI_ / 8);
-						temp = -sin(4 * hir::PI_ * x / 3 - 7 * hir::PI_ / 8);
+						temp = -sin(4 * PI_ * x / 3 - 7 * PI_ / 8);
 						return temp < 0.0 ? 0.0 : temp;
 
 					default:

@@ -1,9 +1,9 @@
 /***
-  *  Project:
+  *  Project: WOO Image Library
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Mon 19 Aug 2013 12:06:32 PM PDT
+  *  Modified: Sun 25 Aug 2013 09:21:08 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -20,50 +20,50 @@
 namespace wil {
 
 	Image::Image(unsigned int ny, unsigned int nz):
-					nx_(1), ny_(ny), nz_(nz), color_map_() {
+					nx_(1), ny_(ny), nz_(nz), color_map_8_() {
 		image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int ny, unsigned int nz, char* palette):
-					nx_(1), ny_(ny), nz_(nz), color_map_(palette) {
+					nx_(1), ny_(ny), nz_(nz), color_map_8_(palette) {
 		image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int ny, unsigned int nz, std::string palette):
-					nx_(1), ny_(ny), nz_(nz), color_map_(palette) {
+					nx_(1), ny_(ny), nz_(nz), color_map_8_(palette) {
 		image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int ny, unsigned int nz, unsigned int r, unsigned int g, unsigned int b):
-					nx_(1), ny_(ny), nz_(nz), new_color_map_(r, g, b) {
+					nx_(1), ny_(ny), nz_(nz), color_map_(r, g, b) {
 		image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int nx, unsigned int ny, unsigned int nz):
-					nx_(nx), ny_(ny), nz_(nz), color_map_(), new_color_map_() {
+					nx_(nx), ny_(ny), nz_(nz), color_map_8_(), color_map_() {
 		image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int nx, unsigned int ny, unsigned int nz, char* palette):
-					nx_(nx), ny_(ny), nz_(nz), color_map_(palette) {
+					nx_(nx), ny_(ny), nz_(nz), color_map_8_(palette) {
 		image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int nx, unsigned int ny, unsigned int nz, std::string palette):
-					nx_(nx), ny_(ny), nz_(nz), color_map_(palette) {
+					nx_(nx), ny_(ny), nz_(nz), color_map_8_(palette) {
 		image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int nx, unsigned int ny, unsigned int nz,
 			unsigned int r, unsigned int g, unsigned int b):
-					nx_(nx), ny_(ny), nz_(nz), new_color_map_(r, g, b) {
+					nx_(nx), ny_(ny), nz_(nz), color_map_(r, g, b) {
 		image_buffer_ = NULL;
 	} // Image::Image()
 
@@ -281,7 +281,7 @@ namespace wil {
 				std::cerr << "a pixel value not within range: " << image[i] << std::endl;
 				return false;
 			} // if
-			boost::array<unsigned char, 3> color_rgb = new_color_map_.color_map(image[i]);
+			boost::array<unsigned char, 3> color_rgb = color_map_.color_map(image[i]);
 			boost::gil::rgb8_pixel_t temp =
 							boost::gil::rgb8_pixel_t(color_rgb[0], color_rgb[1], color_rgb[2]);
 			image_buffer_[i] = temp;
@@ -305,7 +305,7 @@ namespace wil {
 				std::cerr << "a pixel value not within range: " << image[i] << std::endl;
 				return false;
 			} // if
-			boost::array<unsigned char, 3> color_rgb = new_color_map_.color_map(image[i]);
+			boost::array<unsigned char, 3> color_rgb = color_map_.color_map(image[i]);
 			boost::gil::rgb8_pixel_t temp =
 							boost::gil::rgb8_pixel_t(color_rgb[0], color_rgb[1], color_rgb[2]);
 			image_buffer_[i] = temp;
@@ -386,7 +386,8 @@ namespace wil {
 		boost::gil::point2 <int> new_p;
 		for(new_p.y = 0; new_p.y < (int) new_y; ++ new_p.y) {
 			for(new_p.x = 0; new_p.x < (int) new_x; ++ new_p.x) {
-				boost::gil::point2 <real_t> trans_p = boost::gil::transform(mat, new_p);
+				boost::gil::point2 <real_t> trans_p = boost::gil::transform(mat, new_p); // this
+															// is basically matrix multiplication! TODO ...
 				boost::gil::point2 <int> center(boost::math::iround(trans_p.x),
 												boost::math::iround(trans_p.y));
 				if(center.x >= 0 && center.y >= 0 && center.x < (int) old_x &&

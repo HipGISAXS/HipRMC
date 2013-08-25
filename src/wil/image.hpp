@@ -1,9 +1,9 @@
 /***
-  *  Project:
+  *  Project: WOO Image Library
   *
   *  File: image.hpp
   *  Created: Jun 18, 2012
-  *  Modified: Mon 19 Aug 2013 09:01:35 AM PDT
+  *  Modified: Sun 25 Aug 2013 09:21:56 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -20,6 +20,9 @@
 
 namespace wil {
 
+	/**
+	 * The main image class
+	 */
 	class Image {
 		//template <typename ChannelValue, typename Layout> struct pixel;
 		//typedef pixel<bits8, rgb_layout_t> rgb8_pixel_t;
@@ -29,8 +32,8 @@ namespace wil {
 			unsigned int ny_;				/* y dimension */
 			unsigned int nz_;				/* z dimension */
 			boost::gil::rgb8_pixel_t* image_buffer_;	/* this will hold the final rgb values */
-			ColorMap8 color_map_;			/* defines mapping to colors in the defined palette */
-			ColorMap new_color_map_;		/* new color mapping */
+			ColorMap8 color_map_8_;			/* defines mapping to colors in the defined palette */
+			ColorMap color_map_;			/* better color mapping */
 
 			bool convert_to_rgb_pixels(unsigned int, unsigned int, real_t*);
 			bool convert_to_rgb_palette(unsigned int, unsigned int, real_t*);

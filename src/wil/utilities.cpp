@@ -1,9 +1,9 @@
 /***
-  *  Project:
+  *  Project: WOO Image Library
   *
   *  File: utilities.cpp
   *  Created: Jun 25, 2012
-  *  Modified: Wed 07 Aug 2013 09:25:17 AM PDT
+  *  Modified: Sun 25 Aug 2013 09:23:40 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */

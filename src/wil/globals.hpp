@@ -1,5 +1,5 @@
 /***
-  *  Project:
+  *  Project: WOO Image Library
   *
   *  File: globals.hpp
   *  Created: Jun 05, 2012
