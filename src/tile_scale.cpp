@@ -3,7 +3,7 @@
   *
   *  File: tile_scale.cpp
   *  Created: Mar 04, 2013
-  *  Modified: Tue 13 Aug 2013 03:07:32 PM PDT
+  *  Modified: Sun 25 Aug 2013 02:01:26 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -29,8 +29,8 @@ namespace hir {
 
 		// get random indices for row and col where to insert new stuff
 		unsigned int curr_size = size_;
-		unsigned int new_row_i = floor(ms_rand_01() * curr_size);
-		unsigned int new_col_i = floor(ms_rand_01() * curr_size);
+		unsigned int new_row_i = floor(mt_rand_01() * curr_size);
+		unsigned int new_col_i = floor(mt_rand_01() * curr_size);
 
 		// construct new row and col
 		real_t *new_row, *new_col;

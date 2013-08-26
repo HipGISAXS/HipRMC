@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 25 Aug 2013 09:40:36 AM PDT
+  *  Modified: Sun 25 Aug 2013 01:58:06 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -12,7 +12,7 @@
 #define __TILE_HPP__
 
 #include <vector>
-#include <random>
+//#include <random>
 #include <sstream>
 #include <iomanip>
 #include <fstream>
@@ -23,6 +23,7 @@
 #endif
 
 #include <woo/timer/woo_boostchronotimers.hpp>
+#include <woo/random/woo_mtrandom.hpp>
 
 #include "wil/image.hpp"
 
@@ -83,7 +84,8 @@ namespace hir {
 			unsigned int new_index_;
 
 			// for random number generation
-			std::mt19937_64 ms_rand_gen_;
+			//std::mt19937_64 ms_rand_gen_;
+			woo::MTRandomNumberGenerator mt_rand_gen_;
 
 			woo::BoostChronoTimer mytimer_;
 
@@ -249,9 +251,10 @@ namespace hir {
 			unsigned int size() const { return size_; }
 
 			// return a random number in (0,1)
-			real_t ms_rand_01() {
-				return ((real_t) (ms_rand_gen_() - ms_rand_gen_.min()) /
-									(ms_rand_gen_.max() - ms_rand_gen_.min()));
+			real_t mt_rand_01() {
+				//return ((real_t) (ms_rand_gen_() - ms_rand_gen_.min()) /
+				//					(ms_rand_gen_.max() - ms_rand_gen_.min()));
+				return mt_rand_gen_.rand();
 			} // ms_rand_01()
 
 

@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 25 Aug 2013 09:39:03 AM PDT
+  *  Modified: Sun 25 Aug 2013 02:00:59 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -35,7 +35,8 @@ namespace hir {
 		f_mat_i_(0),
 		mod_f_mat_i_(0),
 		indices_(indices),
-		dft_mat_(rows, cols) {
+		dft_mat_(rows, cols),
+		mt_rand_gen_(time(NULL)) {
 
 		woo::BoostChronoTimer mytimer;
 
@@ -94,7 +95,8 @@ namespace hir {
 		old_pos_(tile.old_pos_),
 		new_pos_(tile.new_pos_),
 		old_index_(tile.old_index_),
-		new_index_(tile.new_index_) {
+		new_index_(tile.new_index_),
+		mt_rand_gen_(time(NULL)) {
 		#ifdef USE_GPU
 			unsigned int size2 = final_size_ * final_size_;
 			cucomplex_buff_ = new (std::nothrow) cucomplex_t[size2];
@@ -115,7 +117,7 @@ namespace hir {
 					const mat_complex_t& vandermonde, mat_uint_t& mask) {
 		woo::BoostChronoTimer mytimer;
 		unsigned seed = time(NULL); //std::chrono::system_clock::now().time_since_epoch().count();
-		ms_rand_gen_.seed(seed);
+		//ms_rand_gen_.seed(seed);
 
 		loading_factor_ = loading;
 		tstar_ = tstar;
@@ -309,7 +311,7 @@ namespace hir {
 			//real_t p = exp(diff_chi2 * (0.125 * iter) / tstar_); // with 5000
 			//real_t p = exp(diff_chi2 * (0.625 * iter) / tstar_); // with 1000
 			real_t p = exp(diff_chi2 * (cooling_factor_ * iter + 1) / tstar_); // with 500
-			real_t prand = ms_rand_01();
+			real_t prand = mt_rand_01();
 			if(prand < p) accept = true;
 		} // if-else
 		if(accept) {	// accept the move
@@ -672,8 +674,8 @@ namespace hir {
 
 
 	bool Tile::virtual_move_random_particle() {
-		old_pos_ = floor(ms_rand_01() * num_particles_);
-		new_pos_ = floor(ms_rand_01() *	(size_ * size_ - num_particles_)) + num_particles_;
+		old_pos_ = floor(mt_rand_01() * num_particles_);
+		new_pos_ = floor(mt_rand_01() *	(size_ * size_ - num_particles_)) + num_particles_;
 		old_index_ = indices_[old_pos_];
 		new_index_ = indices_[new_pos_];
 		//std::cout << "++++ old_pos,new_pos: " << old_pos_ << "," << new_pos_
@@ -684,8 +686,8 @@ namespace hir {
 
 	bool Tile::virtual_move_random_particle_restricted(unsigned int dist) {
 		while(1) {
-			old_pos_ = floor(ms_rand_01() * num_particles_);
-			new_pos_ = floor(ms_rand_01() *	(size_ * size_ - num_particles_)) + num_particles_;
+			old_pos_ = floor(mt_rand_01() * num_particles_);
+			new_pos_ = floor(mt_rand_01() *	(size_ * size_ - num_particles_)) + num_particles_;
 			old_index_ = indices_[old_pos_];
 			new_index_ = indices_[new_pos_];
 			int old_x = old_index_ / size_, old_y = old_index_ % size_;
