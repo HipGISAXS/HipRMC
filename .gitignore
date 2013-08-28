@@ -6,4 +6,5 @@ output
 outputs
 profile.*
 profiles
+Makefile
 Makefile*
