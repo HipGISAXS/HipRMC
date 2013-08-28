@@ -1,0 +1,8 @@
+############################################
+# ignore stuff like output, profiles, etc. #
+############################################
+
+output
+outputs
+profile.*
+profiles
