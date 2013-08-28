@@ -6,3 +6,4 @@ output
 outputs
 profile.*
 profiles
+Makefile*
