@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 25 Aug 2013 02:00:59 PM PDT
+  *  Modified: Thu 29 Aug 2013 03:26:49 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -15,7 +15,6 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
-//#include <opencv2/opencv.hpp>
 #include <woo/timer/woo_boostchronotimers.hpp>
 
 #include "tile.hpp"
@@ -308,16 +307,12 @@ namespace hir {
 		bool accept = false;
 		if(diff_chi2 > 0.0) accept = true;
 		else {
-			//real_t p = exp(diff_chi2 * (0.125 * iter) / tstar_); // with 5000
-			//real_t p = exp(diff_chi2 * (0.625 * iter) / tstar_); // with 1000
-			real_t p = exp(diff_chi2 * (cooling_factor_ * iter + 1) / tstar_); // with 500
+			real_t p = exp(diff_chi2 * (cooling_factor_ * iter + 1) / tstar_);
+			//std::cout << "HMMMMMMMMMMMMMMMMMMM " << diff_chi2 << "\t" << p << std::endl;
 			real_t prand = mt_rand_01();
 			if(prand < p) accept = true;
 		} // if-else
 		if(accept) {	// accept the move
-			//std::cout << std::endl << "++++ accepting move..., chi2: " << new_chi2
-			//			<< ", prev: " << prev_chi2_
-			//			<< ", old cf: " << c_factor_ << std::endl;
 			// update to newly computed stuff
 			// make scratch as current
 			++ accepted_moves_;
@@ -645,7 +640,7 @@ namespace hir {
 		//chi2 = 1e10 * chi2 / (base_norm * base_norm);	// with 128x128
 		//chi2 = 2e7 * chi2 / (base_norm * base_norm);	// with 32x32
 		//chi2 = (pow((real_t) size_, 5) * 1e-6) * chi2 / (base_norm * base_norm);
-		chi2 = (pow((real_t) size_, 5)) * chi2 / (base_norm * base_norm);
+		chi2 = (pow((real_t) size_, 2.5)) * chi2 / (base_norm * base_norm);
 		return chi2;
 	} // Tile::compute_chi2()
 
