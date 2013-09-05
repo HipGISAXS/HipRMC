@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Thu 29 Aug 2013 03:26:49 PM PDT
+  *  Modified: Wed 04 Sep 2013 01:50:49 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -304,11 +304,15 @@ namespace hir {
 		double diff_chi2 = prev_chi2_ - new_chi2;
 		//std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
 		//			<< "\t c_factor: " << new_c_factor << std::endl;
+		//std::cout << "@ " << iter << "\t" << diff_chi2 << "\t";		// temp ...
 		bool accept = false;
-		if(diff_chi2 > 0.0) accept = true;
-		else {
+		if(diff_chi2 > 0.0) {
+			accept = true;
+			//std::cout << "-\t-\t";				// temp ...
+		} else {
 			real_t p = exp(diff_chi2 * (cooling_factor_ * iter + 1) / tstar_);
-			//std::cout << "HMMMMMMMMMMMMMMMMMMM " << diff_chi2 << "\t" << p << std::endl;
+			//real_t temperature = tstar_ / (cooling_factor_ * iter + 1);	// temp ...
+			//std::cout << temperature << "\t" << p << "\t";		// temp ...
 			real_t prand = mt_rand_01();
 			if(prand < p) accept = true;
 		} // if-else
@@ -323,7 +327,10 @@ namespace hir {
 			chi2_list_.push_back(new_chi2);		// save this chi2 value
 			//update_model();
 			//create_image("newm", accepted_moves_, a_mat_, false);
+			//std::cout << "1\t";		// temp ...
 		} // if
+		//else std::cout << "0\t";	// temp ...
+		//std::cout << accepted_moves_ << std::endl;	// temp ...
 		mytimer_.stop(); rest_time_ += mytimer_.elapsed_msec();
 
 		// write current model at every "steps"
