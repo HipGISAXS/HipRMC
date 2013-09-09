@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 04 Sep 2013 01:50:49 PM PDT
+  *  Modified: Sun 08 Sep 2013 10:42:09 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -15,6 +15,8 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif // _OPENMP
+
+#include <map>
 #include <woo/timer/woo_boostchronotimers.hpp>
 
 #include "tile.hpp"
@@ -35,7 +37,8 @@ namespace hir {
 		mod_f_mat_i_(0),
 		indices_(indices),
 		dft_mat_(rows, cols),
-		mt_rand_gen_(time(NULL)) {
+		mt_rand_gen_(time(NULL)),
+		autotuner_(rows, cols, indices) {
 
 		woo::BoostChronoTimer mytimer;
 
@@ -44,6 +47,7 @@ namespace hir {
 
 		tstar_ = 1.0;
 		cooling_factor_ = 0.0;
+		tstar_set_ = false;
 
 		// two buffers each
 		mytimer.start();
@@ -85,6 +89,7 @@ namespace hir {
 		loading_factor_(tile.loading_factor_),
 		tstar_(tile.tstar_),
 		cooling_factor_(tile.cooling_factor_),
+		tstar_set_(tile.tstar_set_),
 		num_particles_(tile.num_particles_),
 		max_move_distance_(tile.max_move_distance_),
 		model_norm_(tile.model_norm_),
@@ -95,7 +100,8 @@ namespace hir {
 		new_pos_(tile.new_pos_),
 		old_index_(tile.old_index_),
 		new_index_(tile.new_index_),
-		mt_rand_gen_(time(NULL)) {
+		mt_rand_gen_(time(NULL)),
+		autotuner_(tile.autotuner_) {
 		#ifdef USE_GPU
 			unsigned int size2 = final_size_ * final_size_;
 			cucomplex_buff_ = new (std::nothrow) cucomplex_t[size2];
@@ -115,12 +121,11 @@ namespace hir {
 					real_t base_norm, mat_real_t& pattern,
 					const mat_complex_t& vandermonde, mat_uint_t& mask) {
 		woo::BoostChronoTimer mytimer;
-		unsigned seed = time(NULL); //std::chrono::system_clock::now().time_since_epoch().count();
-		//ms_rand_gen_.seed(seed);
 
 		loading_factor_ = loading;
 		tstar_ = tstar;
 		cooling_factor_ = cooling;
+		tstar_set_ = false;
 		max_move_distance_ = max_move_dist;
 		unsigned int cols = a_mat_.num_cols(), rows = a_mat_.num_rows();
 		num_particles_ = ceil(loading * rows * cols);
@@ -153,8 +158,8 @@ namespace hir {
 
 
 	// to be executed at simulation beginning after a scaling
-	bool Tile::init_scale(real_t base_norm, mat_real_t& pattern, const mat_complex_t& vandermonde,
-							mat_uint_t& mask) {
+	bool Tile::init_scale(real_t base_norm, mat_real_t& pattern, mat_complex_t& vandermonde,
+							mat_uint_t& mask, int num_steps) {
 		if(pattern.num_rows() != size_ || vandermonde.num_rows() != size_ || mask.num_rows() != size_) {
 			std::cerr << "error: some matrix size is not what it should be! check your BUGGY code!"
 						<< std::endl;
@@ -178,12 +183,22 @@ namespace hir {
 			} // for
 			gtile_.init_scale(pattern.data(), cucomplex_buff_, a_mat_.data(), mask.data(),
 								size_, block_x, block_y);
-			//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
 		#else
 			fft_in_ = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size_ * size_);
 			fft_out_ = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * size_ * size_);
 			fft_plan_ = fftw_plan_dft_2d(size_, size_, fft_in_, fft_out_, FFTW_FORWARD, FFTW_ESTIMATE);
 		#endif // USE_GPU
+
+		// autotune temperature (tstar)
+		mytimer.start();
+		if(!autotune_temperature(pattern, vandermonde, base_norm, num_steps)) {
+			std::cerr << "error: failed to autotune temperature" << std::endl;
+			return false;
+		} // if
+		mytimer.stop();
+		std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
+					<< " ms." << std::endl;
+
 		mytimer.start();
 		compute_fft_mat();
 		mytimer.stop();
@@ -194,15 +209,9 @@ namespace hir {
 		mytimer.stop();
 		std::cout << "**         Initial mod compute time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
-		//for(int i = 0; i < size_; ++ i) {
-		//	for(int j = 0; j < size_; ++ j) {
-		//		std::cout << mod_f_mat_[1 - mod_f_mat_i_](i, j) << " ";
-		//	} // for j
-		//	std::cout << std::endl;
-		//} // for i
 		mytimer.start();
 		#ifndef USE_GPU
-//			mask_mat(mask, 1 - mod_f_mat_i_);
+			//mask_mat(mask, 1 - mod_f_mat_i_);
 		#endif // USE_GPU
 		copy_mod_mat(1 - mod_f_mat_i_);
 		mytimer.stop();
@@ -220,6 +229,7 @@ namespace hir {
 		std::cout << "**        Initial chi2 compute time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
 		std::cout << "++         Initial chi2-error value: " << prev_chi2_ << std::endl;
+
 		accepted_moves_ = 0;
 
 		return true;
@@ -427,7 +437,7 @@ namespace hir {
 	#ifndef USE_GPU // use CPU
 
 	bool Tile::compute_fft_mat() {
-		std::cout << "++ Computing model FFT ..." << std::endl;
+		//std::cout << "++ Computing model FFT ..." << std::endl;
 
 		unsigned int size2 = size_ * size_;
 		real_t* orig_a_mat = a_mat_.data();
@@ -457,6 +467,30 @@ namespace hir {
 
 		return true;
 	} // Tile::compute_fft_mat()
+
+
+	bool Tile::compute_fft(const mat_real_t& src, mat_complex_t& dst) {
+		unsigned int size2 = size_ * size_;
+		for(int i = 0; i < size2; ++ i) {
+			fft_in_[i][0] = src[i];
+			fft_in_[i][1] = 0.0;
+			fft_out_[i][0] = 0.0;
+			fft_out_[i][1] = 0.0;
+		} // for
+		// execute fft
+		fftw_execute(fft_plan_);
+		#pragma omp parallel
+		{
+			#pragma omp for collapse(2)
+			for(unsigned int i = 0; i < size_; ++ i) {
+				for(unsigned int j = 0; j < size_; ++ j) {
+					dst(i, j) = complex_t(fft_out_[size_ * i + j][0], fft_out_[size_ * i + j][1]);
+				} // for
+			} // for
+		} // omp parallel
+
+		return true;
+	} // Tile::compute_fft()
 
 
 	#ifndef USE_DFT
@@ -508,6 +542,12 @@ namespace hir {
 	} // Tile::compute_fft_mat()
 
 
+	bool Tile::compute_fft(const mat_real_t& src, mat_complex_t& dst) {
+		gtile_.compute_fft(src, dst);
+		return true;
+	} // Tile::compute_fft()
+
+
 	#ifndef USE_DFT
 
 	bool Tile::compute_fft_mat(unsigned int buff_i) {
@@ -547,6 +587,26 @@ namespace hir {
 			return true;
 		#endif // USE_GPU
 	} // Tile::compute_mod_mat()
+
+
+	bool Tile::compute_mod(const mat_complex_t& src, mat_real_t& dst) {
+		#ifdef USE_GPU
+			gtile_.compute_mod(src, dst);
+			gtile_.normalize(dst);
+		#else // USE CPU
+			#pragma omp parallel for collapse(2)
+			for(unsigned int i = 0; i < size_; ++ i) {
+				for(unsigned int j = 0; j < size_; ++ j) {
+					complex_t temp_f = src(i, j);
+					real_t temp = temp_f.real() * temp_f.real() + temp_f.imag() * temp_f.imag();
+					dst(i, j) = temp;
+				} // for
+			} // for
+			normalize(dst);
+		#endif // USE_GPU
+
+		return true;
+	} // Tile::compute_mod()
 
 
 	/*bool Tile::normalize_mod(unsigned int mat_i) {
@@ -590,6 +650,20 @@ namespace hir {
 		} // for
 		return true;
 	} // Tile::normalize_mod_mat()
+
+
+	bool Tile::normalize(mat_real_t& mat) {
+		real_t min_val, max_val;
+		woo::matrix_min_max(mat, min_val, max_val);
+		#pragma omp parallel for collapse(2)
+		for(unsigned int i = 0; i < size_; ++ i) {
+			for(unsigned int j = 0; j < size_; ++ j) {
+				if(i == 0 && j == 0) continue;
+				mat(i, j) = (mat(i, j) - min_val) / (max_val - min_val);
+			} // for
+		} // for
+		return true;
+	} // Tile::normalize()
 
 
 	bool Tile::compute_model_norm(unsigned int buff_i) {
@@ -647,6 +721,27 @@ namespace hir {
 		//chi2 = 1e10 * chi2 / (base_norm * base_norm);	// with 128x128
 		//chi2 = 2e7 * chi2 / (base_norm * base_norm);	// with 32x32
 		//chi2 = (pow((real_t) size_, 5) * 1e-6) * chi2 / (base_norm * base_norm);
+		chi2 = (pow((real_t) size_, 2.5)) * chi2 / (base_norm * base_norm);
+		return chi2;
+	} // Tile::compute_chi2()
+
+
+	real_t Tile::compute_chi2(const mat_real_t& a, const mat_real_t& b, real_t base_norm) {
+		double chi2 = 0.0;
+		#ifdef USE_GPU
+			chi2 = gtile_.compute_chi2(a, b);
+		#else
+			#pragma omp parallel for collapse(2) reduction(+:chi2)
+			for(unsigned int i = 0; i < size_; ++ i) {
+				for(unsigned int j = 0; j < size_; ++ j) {
+					if(i == 0 && j == 0) continue;
+					int i_swap = (i + (size_ >> 1)) % size_;
+					int j_swap = (j + (size_ >> 1)) % size_;
+					real_t temp = fabs(a(i_swap, j_swap) - b(i, j));
+					chi2 += temp * temp;
+				} // for
+			} // for
+		#endif // USE_GPU
 		chi2 = (pow((real_t) size_, 2.5)) * chi2 / (base_norm * base_norm);
 		return chi2;
 	} // Tile::compute_chi2()
@@ -751,6 +846,30 @@ namespace hir {
 	} // Tile::compute_dft2()
 
 
+	bool Tile::compute_dft2(mat_complex_t& vandermonde_mat, unsigned int old_row, unsigned int old_col,
+							unsigned int new_row, unsigned int new_col,
+							mat_complex_t& dft_mat) {
+		#ifdef USE_GPU
+			gtile_.compute_dft2(old_row, old_col, new_row, new_col, num_particles_, dft_mat);
+		#else
+			typename mat_complex_t::row_iterator old_row_iter = vandermonde_mat.row(old_row);
+			typename mat_complex_t::col_iterator old_col_iter = vandermonde_mat.column(old_col);
+			typename mat_complex_t::row_iterator new_row_iter = vandermonde_mat.row(new_row);
+			typename mat_complex_t::col_iterator new_col_iter = vandermonde_mat.column(new_col);
+			#pragma omp parallel for collapse(2)
+			for(int row = 0; row < size_; ++ row) {
+				for(int col = 0; col < size_; ++ col) {
+					complex_t new_temp = new_col_iter[row] * new_row_iter[col];
+					complex_t old_temp = old_col_iter[row] * old_row_iter[col];
+					dft_mat(col, row) = (new_temp - old_temp);
+				} // for
+			} // for
+		#endif // USE_GPU
+
+		return true;
+	} // Tile::compute_dft2()
+
+
 	bool Tile::update_fft_mat(mat_complex_t& dft_mat, mat_complex_t& f_mat,
 								mat_complex_t& new_f_mat,
 								unsigned int in_buff_i, unsigned int out_buff_i) {
@@ -762,6 +881,20 @@ namespace hir {
 			for(int i = 0; i < size_; ++ i) {
 				for(int j = 0; j < size_; ++ j) {
 					new_f_mat(i, j) = dft_mat(i, j) + f_mat(i, j);
+				} // for j
+			} // for i
+		#endif // USE_GPU
+		return true;
+	} // Tile::update_fft_mat()
+
+	bool Tile::update_fft(mat_complex_t& f_mat, mat_complex_t& dft_mat) {
+		#ifdef USE_GPU
+			// this has been merged into compute_dft2 for gpu
+		#else
+			#pragma omp parallel for collapse(2)
+			for(int i = 0; i < size_; ++ i) {
+				for(int j = 0; j < size_; ++ j) {
+					f_mat(i, j) = dft_mat(i, j) + f_mat(i, j);
 				} // for j
 			} // for i
 		#endif // USE_GPU
@@ -857,6 +990,18 @@ namespace hir {
 		//			<< std::endl;
 		return true;
 	} // Tile::update_indices()
+
+
+    /*bool Tile::initialize_random_model() {
+		indices_.clear();
+		// create array of random indices
+		for(unsigned int i = 0; i < tile_size_ * tile_size_; ++ i) indices_.push_back(i);
+		// using mersenne-twister
+		std::random_device rd;
+		std::mt19937_64 gen(rd());
+		std::shuffle(indices_.begin(), indices_.end(), gen);
+		return true;
+	} // Tile::initialize_random_model()*/
 
 
 	bool Tile::print_times() {

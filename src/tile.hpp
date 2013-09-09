@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 25 Aug 2013 01:58:06 PM PDT
+  *  Modified: Sun 08 Sep 2013 10:03:53 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -33,6 +33,7 @@
 #endif
 
 #include "hiprmc_input.hpp"
+#include "tile_autotuner.hpp"
 
 namespace hir {
 
@@ -56,10 +57,13 @@ namespace hir {
 			real_t loading_factor_;								// loading factor
 			real_t tstar_;										// temperature factor
 			real_t cooling_factor_;								// cooling with iteration number
+			bool tstar_set_;									// whether tstar was set previously
 			unsigned int num_particles_;						// number of particles (duh!)
 			unsigned int max_move_distance_;					// limit on particle movement
 			double model_norm_;									// norm of current model
 			double c_factor_;									// c factor
+
+			TileAutotuner autotuner_;							// autotuner
 
 			#ifdef USE_GPU
 				cucomplex_t* cucomplex_buff_;
@@ -119,6 +123,22 @@ namespace hir {
 			bool copy_mod_mat(unsigned int);
 			bool update_indices();
 
+			// for autotuner (tstar)
+			bool autotune_temperature(const mat_real_t&, mat_complex_t&, real_t, int);
+			bool init_autotune(const mat_real_t&, real_t, real_t);
+			bool simulate_autotune_step(const mat_real_t&, mat_complex_t&, real_t, unsigned int);
+			bool autotune_move_random_particle_restricted(unsigned int, unsigned int&, unsigned int&,
+					unsigned int&, unsigned int&, unsigned int&, unsigned int&, unsigned int&, unsigned int&);
+			bool compute_fft(const mat_real_t&, mat_complex_t&);
+			bool compute_mod(const mat_complex_t&, mat_real_t&);
+			bool normalize(mat_real_t&);
+			#ifdef USE_DFT
+				bool compute_dft2(mat_complex_t&, unsigned int, unsigned int, unsigned int, unsigned int,
+									mat_complex_t&);
+				bool update_fft(mat_complex_t&, mat_complex_t&);
+			#endif
+			real_t compute_chi2(const mat_real_t&, const mat_real_t&, real_t);
+
 			// to record timings
 			double vmove_time_, dft2_time_, mod_time_, norm_time_, chi2_time_;
 			double rest_time_;
@@ -130,7 +150,7 @@ namespace hir {
 
 			// initialize with raw data
 			bool init(real_t, real_t, real_t, unsigned int, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
-			bool init_scale(real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
+			bool init_scale(real_t, mat_real_t&, mat_complex_t&, mat_uint_t&, int);
 			bool destroy_scale();
 			// simulation functions
 			bool simulate_step(const mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, unsigned int);

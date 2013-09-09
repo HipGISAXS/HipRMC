@@ -8,7 +8,7 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = y
+USE_GPU = n
 
 ## base directories
 BOOST_DIR = /usr/local/boost_1_49_0
@@ -16,7 +16,7 @@ BOOST_DIR = /usr/local/boost_1_49_0
 #HDF5_DIR = /usr/local/hdf5-1.8.9
 #Z_DIR = /usr/local/zlib-1.2.7
 #SZ_DIR = /usr/local/szip-2.1
-#TIFF_LIB_DIR = /usr/local/lib
+TIFF_LIB_DIR = /usr/local/lib
 OPENCV_DIR = /usr
 WOO_DIR = /home/asarje
 ifeq ($(USE_GPU), y)
@@ -75,7 +75,7 @@ NVCC_FLAGS =
 endif
 
 ## libtiff
-#TIFF_LIBS = -L $(TIFF_LIB_DIR) -ltiff
+TIFF_LIBS = -L $(TIFF_LIB_DIR) -ltiff
 
 ## opencv
 OPENCV_INCL = -I $(OPENCV_DIR)/include
@@ -93,6 +93,10 @@ FFTW_INCL = -I $(FFTW_DIR)/include
 FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3
 endif
 
+## gsl
+GSL_INCL =
+GSL_LIBS = -Wl,--no-as-needed -lgsl -lgslcblas -lm
+
 ## miscellaneous
 MISC_INCL =
 ifeq ($(USE_GPU), y)
@@ -105,7 +109,7 @@ MISC_FLAGS += -DUSE_DFT
 MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
 
 ## choose optimization levels, debug flags, gprof flag, etc
-OPT_FLAGS = -g #-DDEBUG #-v #-pg
+#OPT_FLAGS = -g -DDEBUG #-v #-pg
 OPT_FLAGS += -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
@@ -114,10 +118,10 @@ PREC_FLAG = -DDOUBLEP	# define this for double precision
 
 
 ## all includes
-ALL_INCL = $(OPENCV_INCL) $(WOO_INCL) $(CUDA_INCL) $(FFTW_INCL) $(BOOST_INCL)
+ALL_INCL = $(OPENCV_INCL) $(WOO_INCL) $(CUDA_INCL) $(FFTW_INCL) $(BOOST_INCL) $(GSL_INCL)
 
 ## all libraries
-ALL_LIBS = $(OPENCV_LIBS) $(CUDA_LIBS) $(FFTW_LIBS) $(BOOST_LIBS)
+ALL_LIBS = $(OPENCV_LIBS) $(CUDA_LIBS) $(FFTW_LIBS) $(BOOST_LIBS) $(TIFF_LIBS) $(GSL_LIBS)
 
 
 PREFIX = $(PWD)
@@ -127,7 +131,8 @@ OBJ_DIR = $(PREFIX)/obj
 SRC_DIR = $(PREFIX)/src
 
 ## all objects
-OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o
+OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o \
+			  tile_autotuner.o
 ifeq ($(USE_GPU), y)
 OBJECTS_SIM += cutile.o
 endif
@@ -136,7 +141,7 @@ endif
 OBJ_BIN_SIM = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SIM))
 
 $(BINARY_SIM): $(OBJ_BIN_SIM)
-	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS)
 
 
 BINARY_SCALE = hiprmc-scale
@@ -144,28 +149,28 @@ OBJECTS_SCALE = testscale.o tile.o tile_scale.o utilities.o image.o
 OBJ_BIN_SCALE = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SCALE))
 
 $(BINARY_SCALE): $(OBJ_BIN_SCALE)
-	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -L/usr/local/lib -ltiff
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS)
 
 $(OBJ_DIR)/tile_scale.o: $(SRC_DIR)/tile_scale.cpp $(SRC_DIR)/tile.hpp
-	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
-
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+	
 $(OBJ_DIR)/testscale.o: $(SRC_DIR)/testscale.cpp $(SRC_DIR)/rmc.hpp
-	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
-
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+	
 
 ## c++ compilation
 _DEPS_CXX = %.hpp
 DEPS_CXX = $(patsubst %,$(SRC_DIR)/%,$(_DEPS_CXX))
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS_CXX)
-	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
-
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+	
 _DEPS_WIL = wil/%.hpp
 DEPS_WIL = $(patsubst %,$(SRC_DIR)/wil/%,$(_DEPS_CXX))
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/wil/%.cpp $(DEPS_WIL)
-	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS) -I/usr/local/cuda/include
-
+	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
+	
 $(OBJ_DIR)/hiprmc.o: $(SRC_DIR)/hiprmc.cpp $(SRC_DIR)/rmc.hpp
 	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
 
@@ -186,7 +191,7 @@ OBJ_BIN_COMPUTE_FFT = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_COMPUTE_FFT))
 computefft: $(BINARY_COMPUTE_FFT)
 
 $(BINARY_COMPUTE_FFT): $(OBJ_BIN_COMPUTE_FFT)
-	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS)
 
 $(OBJ_DIR)/generate.o: $(SRC_DIR)/generate.cpp
 	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)
@@ -198,7 +203,7 @@ OBJ_BIN_LOADING = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_LOADING))
 computeloading: $(BINARY_LOADING)
 
 $(BINARY_LOADING): $(OBJ_BIN_LOADING)
-	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS) -ltiff
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MISC_FLAGS) $(ALL_LIBS)
 
 $(OBJ_DIR)/compute_loading.o: $(SRC_DIR)/compute_loading.cpp
 	$(CXX) -c $< -o $@ $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(ALL_INCL) $(MISC_FLAGS)

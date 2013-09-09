@@ -3,7 +3,7 @@
   *
   *  File: tile_scale.cpp
   *  Created: Mar 04, 2013
-  *  Modified: Sun 25 Aug 2013 02:01:26 PM PDT
+  *  Modified: Sat 07 Sep 2013 08:41:09 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -173,6 +173,10 @@ namespace hir {
 			virtual_a_mat_.incr_rows(1); virtual_a_mat_.incr_columns(1);
 		#endif
 		diff_mat_.incr_rows(1); diff_mat_.incr_columns(1);
+
+		// update the autotuner as well
+		autotuner_.scale_step();
+
 		// clear chi2 list
 		chi2_list_.clear();
 
@@ -184,5 +188,16 @@ namespace hir {
 
 		return true;
 	} // Tile::scale_step()
+
+
+	bool TileAutotuner::scale_step() {
+		++ size_;
+		a_mat_.incr_rows(1); a_mat_.incr_columns(1);
+		f_mat_.incr_rows(1); f_mat_.incr_columns(1);
+		mod_f_mat_.incr_rows(1); mod_f_mat_.incr_columns(1);
+		dft_mat_.incr_rows(1); dft_mat_.incr_columns(1);
+		
+		return true;
+	} // TileAutotuner::scale_step()
 
 } // namespace hir

@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 25 Aug 2013 09:40:09 AM PDT
+  *  Modified: Sun 08 Sep 2013 10:22:32 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -393,9 +393,9 @@ namespace hir {
 	} // RMC::initialize_simulation()
 
 
-	bool RMC::initialize_simulation_tiles() {
+	bool RMC::initialize_simulation_tiles(int num_steps) {
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
-			tiles_[i].init_scale(base_norm_, cropped_pattern_, vandermonde_mat_, mask_mat_);
+			tiles_[i].init_scale(base_norm_, cropped_pattern_, vandermonde_mat_, mask_mat_, num_steps);
 			//tiles_[i].init_scale(base_norm_, scaled_pattern_, vandermonde_mat_, mask_mat_);
 		} // for
 		return true;
@@ -417,13 +417,13 @@ namespace hir {
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
 			tiles_.push_back(Tile(tile_size_, tile_size_, indices, size_));
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
-			tiles_[i].init(loading[i], tstar[i], cooling[i], max_dist, base_norm_, cropped_pattern_, vandermonde_mat_, mask_mat_);
+			tiles_[i].init(loading[i], tstar[i], cooling[i], max_dist, base_norm_,
+							cropped_pattern_, vandermonde_mat_, mask_mat_);
 			//tiles_[i].init(loading[i], base_norm_, scaled_pattern_, vandermonde_mat_, mask_mat_);
 		return true;
 	} // RMC::initialize_tiles()
 
 
-	// check ...
 	bool RMC::initialize_vandermonde(unsigned int scale_fac) {
 		// compute vandermonde matrix
 		// generate 1st order power (full 360 deg rotation in polar coords)
@@ -692,7 +692,7 @@ namespace hir {
 			std::cerr << "error: failed to initialize simulation set" << std::endl;
 			return false;
 		} // if
-		if(!initialize_simulation_tiles()) {
+		if(!initialize_simulation_tiles(num_steps)) {
 			std::cerr << "error: failed to initialize simulation set" << std::endl;
 			return false;
 		} // if
@@ -731,7 +731,6 @@ namespace hir {
 			} // for
 		} // for
 		std::cout << "++ Simulation done." << std::endl;
-		destroy_simulation_tiles();
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			double chi2 = 0.0;
 			mat_real_t a(tile_size_, tile_size_);
@@ -757,12 +756,14 @@ namespace hir {
 						<< " MB/s" << std::endl;
 			#endif
 
-			std::cout << "++ Saving model ... " << std::endl << std::endl;
+			std::cout << "++ Saving model ... ";
 			tiles_[i].save_mat_image(num_tiles_ + i);		// save mod_f mat
 			tiles_[i].save_fmat_image(num_tiles_ + i);		// save mod_f mat
 			tiles_[i].save_mat_image_direct(num_tiles_ + i);	// save a_mat*/
 			tiles_[i].save_chi2_list(i);
+			std::cout << "done." << std::endl << std::endl;
 		} // for
+		destroy_simulation_tiles();
 
 		return true;
 	} // RMC::simulate()

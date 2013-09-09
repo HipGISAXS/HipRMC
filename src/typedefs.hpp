@@ -3,7 +3,7 @@
   *
   *  File: typedefs.hpp
   *  Created: Feb 03, 2013
-  *  Modified: Wed 12 Jun 2013 01:28:16 PM PDT
+  *  Modified: Sat 07 Sep 2013 09:58:16 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -12,6 +12,7 @@
 #define __TYPEDEFS__HPP__
 
 #include <complex>
+#include <map>
 #ifndef __CUDACC__
 #include <array>		// in c++11 standard
 #endif
@@ -41,14 +42,16 @@ typedef woo::Matrix2D <complex_t>		mat_complex_t;
 typedef woo::Matrix2D <unsigned int>	mat_uint_t;
 
 typedef std::vector <real_t>			vec_real_t;
+typedef std::vector <int>				vec_int_t;
 typedef std::vector <unsigned int>		vec_uint_t;
-//typedef std::vector <real_t>			vec2_real_t;	// ... replace with "array" fixed size TODO
-//typedef std::vector <int>				vec2_int_t;		// ... ''
+
 #ifndef __CUDACC__
 typedef std::array <real_t, 2>			vec2_real_t;
 typedef std::array <int, 2>				vec2_int_t;
 typedef std::array <unsigned int, 2>	vec2_uint_t;
 #endif
+
+typedef std::map <const real_t, real_t> map_real_t;
 
 } // namespace hir
 
