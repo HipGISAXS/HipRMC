@@ -3,7 +3,7 @@
   *
   *  File: hiprmc_input.cpp
   *  Created: Jun 11, 2013
-  *  Modified: Thu 15 Aug 2013 09:52:46 PM PDT
+  *  Modified: Mon 09 Sep 2013 10:52:21 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -48,6 +48,7 @@ namespace hir {
 			return false;
 		} // if
 
+		// parse all tokens (whole config file)
 		curr_keyword_ = null_token; past_keyword_ = null_token;
 		curr_token_ = InputReader::instance().get_next_token();
 		past_token_.type_ = null_token;
@@ -67,10 +68,27 @@ namespace hir {
 		// set defaults in case they were not included in the config
 		if(model_start_size_[0] == 0 || model_start_size_[1] == 0) model_start_size_ = image_size_;
 		if(max_move_distance_ == 0) max_move_distance_ = image_size_[0];	// default: full freedom
-		if(loading_factors_.size() != tstar_.size() || loading_factors_.size() != num_tiles_ ||
-				cooling_factors_.size() != num_tiles_) {
-			std::cerr << "error: check your number of tiles and all vector sizes" << std::endl;
+		if(loading_factors_.size() != num_tiles_) {
+			std::cerr << "error: check your number of tiles and all loading factors" << std::endl;
 			return false;
+		} // if
+		if(tstar_.size() == 0) {
+			for(int i = 0; i < num_tiles_; ++ i) tstar_.push_back(0.0);
+		} else if(tstar_.size() == 1) {
+			std::cout << "warning: a temperature value is given. setting it for all tiles. "
+						<< "it may not be actually used due to temperature autotuning." << std::endl;
+			for(int i = 0; i < num_tiles_ - 1; ++ i) tstar_.push_back(tstar_[0]);
+		} else {
+			std::cout << "warning: temperatures given. ignoring" << std::endl;
+		} // if-else
+		if(cooling_factors_.size() == 0) {
+			for(int i = 0; i < num_tiles_; ++ i) cooling_factors_.push_back(0.0);
+		} else if(cooling_factors_.size() == 1) {
+			std::cout << "warning: a cooling factor value is given. setting it for all tiles. "
+						<< "it may not be actually used due to temperature autotuning." << std::endl;
+			for(int i = 0; i < num_tiles_ - 1; ++ i) cooling_factors_.push_back(cooling_factors_[0]);
+		} else {
+			std::cout << "warning: cooling factors given. ignoring" << std::endl;
 		} // if
 
 		return true;
