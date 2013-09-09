@@ -3,7 +3,7 @@
   *
   *  File: hiprmc_input.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Thu 15 Aug 2013 09:53:50 PM PDT
+  *  Modified: Mon 09 Sep 2013 11:08:09 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -33,6 +33,8 @@ namespace hir {
 			/* containers */
 
 			std::string input_image_;		// input image filename
+			std::string mask_image_;		// mask image filename
+			bool mask_set_;					// if the mask image filename is provided
 			vec2_int_t image_size_;			// target image size
 			unsigned int num_tiles_;		// this can be removed ...
 			vec_real_t loading_factors_;	// loading factor of each tile
@@ -107,6 +109,8 @@ namespace hir {
 			unsigned int model_start_num_rows() const { return model_start_size_[0]; }
 			unsigned int model_start_num_cols() const { return model_start_size_[1]; }
 			const char* input_image() const { return input_image_.c_str(); }
+			const char* mask_image() const { return mask_image_.c_str(); }
+			bool mask_set() const { return mask_set_; }
 			vec_real_t loading() const { return loading_factors_; }
 			vec_real_t tstar() const { return tstar_; }
 			vec_real_t cooling() const { return cooling_factors_; }

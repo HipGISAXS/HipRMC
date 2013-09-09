@@ -3,7 +3,7 @@
   *
   *  File: hiprmc_input.cpp
   *  Created: Jun 11, 2013
-  *  Modified: Mon 09 Sep 2013 10:52:21 AM PDT
+  *  Modified: Mon 09 Sep 2013 11:04:49 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -89,6 +89,10 @@ namespace hir {
 			for(int i = 0; i < num_tiles_ - 1; ++ i) cooling_factors_.push_back(cooling_factors_[0]);
 		} else {
 			std::cout << "warning: cooling factors given. ignoring" << std::endl;
+		} // if
+
+		if(!mask_set_) {
+			std::cout << "warning: mask is not set. proceeding without mask." << std::endl;
 		} // if
 
 		return true;
@@ -362,6 +366,7 @@ namespace hir {
 
 			case instrument_token:
 			case instrument_input_image_token:
+			case instrument_mask_image_token:
 			case instrument_image_size_token:
 			case instrument_num_tiles_token:
 			case instrument_loading_token:
@@ -474,6 +479,11 @@ namespace hir {
 				input_image_ = str;
 				break;
 
+			case instrument_mask_image_token:
+				mask_image_ = str;
+				mask_set_ = true;
+				break;
+
 			case compute_label_token:
 				label_ = str + "_" + timestamp();
 				break;
@@ -496,6 +506,7 @@ namespace hir {
 	void HipRMCInput::print_all() {
 		std::cout << "++ HipRMC Input data: " << std::endl;
 		std::cout << "             Input image = " << input_image_ << std::endl;
+		std::cout << "              Mask image = " << mask_image_ << std::endl;
 		std::cout << "              Image size = " << image_size_[0] << " x " << image_size_[1] << std::endl;
 		std::cout << "         Number of tiles = " << num_tiles_ << std::endl;
 		std::cout << "         Loading factors = ";

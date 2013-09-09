@@ -3,7 +3,7 @@
   *
   *  File: token_mapper.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Thu 15 Aug 2013 09:54:50 PM PDT
+  *  Modified: Mon 09 Sep 2013 10:58:48 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -62,6 +62,7 @@ namespace hir {
 				KeyWords_[std::string("instrumentation")]	= instrument_token;
 				KeyWords_[std::string("computation")]		= compute_token;
 				KeyWords_[std::string("inputimage")]		= instrument_input_image_token;
+				KeyWords_[std::string("maskimage")]			= instrument_mask_image_token;
 				KeyWords_[std::string("imagesize")]			= instrument_image_size_token;
 				KeyWords_[std::string("numtiles")]			= instrument_num_tiles_token;
 				KeyWords_[std::string("loadingfactors")]	= instrument_loading_token;

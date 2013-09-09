@@ -3,7 +3,7 @@
   *
   *  File: tokens.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Thu 15 Aug 2013 09:55:24 PM PDT
+  *  Modified: Mon 09 Sep 2013 10:58:18 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -66,6 +66,7 @@ namespace hir {
 
 		instrument_token,				/* the instrumentation object token */
 		instrument_input_image_token,	/* the input image file token */
+		instrument_mask_image_token,	/* token for mask image */
 		instrument_image_size_token,	/* input image size token */
 		instrument_num_tiles_token,		/* number of tiles token */
 		instrument_loading_token,		/* loading factors array token */
