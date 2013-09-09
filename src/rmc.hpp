@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 06 Sep 2013 08:48:12 PM PDT
+  *  Modified: Mon 09 Sep 2013 12:53:18 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -26,12 +26,10 @@ namespace hir {
 			unsigned int size_;
 
 			//mat_real_t scaled_pattern_;		// current pattern, scaled to tile size
-			mat_real_t cropped_pattern_;	// current pattern, cropped to tile size
-			unsigned int tile_size_;		// current tile size
-			//unsigned int* in_mask_;		// the input mask
-			//unsigned int in_mask_len_;	// size of input mask
-			//unsigned int* mask_mat_;	// mask matrix of 1 and 0
-			mat_uint_t mask_mat_;		// mask matrix of 1 and 0
+			mat_real_t cropped_pattern_;		// current pattern, cropped to tile size
+			unsigned int tile_size_;			// current tile size
+			mat_uint_t mask_mat_;				// mask matrix of 1 and 0
+			mat_uint_t cropped_mask_mat_;		// current mask, crappoed to tile size
 
 			unsigned int num_tiles_;	// total number of tiles
 			vec_tile_t tiles_;			// the tiles

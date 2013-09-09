@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 08 Sep 2013 10:42:09 AM PDT
+  *  Modified: Mon 09 Sep 2013 01:37:47 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -116,10 +116,12 @@ namespace hir {
 	} // Tile::~Tile()
 
 
-	// initialize with raw data
+	// initialize with raw data - done only once
 	bool Tile::init(real_t loading, real_t tstar, real_t cooling, unsigned int max_move_dist,
 					real_t base_norm, mat_real_t& pattern,
 					const mat_complex_t& vandermonde, mat_uint_t& mask) {
+		// pattern, vandermonde and mask not used ...
+
 		woo::BoostChronoTimer mytimer;
 
 		loading_factor_ = loading;
@@ -191,7 +193,7 @@ namespace hir {
 
 		// autotune temperature (tstar)
 		mytimer.start();
-		if(!autotune_temperature(pattern, vandermonde, base_norm, num_steps)) {
+		if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps)) {
 			std::cerr << "error: failed to autotune temperature" << std::endl;
 			return false;
 		} // if
@@ -218,13 +220,13 @@ namespace hir {
 		std::cout << "**           Initial mask/copy time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
 		mytimer.start();
-		compute_model_norm(1 - mod_f_mat_i_);
+		compute_model_norm(1 - mod_f_mat_i_, mask);
 		mytimer.stop();
 		std::cout << "**  Initial model norm compute time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
 		c_factor_ = base_norm / model_norm_;
 		mytimer.start();
-		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, c_factor_, base_norm);
+		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, mask, c_factor_, base_norm);
 		mytimer.stop();
 		std::cout << "**        Initial chi2 compute time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
@@ -288,26 +290,18 @@ namespace hir {
 
 		mytimer_.start();
 		compute_mod_mat(f_scratch_i);
-//		normalize_mod(mod_f_scratch_i);	//////////////////////////////////////////////////////
 		#ifndef USE_GPU
 //			mask_mat(mask, mod_f_scratch_i);
 		#endif // USE_GPU
 		mytimer_.stop(); mod_time_ += mytimer_.elapsed_msec();
-		//create_image("allnewm", iter, virtual_a_mat_, false);
-		//create_image("allmod", iter, mod_f_mat_[mod_f_scratch_i], true);
 
-		// this should be here i think ...
 		mytimer_.start();
-		compute_model_norm(mod_f_scratch_i);
+		compute_model_norm(mod_f_scratch_i, mask);
 		double new_c_factor = base_norm / model_norm_;
 		mytimer_.stop(); norm_time_ += mytimer_.elapsed_msec();
 
-//		std::cout << "---------------model_norm_ = " << model_norm_
-//					<< ", mod_f_mat_i_,mod_f_scratch_i: " << mod_f_mat_i_ << ", " << mod_f_scratch_i
-//					<< std::endl;
-
 		mytimer_.start();
-		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, new_c_factor, base_norm);
+		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, mask, new_c_factor, base_norm);
 		mytimer_.stop(); chi2_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
@@ -438,7 +432,6 @@ namespace hir {
 
 	bool Tile::compute_fft_mat() {
 		//std::cout << "++ Computing model FFT ..." << std::endl;
-
 		unsigned int size2 = size_ * size_;
 		real_t* orig_a_mat = a_mat_.data();
 		for(int i = 0; i < size2; ++ i) {
@@ -552,7 +545,6 @@ namespace hir {
 
 	bool Tile::compute_fft_mat(unsigned int buff_i) {
 		//std::cout << "++ Computing model FFT on GPU ..." << std::endl;
-
 		gtile_.compute_virtual_fft_mat(buff_i);
 		return true;
 	} // Tile::compute_fft_mat()
@@ -565,13 +557,6 @@ namespace hir {
 	bool Tile::compute_mod_mat(unsigned int f_i) {
 		#ifdef USE_GPU
 			gtile_.compute_mod_mat(f_i, 1 - mod_f_mat_i_);
-			////////// for testing
-			//std::cout << " ===============================================================" << std::endl;
-			//gtile_.print_f_mat(f_i);
-			//std::cout << " ===============================================================" << std::endl;
-			//gtile_.print_modf_mat(1 - mod_f_mat_i_);
-			//std::cout << " ===============================================================" << std::endl;
-			////////////////// end
 			gtile_.normalize_mod_mat(1 - mod_f_mat_i_);
 		#else // USE CPU
 			#pragma omp parallel for collapse(2)
@@ -666,7 +651,7 @@ namespace hir {
 	} // Tile::normalize()
 
 
-	bool Tile::compute_model_norm(unsigned int buff_i) {
+	bool Tile::compute_model_norm(unsigned int buff_i, const mat_uint_t& mask) {
 		double model_norm = 0.0;
 		unsigned int maxi = size_;// >> 1;
 		#ifdef USE_GPU
@@ -678,7 +663,9 @@ namespace hir {
 				for(unsigned int i = 0; i < maxi; ++ i) {
 					for(unsigned int j = 0; j < maxi; ++ j) {
 						if(i == 0 && j == 0) continue;
-						model_norm += mod_f_mat_[buff_i](i, j);
+						int i_swap = (i + (size_ >> 1)) % size_;
+						int j_swap = (j + (size_ >> 1)) % size_;
+						model_norm += mod_f_mat_[buff_i](i, j) * mask(i_swap, j_swap);
 					} // for
 				} // for
 			}
@@ -689,8 +676,8 @@ namespace hir {
 	} // Tile::compute_model_norm()
 
 
-	double Tile::compute_chi2(const mat_real_t& pattern, unsigned int mod_f_i, real_t c_factor,
-								real_t base_norm) {
+	double Tile::compute_chi2(const mat_real_t& pattern, unsigned int mod_f_i, const mat_uint_t& mask,
+								real_t c_factor, real_t base_norm) {
 		double chi2 = 0.0;
 		#ifdef USE_GPU
 			chi2 = gtile_.compute_chi2(mod_f_i, c_factor, base_norm);
@@ -701,10 +688,10 @@ namespace hir {
 					if(i == 0 && j == 0) continue;
 					int i_swap = (i + (size_ >> 1)) % size_;
 					int j_swap = (j + (size_ >> 1)) % size_;
-					real_t temp = fabs(pattern(i_swap, j_swap) - mod_f_mat_[mod_f_i](i, j));
+					real_t temp = fabs(pattern(i_swap, j_swap) - mod_f_mat_[mod_f_i](i, j)) * mask(i_swap, j_swap);
 					//real_t temp = fabs(pattern(i_swap, j_swap) - 2.5 * mod_f_mat_[mod_f_i](i, j));
 					//real_t temp = fabs(pattern(i_swap, j_swap) - mod_f_mat_[mod_f_i](i, j) * c_factor);
-					diff_mat_(i, j) = temp;
+					//diff_mat_(i, j) = temp;
 					//std::cout << "--------- pattern: " << pattern(i_swap, j_swap)
 					//			<< ", mod_f: " << mod_f_mat_[mod_f_i](i, j)
 					//			<< ", c_factor: " << c_factor
@@ -726,7 +713,8 @@ namespace hir {
 	} // Tile::compute_chi2()
 
 
-	real_t Tile::compute_chi2(const mat_real_t& a, const mat_real_t& b, real_t base_norm) {
+	real_t Tile::compute_chi2(const mat_real_t& a, const mat_real_t& b, const mat_uint_t& mask,
+								real_t base_norm) {
 		double chi2 = 0.0;
 		#ifdef USE_GPU
 			chi2 = gtile_.compute_chi2(a, b);
@@ -737,7 +725,7 @@ namespace hir {
 					if(i == 0 && j == 0) continue;
 					int i_swap = (i + (size_ >> 1)) % size_;
 					int j_swap = (j + (size_ >> 1)) % size_;
-					real_t temp = fabs(a(i_swap, j_swap) - b(i, j));
+					real_t temp = fabs(a(i_swap, j_swap) - b(i, j)) * mask(i_swap, j_swap);
 					chi2 += temp * temp;
 				} // for
 			} // for
@@ -904,7 +892,7 @@ namespace hir {
 	#endif
 
 
-	bool Tile::mask_mat(const mat_uint_t& mask_mat, unsigned int buff_i) {
+/*	bool Tile::mask_mat(const mat_uint_t& mask_mat, unsigned int buff_i) {
 		#ifdef USE_GPU
 			/// this has been merged into compute_mod_mat for gpu
 		#else
@@ -917,7 +905,7 @@ namespace hir {
 		#endif // USE_GPU
 		return true;
 	} // Tile::mask_mat()
-
+*/
 
 	bool Tile::finalize_result(double& chi2, mat_real_t& a) {
 		// populate a_mat_

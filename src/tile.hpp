@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 08 Sep 2013 10:03:53 AM PDT
+  *  Modified: Mon 09 Sep 2013 01:36:56 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -108,9 +108,9 @@ namespace hir {
 			#endif
 			bool compute_mod_mat(unsigned int);
 			bool normalize_mod_mat(unsigned int);
-			bool compute_model_norm(unsigned int);
+			bool compute_model_norm(unsigned int, const mat_uint_t&);
 			//double compute_chi2(const mat_real_t&, unsigned int, real_t);
-			double compute_chi2(const mat_real_t&, unsigned int, real_t, real_t);
+			double compute_chi2(const mat_real_t&, unsigned int, const mat_uint_t&, real_t, real_t);
 			bool virtual_move_random_particle();
 			bool virtual_move_random_particle_restricted(unsigned int);
 			bool move_particle(double, real_t);
@@ -119,14 +119,15 @@ namespace hir {
 				bool update_fft_mat(mat_complex_t&, mat_complex_t&,
 									mat_complex_t&, unsigned int, unsigned int);
 			#endif
-			bool mask_mat(const mat_uint_t&, unsigned int);
+			//bool mask_mat(const mat_uint_t&, unsigned int);
 			bool copy_mod_mat(unsigned int);
 			bool update_indices();
 
 			// for autotuner (tstar)
-			bool autotune_temperature(const mat_real_t&, mat_complex_t&, real_t, int);
-			bool init_autotune(const mat_real_t&, real_t, real_t);
-			bool simulate_autotune_step(const mat_real_t&, mat_complex_t&, real_t, unsigned int);
+			bool autotune_temperature(const mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, int);
+			bool init_autotune(const mat_real_t&, const mat_uint_t&, real_t, real_t);
+			bool simulate_autotune_step(const mat_real_t&, mat_complex_t&, const mat_uint_t&,
+										real_t, unsigned int);
 			bool autotune_move_random_particle_restricted(unsigned int, unsigned int&, unsigned int&,
 					unsigned int&, unsigned int&, unsigned int&, unsigned int&, unsigned int&, unsigned int&);
 			bool compute_fft(const mat_real_t&, mat_complex_t&);
@@ -137,7 +138,7 @@ namespace hir {
 									mat_complex_t&);
 				bool update_fft(mat_complex_t&, mat_complex_t&);
 			#endif
-			real_t compute_chi2(const mat_real_t&, const mat_real_t&, real_t);
+			real_t compute_chi2(const mat_real_t&, const mat_real_t&, const mat_uint_t&, real_t);
 
 			// to record timings
 			double vmove_time_, dft2_time_, mod_time_, norm_time_, chi2_time_;

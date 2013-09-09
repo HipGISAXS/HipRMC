@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 11:42:44 AM PDT
+  *  Modified: Mon 09 Sep 2013 01:29:07 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -29,6 +29,7 @@ namespace hir {
 			//scaled_pattern_(0, 0),
 			cropped_pattern_(0, 0),
 			mask_mat_(0, 0),
+			cropped_mask_mat_(0, 0),
 			vandermonde_mat_(0, 0) {
 		std::cout << "*****************************************************************" << std::endl;
 		std::cout << "***                      HipRMC v0.1 beta                     ***" << std::endl;
@@ -52,7 +53,8 @@ namespace hir {
 		tile_size_ = std::max(start_num_rows, start_num_cols);
 		//scaled_pattern_.resize(tile_size_, tile_size_);
 		cropped_pattern_.resize(tile_size_, tile_size_);
-		mask_mat_.resize(tile_size_, tile_size_);
+		mask_mat_.resize(rows_, cols_);
+		cropped_mask_mat_.resize(tile_size_, tile_size_);
 		vandermonde_mat_.resize(tile_size_, tile_size_);
 
 		// for now only square patterns are considered
@@ -94,7 +96,8 @@ namespace hir {
 			tile_size_(init_tile_size),
 			//scaled_pattern_(init_tile_size, init_tile_size),
 			cropped_pattern_(init_tile_size, init_tile_size),
-			mask_mat_(init_tile_size, init_tile_size),
+			mask_mat_(rows, cols),
+			cropped_mask_mat_(init_tile_size, init_tile_size),
 			vandermonde_mat_(init_tile_size, init_tile_size) {
 		// for now only square patterns are considered
 		if(rows_ != cols_) {
@@ -113,8 +116,7 @@ namespace hir {
 
 
 	RMC::~RMC() {
-		//if(in_mask_ != NULL) delete[] in_mask_;
-		//if(mask_mat_ != NULL) delete[] mask_mat_;
+
 	} // RMC::~RMC()
 
 
@@ -223,7 +225,6 @@ namespace hir {
 			// extract the input image raw data (grayscale values)
 			// and create mask array = indices in image data where value is min
 			real_t *img_data = new (std::nothrow) real_t[rows_ * cols_];
-			unsigned int mask_count = 0;
 			double min_val, max_val;
 			cv::minMaxIdx(img, &min_val, &max_val);
 			double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
@@ -381,6 +382,7 @@ namespace hir {
 		in_pattern_.populate(img_data);
 		vec_uint_t indices;
 		initialize_particles_random(indices);
+		mask_mat_.populate(mask_data);
 
 		//print_matrix("img_data:", in_pattern_.data(), rows_, cols_);
 		//print_array("mask_data:", mask_data, mask_count);
@@ -390,7 +392,7 @@ namespace hir {
 							&(HipRMCInput::instance().cooling()[0]),
 							HipRMCInput::instance().max_move_distance());
 
-		//delete[] mask_data;
+		delete[] mask_data;
 		delete[] img_data;
 		return true;
 	} // RMC::init()
@@ -402,17 +404,15 @@ namespace hir {
 				unsigned char temp = img.at<unsigned char>(i, j);
 				if(temp != 0) {
 					temp = (unsigned char) 255 * (temp - min_val) / (max_val - min_val);
-					//std::cout << (unsigned int) temp << " ";
 					img.at<unsigned char>(i, j) = temp;
 				} // if
 			} // for
-			//std::cout << std::endl;
 		} // for
 		return true;
 	} // RMC::scale_image_colormap()
 
 
-	// this is for every simulation set
+	// this is for every simulation set during scaling
 	bool RMC::initialize_simulation(unsigned int scale_factor) {
 		// scale pattern to current size
 		//scale_pattern_to_tile(scale_factor);
@@ -429,8 +429,9 @@ namespace hir {
 
 	bool RMC::initialize_simulation_tiles(int num_steps) {
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
-			tiles_[i].init_scale(base_norm_, cropped_pattern_, vandermonde_mat_, mask_mat_, num_steps);
-			//tiles_[i].init_scale(base_norm_, scaled_pattern_, vandermonde_mat_, mask_mat_);
+			tiles_[i].init_scale(base_norm_, cropped_pattern_, vandermonde_mat_,
+									cropped_mask_mat_, num_steps);
+			//tiles_[i].init_scale(base_norm_, scaled_pattern_, vandermonde_mat_, cropped_mask_mat_);
 		} // for
 		return true;
 	} // RMC::initialize_simulation_tiles()
@@ -444,20 +445,24 @@ namespace hir {
 	} // RMC::destroy_simulation_tiles()
 
 
+	// called once at RMC initialization
 	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading, const real_t* tstar,
 								const real_t* cooling, unsigned int max_dist) {
+		// not used: tstar, cooling ...
 		std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
 		// initialize tiles
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
 			tiles_.push_back(Tile(tile_size_, tile_size_, indices, size_));
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
 			tiles_[i].init(loading[i], tstar[i], cooling[i], max_dist, base_norm_,
-							cropped_pattern_, vandermonde_mat_, mask_mat_);
+							cropped_pattern_, vandermonde_mat_, cropped_mask_mat_);
+			// not used: tstar, cooling, cropped_pattern_, vandermonde_mat_, cropped_mask_mat_
 			//tiles_[i].init(loading[i], base_norm_, scaled_pattern_, vandermonde_mat_, mask_mat_);
 		return true;
 	} // RMC::initialize_tiles()
 
 
+	// initialize vandermonde for current tile size
 	bool RMC::initialize_vandermonde(unsigned int scale_fac) {
 		// compute vandermonde matrix
 		// generate 1st order power (full 360 deg rotation in polar coords)
@@ -510,6 +515,7 @@ namespace hir {
 		// create array of random indices
 		for(unsigned int i = 0; i < tile_size_ * tile_size_; ++ i) indices.push_back(i);
 		// using mersenne-twister
+		// TODO: use woo library instead ... 
 		std::random_device rd;
 		std::mt19937_64 gen(rd());
 		std::shuffle(indices.begin(), indices.end(), gen);
@@ -543,11 +549,16 @@ namespace hir {
 	bool RMC::crop_pattern_to_tile(unsigned int scale_factor) {
 		if(size_ == tile_size_) {
 			cropped_pattern_ = in_pattern_;
+			cropped_mask_mat_ = mask_mat_;
 		} else {
 			// increase the size of the cropped pattern
 			if(cropped_pattern_.num_rows() + scale_factor == tile_size_) {
 				cropped_pattern_.incr_rows(scale_factor);
 				cropped_pattern_.incr_columns(scale_factor);
+			} // if
+			if(cropped_mask_mat_.num_rows() + scale_factor == tile_size_) {
+				cropped_mask_mat_.incr_rows(scale_factor);
+				cropped_mask_mat_.incr_columns(scale_factor);
 			} // if
 			// populate with the cropped data
 			int skip_rows = (size_ - tile_size_) >> 1;
@@ -555,6 +566,7 @@ namespace hir {
 			for(int i = 0; i < tile_size_; ++ i) {
 				for(int j = 0; j < tile_size_; ++ j) {
 					cropped_pattern_(i, j) = in_pattern_(skip_rows + i, skip_cols + j);
+					cropped_mask_mat_(i, j) = mask_mat_(skip_rows + i, skip_cols + j);
 				} // for j
 			} // for i
 		} // if-else
@@ -566,6 +578,7 @@ namespace hir {
 				max_val = (temp > max_val) ? temp : max_val;
 			} // for j
 		} // for i
+		// write them out (for verification)
 		cv::Mat img(tile_size_, tile_size_, 0);
 		for(unsigned int i = 0; i < tile_size_; ++ i) {
 			for(unsigned int j = 0; j < tile_size_; ++ j) {
@@ -573,8 +586,14 @@ namespace hir {
 				img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
 			} // for
 		} // for
-		// write it out
 		cv::imwrite(HipRMCInput::instance().label() + "/cropped_pattern.tif", img);
+		for(unsigned int i = 0; i < tile_size_; ++ i) {
+			for(unsigned int j = 0; j < tile_size_; ++ j) {
+				unsigned int temp = cropped_mask_mat_[tile_size_ * i + j];
+				img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
+			} // for
+		} // for
+		cv::imwrite(HipRMCInput::instance().label() + "/cropped_mask.tif", img);
 		return true;
 	} // RMC::crop_pattern_to_tile()
 
@@ -601,7 +620,7 @@ namespace hir {
 		// scale pixel intensities to span all of 0 - 255
 		// and generate mask_mat_
 		//memset(mask_mat_, 0, tile_size_ * tile_size_ * sizeof(unsigned int));
-		if(mask_mat_.num_rows() + scale_fac == tile_size_) {
+		/*if(mask_mat_.num_rows() + scale_fac == tile_size_) {
 			mask_mat_.incr_rows(scale_fac);
 			mask_mat_.incr_columns(scale_fac);
 		} else if(mask_mat_.num_rows() != tile_size_) {
@@ -626,10 +645,11 @@ namespace hir {
 			//		cropped_pattern_(i, j) = temp;
 				} // for
 			} // for
-		} // if
+		} // if*/
 
 		//normalize_cropped_pattern();
 
+		// normalize the cropped pattern
 		cv::Mat img(tile_size_, tile_size_, 0);
 		for(unsigned int i = 0; i < tile_size_; ++ i) {
 			for(unsigned int j = 0; j < tile_size_; ++ j) {
@@ -657,6 +677,7 @@ namespace hir {
 	} // RMC::preprocess_pattern_and_mask()
 
 	
+	// not used
 	bool RMC::normalize_cropped_pattern() {
 		//real_t sum = 0.0;
 		//for(int i = 0; i < tile_size_; ++ i) {
@@ -685,8 +706,8 @@ namespace hir {
 			#pragma omp for collapse(2) reduction(+:base_norm)
 			for(unsigned int i = 0; i < maxi; ++ i) {
 				for(unsigned int j = 0; j < maxi; ++ j) {
-					base_norm += cropped_pattern_(i, j);// * (j + 1);	// skipping creation of Y matrix
-					//base_norm += cropped_pattern_(i, j);
+					//base_norm += cropped_pattern_(i, j);// * (j + 1);	// skipping creation of Y matrix
+					base_norm += cropped_pattern_(i, j) * cropped_mask_mat_(i, j);
 					//base_norm += scaled_pattern_(i, j); // * (j + 1);	// skipping creation of Y matrix
 				} // for
 			} // for
@@ -751,7 +772,7 @@ namespace hir {
 			} // if
 			for(unsigned int i = 0; i < num_tiles_; ++ i) {
 				//tiles_[i].simulate_step(scaled_pattern_, vandermonde_mat_, mask_mat_, base_norm_);
-				tiles_[i].simulate_step(cropped_pattern_, vandermonde_mat_, mask_mat_,
+				tiles_[i].simulate_step(cropped_pattern_, vandermonde_mat_, cropped_mask_mat_,
 										base_norm_, step);
 				if((step + 1) % rate == 0) tiles_[i].update_model();
 				/*if(step % 100 == 0) {
@@ -803,6 +824,7 @@ namespace hir {
 	} // RMC::simulate()
 
 
+	// not used
 	bool RMC::simulate_and_scale(int num_steps_fac, unsigned int scale_factor, unsigned int rate) {
 		std::cout << std::endl << "++ Performing simulation with scaling ..." << std::endl;
 		unsigned int num_steps = num_steps_fac * tile_size_;
