@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 05:33:46 PM PDT
+  *  Modified: Mon 09 Sep 2013 05:51:24 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -457,7 +457,7 @@ namespace hir {
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
 			tiles_.push_back(Tile(tile_size_, tile_size_, indices, size_));
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
-			tiles_[i].init(loading[i], max_dist, base_norm_);
+			tiles_[i].init(loading[i], max_dist);
 			//tiles_[i].init(loading[i], tstar[i], cooling[i], max_dist, base_norm_,
 			//				cropped_pattern_, vandermonde_mat_, cropped_mask_mat_);
 			// not used: tstar, cooling, cropped_pattern_, vandermonde_mat_, cropped_mask_mat_

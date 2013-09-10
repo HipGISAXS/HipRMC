@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 05:44:01 PM PDT
+  *  Modified: Mon 09 Sep 2013 06:00:32 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -60,8 +60,8 @@ namespace hir {
 			bool tstar_set_;									// whether tstar was set previously
 			unsigned int num_particles_;						// number of particles (duh!)
 			unsigned int max_move_distance_;					// limit on particle movement
-			double model_norm_;									// norm of current model
-			double c_factor_;									// c factor
+			//double model_norm_;									// norm of current model
+			//double c_factor_;									// c factor
 
 			TileAutotuner autotuner_;							// autotuner
 
@@ -108,12 +108,12 @@ namespace hir {
 			#endif
 			bool compute_mod_mat(unsigned int);
 			bool normalize_mod_mat(unsigned int);
-			bool compute_model_norm(unsigned int, const mat_uint_t&);
+			//bool compute_model_norm(unsigned int, const mat_uint_t&);
 			//double compute_chi2(const mat_real_t&, unsigned int, real_t);
-			double compute_chi2(const mat_real_t&, unsigned int, const mat_uint_t&, real_t, real_t);
+			real_t compute_chi2(const mat_real_t&, unsigned int, const mat_uint_t&, real_t);
 			bool virtual_move_random_particle();
 			bool virtual_move_random_particle_restricted(unsigned int);
-			bool move_particle(double, real_t);
+			bool move_particle(real_t);
 			#ifdef USE_DFT
 				bool compute_dft2(mat_complex_t&, unsigned int, unsigned int);
 				bool update_fft_mat(mat_complex_t&, mat_complex_t&,
@@ -151,7 +151,7 @@ namespace hir {
 
 			// initialize with raw data
 			//bool init(real_t, real_t, real_t, unsigned int, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
-			bool init(real_t, unsigned int, real_t);
+			bool init(real_t, unsigned int);
 			bool init_scale(real_t, mat_real_t&, mat_complex_t&, mat_uint_t&, int);
 			bool destroy_scale();
 			// simulation functions

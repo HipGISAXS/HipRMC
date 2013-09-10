@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 05:44:06 PM PDT
+  *  Modified: Mon 09 Sep 2013 06:00:21 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -92,8 +92,8 @@ namespace hir {
 		tstar_set_(tile.tstar_set_),
 		num_particles_(tile.num_particles_),
 		max_move_distance_(tile.max_move_distance_),
-		model_norm_(tile.model_norm_),
-		c_factor_(tile.c_factor_),
+		//model_norm_(tile.model_norm_),
+		//c_factor_(tile.c_factor_),
 		dft_mat_(tile.dft_mat_),
 		prev_chi2_(tile.prev_chi2_),
 		old_pos_(tile.old_pos_),
@@ -117,7 +117,7 @@ namespace hir {
 
 
 	// initialize with raw data - done only once
-	bool Tile::init(real_t loading, unsigned int max_move_dist, real_t base_norm) {
+	bool Tile::init(real_t loading, unsigned int max_move_dist) {
 	//bool Tile::init(real_t loading, real_t tstar, real_t cooling, unsigned int max_move_dist,
 	//				real_t base_norm, mat_real_t& pattern,
 	//				const mat_complex_t& vandermonde, mat_uint_t& mask) {
@@ -222,13 +222,14 @@ namespace hir {
 		std::cout << "**           Initial mask/copy time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
 		mytimer.start();
-		compute_model_norm(1 - mod_f_mat_i_, mask);
+		//compute_model_norm(1 - mod_f_mat_i_, mask);
 		mytimer.stop();
 		std::cout << "**  Initial model norm compute time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
-		c_factor_ = base_norm / model_norm_;
+		//c_factor_ = base_norm / model_norm_;
 		mytimer.start();
-		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, mask, c_factor_, base_norm);
+		//prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, mask, c_factor_, base_norm);
+		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, mask, base_norm);
 		mytimer.stop();
 		std::cout << "**        Initial chi2 compute time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
@@ -295,12 +296,13 @@ namespace hir {
 		mytimer_.stop(); mod_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
-		compute_model_norm(mod_f_scratch_i, mask);
-		double new_c_factor = base_norm / model_norm_;
+		//compute_model_norm(mod_f_scratch_i, mask);
+		//double new_c_factor = base_norm / model_norm_;
 		mytimer_.stop(); norm_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
-		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, mask, new_c_factor, base_norm);
+		//double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, mask, new_c_factor, base_norm);
+		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, mask, base_norm);
 		mytimer_.stop(); chi2_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
@@ -325,8 +327,8 @@ namespace hir {
 			++ accepted_moves_;
 			//create_image("diff", accepted_moves_, diff_mat_, true);
 			//create_image("mod", accepted_moves_, mod_f_mat_[mod_f_scratch_i], true);
-			move_particle(new_chi2, base_norm);
-			c_factor_ = new_c_factor;
+			move_particle(new_chi2);
+			//c_factor_ = new_c_factor;
 			chi2_list_.push_back(new_chi2);		// save this chi2 value
 			//update_model();
 			//create_image("newm", accepted_moves_, a_mat_, false);
@@ -650,7 +652,7 @@ namespace hir {
 	} // Tile::normalize()
 
 
-	bool Tile::compute_model_norm(unsigned int buff_i, const mat_uint_t& mask) {
+	/*bool Tile::compute_model_norm(unsigned int buff_i, const mat_uint_t& mask) {
 		double model_norm = 0.0;
 		unsigned int maxi = size_;// >> 1;
 		#ifdef USE_GPU
@@ -672,12 +674,14 @@ namespace hir {
 		model_norm_ = model_norm;
 //		std::cout << "++++ model_norm: " << model_norm_ << std::endl;
 		return true;
-	} // Tile::compute_model_norm()
+	} // Tile::compute_model_norm()*/
 
 
-	double Tile::compute_chi2(const mat_real_t& pattern, unsigned int mod_f_i, const mat_uint_t& mask,
-								real_t c_factor, real_t base_norm) {
-		double chi2 = 0.0;
+	//double Tile::compute_chi2(const mat_real_t& pattern, unsigned int mod_f_i, const mat_uint_t& mask,
+	//							real_t c_factor, real_t base_norm) {
+	real_t Tile::compute_chi2(const mat_real_t& pattern, unsigned int mod_f_i, const mat_uint_t& mask,
+								real_t base_norm) {
+		real_t chi2 = 0.0;
 		#ifdef USE_GPU
 			chi2 = gtile_.compute_chi2(mod_f_i, c_factor, base_norm);
 		#else
@@ -714,7 +718,7 @@ namespace hir {
 
 	real_t Tile::compute_chi2(const mat_real_t& a, const mat_real_t& b, const mat_uint_t& mask,
 								real_t base_norm) {
-		double chi2 = 0.0;
+		real_t chi2 = 0.0;
 		#ifdef USE_GPU
 			chi2 = gtile_.compute_chi2(a, b);
 		#else
@@ -786,7 +790,7 @@ namespace hir {
 	} // Tile::virtual_move_random_particle()
 
 
-	bool Tile::move_particle(double new_chi2, real_t base_norm) {
+	bool Tile::move_particle(real_t new_chi2) {
 		// to swap buffers
 		f_mat_i_ = 1 - f_mat_i_;
 		mod_f_mat_i_ = 1 - mod_f_mat_i_;
