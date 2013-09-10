@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 01:37:47 PM PDT
+  *  Modified: Mon 09 Sep 2013 05:44:06 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -117,16 +117,17 @@ namespace hir {
 
 
 	// initialize with raw data - done only once
-	bool Tile::init(real_t loading, real_t tstar, real_t cooling, unsigned int max_move_dist,
-					real_t base_norm, mat_real_t& pattern,
-					const mat_complex_t& vandermonde, mat_uint_t& mask) {
+	bool Tile::init(real_t loading, unsigned int max_move_dist, real_t base_norm) {
+	//bool Tile::init(real_t loading, real_t tstar, real_t cooling, unsigned int max_move_dist,
+	//				real_t base_norm, mat_real_t& pattern,
+	//				const mat_complex_t& vandermonde, mat_uint_t& mask) {
 		// pattern, vandermonde and mask not used ...
 
 		woo::BoostChronoTimer mytimer;
 
 		loading_factor_ = loading;
-		tstar_ = tstar;
-		cooling_factor_ = cooling;
+		//tstar_ = tstar;
+		//cooling_factor_ = cooling;
 		tstar_set_ = false;
 		max_move_distance_ = max_move_dist;
 		unsigned int cols = a_mat_.num_cols(), rows = a_mat_.num_rows();
@@ -143,15 +144,16 @@ namespace hir {
 		#ifdef USE_GPU
 			unsigned int block_x = CUDA_BLOCK_SIZE_X_;
 			unsigned int block_y = CUDA_BLOCK_SIZE_Y_;
-			for(unsigned int i = 0; i < size_; ++ i) {
-				for(unsigned int j = 0; j < size_; ++ j) {
-					complex_t temp = vandermonde(i, j);
-					cucomplex_buff_[size_ * i + j].x = temp.real();
-					cucomplex_buff_[size_ * i + j].y = temp.imag();
-				} // for
-			} // for
-			gtile_.init(pattern.data(), cucomplex_buff_, a_mat_.data(), mask.data(), final_size_, size_,
-						block_x, block_y);
+			//for(unsigned int i = 0; i < size_; ++ i) {
+			//	for(unsigned int j = 0; j < size_; ++ j) {
+			//		complex_t temp = vandermonde(i, j);
+			//		cucomplex_buff_[size_ * i + j].x = temp.real();
+			//		cucomplex_buff_[size_ * i + j].y = temp.imag();
+			//	} // for
+			//} // for
+			//gtile_.init(pattern.data(), cucomplex_buff_, a_mat_.data(), mask.data(), final_size_, size_,
+			//			block_x, block_y);
+			gtile_.init(a_mat_.data(), final_size_, size_, block_x, block_y);
 			//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
 		#endif // USE_GPU
 
@@ -290,9 +292,6 @@ namespace hir {
 
 		mytimer_.start();
 		compute_mod_mat(f_scratch_i);
-		#ifndef USE_GPU
-//			mask_mat(mask, mod_f_scratch_i);
-		#endif // USE_GPU
 		mytimer_.stop(); mod_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();

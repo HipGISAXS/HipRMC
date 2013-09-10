@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 01:29:07 PM PDT
+  *  Modified: Mon 09 Sep 2013 05:33:46 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -86,7 +86,7 @@ namespace hir {
 
 
 	// not used
-	RMC::RMC(int narg, char** args, unsigned int rows, unsigned int cols, const char* img_file,
+	/*RMC::RMC(int narg, char** args, unsigned int rows, unsigned int cols, const char* img_file,
 					unsigned int num_tiles, unsigned int init_tile_size, real_t* loading) :
 			in_pattern_(rows, cols),
 			rows_(rows), cols_(cols), size_(std::max(rows, cols)),
@@ -112,7 +112,7 @@ namespace hir {
 			std::cerr << "error: failed to pre-initialize RMC object" << std::endl;
 			exit(1);
 		} // if
-	} // RMC::RMC()
+	} // RMC::RMC()*/
 
 
 	RMC::~RMC() {
@@ -121,7 +121,7 @@ namespace hir {
 
 
 	// idea is that this can be replaced easily for other types of raw inputs (non image) -- NOT USED
-	bool RMC::init(int narg, char** args, const char* img_file, real_t* loading) {
+	/*bool RMC::init(int narg, char** args, const char* img_file, real_t* loading) {
 		std::cout << "++ init" << std::endl;
 		#ifdef USE_GPU
 			if(!init_gpu()) {
@@ -202,7 +202,7 @@ namespace hir {
 		//delete[] mask_data;
 		delete[] img_data;
 		return true;
-	} // RMC::init()
+	} // RMC::init()*/
 
 
 	bool RMC::init() {
@@ -387,9 +387,11 @@ namespace hir {
 		//print_matrix("img_data:", in_pattern_.data(), rows_, cols_);
 		//print_array("mask_data:", mask_data, mask_count);
 
+		//initialize_tiles(indices, &(HipRMCInput::instance().loading()[0]),
+		//					&(HipRMCInput::instance().tstar()[0]),
+		//					&(HipRMCInput::instance().cooling()[0]),
+		//					HipRMCInput::instance().max_move_distance());
 		initialize_tiles(indices, &(HipRMCInput::instance().loading()[0]),
-							&(HipRMCInput::instance().tstar()[0]),
-							&(HipRMCInput::instance().cooling()[0]),
 							HipRMCInput::instance().max_move_distance());
 
 		delete[] mask_data;
@@ -446,16 +448,18 @@ namespace hir {
 
 
 	// called once at RMC initialization
-	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading, const real_t* tstar,
-								const real_t* cooling, unsigned int max_dist) {
-		// not used: tstar, cooling ...
+	//bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading, const real_t* tstar,
+	//							const real_t* cooling, unsigned int max_dist) {
+	// not used: tstar, cooling ...
+	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading, unsigned int max_dist) {
 		std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
 		// initialize tiles
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
 			tiles_.push_back(Tile(tile_size_, tile_size_, indices, size_));
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
-			tiles_[i].init(loading[i], tstar[i], cooling[i], max_dist, base_norm_,
-							cropped_pattern_, vandermonde_mat_, cropped_mask_mat_);
+			tiles_[i].init(loading[i], max_dist, base_norm_);
+			//tiles_[i].init(loading[i], tstar[i], cooling[i], max_dist, base_norm_,
+			//				cropped_pattern_, vandermonde_mat_, cropped_mask_mat_);
 			// not used: tstar, cooling, cropped_pattern_, vandermonde_mat_, cropped_mask_mat_
 			//tiles_[i].init(loading[i], base_norm_, scaled_pattern_, vandermonde_mat_, mask_mat_);
 		return true;
@@ -678,7 +682,7 @@ namespace hir {
 
 	
 	// not used
-	bool RMC::normalize_cropped_pattern() {
+	/*bool RMC::normalize_cropped_pattern() {
 		//real_t sum = 0.0;
 		//for(int i = 0; i < tile_size_; ++ i) {
 		//	for(int j = 0; j < tile_size_; ++ j) {
@@ -694,7 +698,7 @@ namespace hir {
 		} // for i
 
 		return true;
-	} // RMC::normalize_cropped_pattern()
+	} // RMC::normalize_cropped_pattern()*/
 
 
 	bool RMC::compute_base_norm() {
@@ -825,7 +829,7 @@ namespace hir {
 
 
 	// not used
-	bool RMC::simulate_and_scale(int num_steps_fac, unsigned int scale_factor, unsigned int rate) {
+	/*bool RMC::simulate_and_scale(int num_steps_fac, unsigned int scale_factor, unsigned int rate) {
 		std::cout << std::endl << "++ Performing simulation with scaling ..." << std::endl;
 		unsigned int num_steps = num_steps_fac * tile_size_;
 		unsigned int curr_scale_fac = scale_factor;
@@ -852,7 +856,7 @@ namespace hir {
 			simulate(num_steps, rate, curr_scale_fac);
 		} // for
 		return true;
-	} // RMC::simulate_and_scale()
+	} // RMC::simulate_and_scale()*/
 
 
 	bool RMC::simulate_and_scale() {
@@ -892,7 +896,6 @@ namespace hir {
 	// it scaled in_pattern_ itself
 	bool RMC::scale(unsigned int final_size) {
 		//tiles_[0].print_a_mat();
-
 		unsigned int num_steps = final_size - size_;
 		for(unsigned int i = 0; i < num_steps; ++ i) {
 			// make sure all indices info is in a_mat_

@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 12:53:18 PM PDT
+  *  Modified: Mon 09 Sep 2013 05:34:48 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -41,11 +41,12 @@ namespace hir {
 
 			// extracts raw data from image
 			bool init();
-			bool init(int, char**, const char*, real_t*);
+			//bool init(int, char**, const char*, real_t*);
 			// initializes with raw data
 			//bool init(real_t*, unsigned int, unsigned int*, real_t*);
 			// initialization for each set of simulation runs
-			bool initialize_tiles(const vec_uint_t&, const real_t*, const real_t*, const real_t*, unsigned int);
+			//bool initialize_tiles(const vec_uint_t&, const real_t*, const real_t*, const real_t*, unsigned int);
+			bool initialize_tiles(const vec_uint_t&, const real_t*, unsigned int);
 			bool initialize_vandermonde(unsigned int);
 			bool initialize_particles_random(vec_uint_t&);
 			bool initialize_simulation(unsigned int);
@@ -62,10 +63,10 @@ namespace hir {
 
 		public:
 			RMC(char*);
-			RMC(int, char**, unsigned int, unsigned int, const char*, unsigned int, unsigned int, real_t*);
+			//RMC(int, char**, unsigned int, unsigned int, const char*, unsigned int, unsigned int, real_t*);
 			~RMC();
 			bool simulate(int, unsigned int, unsigned int);
-			bool simulate_and_scale(int, unsigned int, unsigned int);
+			//bool simulate_and_scale(int, unsigned int, unsigned int);
 			bool simulate_and_scale();
 
 			// for testing ...

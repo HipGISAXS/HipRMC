@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 01:36:56 PM PDT
+  *  Modified: Mon 09 Sep 2013 05:44:01 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -150,7 +150,8 @@ namespace hir {
 			~Tile();
 
 			// initialize with raw data
-			bool init(real_t, real_t, real_t, unsigned int, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
+			//bool init(real_t, real_t, real_t, unsigned int, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
+			bool init(real_t, unsigned int, real_t);
 			bool init_scale(real_t, mat_real_t&, mat_complex_t&, mat_uint_t&, int);
 			bool destroy_scale();
 			// simulation functions
