@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 06:00:32 PM PDT
+  *  Modified: Wed 11 Sep 2013 05:23:15 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -107,17 +107,16 @@ namespace hir {
 				bool execute_fftw(fftw_complex*, fftw_complex*);
 			#endif
 			bool compute_mod_mat(unsigned int);
-			bool normalize_mod_mat(unsigned int);
+			//bool normalize_mod_mat(unsigned int);
 			//bool compute_model_norm(unsigned int, const mat_uint_t&);
 			//double compute_chi2(const mat_real_t&, unsigned int, real_t);
-			real_t compute_chi2(const mat_real_t&, unsigned int, const mat_uint_t&, real_t);
+			//real_t compute_chi2(const mat_real_t&, unsigned int, const mat_uint_t&, real_t);
 			bool virtual_move_random_particle();
 			bool virtual_move_random_particle_restricted(unsigned int);
 			bool move_particle(real_t);
 			#ifdef USE_DFT
-				bool compute_dft2(mat_complex_t&, unsigned int, unsigned int);
-				bool update_fft_mat(mat_complex_t&, mat_complex_t&,
-									mat_complex_t&, unsigned int, unsigned int);
+				//bool compute_dft2(mat_complex_t&, unsigned int, unsigned int);
+				bool update_fft_mat(const mat_complex_t&, const mat_complex_t&, mat_complex_t&);
 			#endif
 			//bool mask_mat(const mat_uint_t&, unsigned int);
 			bool copy_mod_mat(unsigned int);
@@ -136,7 +135,7 @@ namespace hir {
 			#ifdef USE_DFT
 				bool compute_dft2(mat_complex_t&, unsigned int, unsigned int, unsigned int, unsigned int,
 									mat_complex_t&);
-				bool update_fft(mat_complex_t&, mat_complex_t&);
+				//bool update_fft(mat_complex_t&, mat_complex_t&);
 			#endif
 			real_t compute_chi2(const mat_real_t&, const mat_real_t&, const mat_uint_t&, real_t);
 
@@ -273,11 +272,11 @@ namespace hir {
 			unsigned int size() const { return size_; }
 
 			// return a random number in (0,1)
-			real_t mt_rand_01() {
+			//real_t mt_rand_01() {
 				//return ((real_t) (ms_rand_gen_() - ms_rand_gen_.min()) /
 				//					(ms_rand_gen_.max() - ms_rand_gen_.min()));
-				return mt_rand_gen_.rand();
-			} // ms_rand_01()
+			//	return mt_rand_gen_.rand();
+			//} // ms_rand_01()
 
 
 			double dft2_time() const { return dft2_time_; }

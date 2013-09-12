@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 06:00:21 PM PDT
+  *  Modified: Wed 11 Sep 2013 05:23:21 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -229,7 +229,8 @@ namespace hir {
 		//c_factor_ = base_norm / model_norm_;
 		mytimer.start();
 		//prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, mask, c_factor_, base_norm);
-		prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, mask, base_norm);
+		//prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, mask, base_norm);
+		prev_chi2_ = compute_chi2(pattern, mod_f_mat_[1 - mod_f_mat_i_], mask, base_norm);
 		mytimer.stop();
 		std::cout << "**        Initial chi2 compute time: " << mytimer.elapsed_msec()
 					<< " ms." << std::endl;
@@ -281,9 +282,14 @@ namespace hir {
 
 		mytimer_.start();
 		#ifdef USE_DFT
-			compute_dft2(vandermonde, f_mat_i_, f_scratch_i);
+			//compute_dft2(vandermonde, f_mat_i_, f_scratch_i);
+			unsigned int old_row = old_index_ / size_;
+			unsigned int old_col = old_index_ % size_;
+			unsigned int new_row = new_index_ / size_;
+			unsigned int new_col = new_index_ % size_;
+			compute_dft2(vandermonde, old_row, old_col, new_row, new_col, dft_mat_);
 			#ifndef USE_GPU
-				update_fft_mat(dft_mat_, f_mat_[f_mat_i_], f_mat_[f_scratch_i], f_mat_i_, f_scratch_i);
+				update_fft_mat(dft_mat_, f_mat_[f_mat_i_], f_mat_[f_scratch_i]);
 			#endif // USE_GPU
 		#else	// use FFT at all steps
 			update_virtual_model();
@@ -302,7 +308,8 @@ namespace hir {
 
 		mytimer_.start();
 		//double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, mask, new_c_factor, base_norm);
-		double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, mask, base_norm);
+		//double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, mask, base_norm);
+		double new_chi2 = compute_chi2(pattern, mod_f_mat_[mod_f_scratch_i], mask, base_norm);
 		mytimer_.stop(); chi2_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
@@ -318,7 +325,7 @@ namespace hir {
 			real_t p = exp(diff_chi2 * (cooling_factor_ * iter + 1) / tstar_);
 			//real_t temperature = tstar_ / (cooling_factor_ * iter + 1);	// temp ...
 			//std::cout << temperature << "\t" << p << "\t";		// temp ...
-			real_t prand = mt_rand_01();
+			real_t prand = mt_rand_gen_.rand();
 			if(prand < p) accept = true;
 		} // if-else
 		if(accept) {	// accept the move
@@ -568,7 +575,8 @@ namespace hir {
 					mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp;
 				} // for
 			} // for
-			normalize_mod_mat(1 - mod_f_mat_i_);
+			//normalize_mod_mat(1 - mod_f_mat_i_);
+			normalize(mod_f_mat_[1 - mod_f_mat_i_]);
 			//print_matrix("mod_f_mat_[1 - mod_f_mat_i_]", mod_f_mat_[1 - mod_f_mat_i_].data(), size_, size_);
 			return true;
 		#endif // USE_GPU
@@ -615,18 +623,18 @@ namespace hir {
 	} // Tile::normalize_mod()*/
 
 
-	bool Tile::normalize_mod_mat(unsigned int mat_i) {
+	/*bool Tile::normalize_mod_mat(unsigned int mat_i) {
 		real_t min_val, max_val;
 		woo::matrix_min_max(mod_f_mat_[mat_i], min_val, max_val);
-		/*min_val = max_val = mod_f_mat_[mat_i](1, 1);
-		for(unsigned int i = 0; i < size_; ++ i) {
-			for(unsigned int j = 0; j < size_; ++ j) {
-				if(i == 0 && j == 0) continue;
-				real_t temp = mod_f_mat_[mat_i](i, j);
-				min_val = (temp < min_val) ? temp : min_val;
-				max_val = (temp > max_val) ? temp : max_val;
-			} // for
-		} // for*/
+		//min_val = max_val = mod_f_mat_[mat_i](1, 1);
+		//for(unsigned int i = 0; i < size_; ++ i) {
+		//	for(unsigned int j = 0; j < size_; ++ j) {
+		//		if(i == 0 && j == 0) continue;
+		//		real_t temp = mod_f_mat_[mat_i](i, j);
+		//		min_val = (temp < min_val) ? temp : min_val;
+		//		max_val = (temp > max_val) ? temp : max_val;
+		//	} // for
+		//} // for
 		#pragma omp parallel for collapse(2)
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
@@ -635,7 +643,7 @@ namespace hir {
 			} // for
 		} // for
 		return true;
-	} // Tile::normalize_mod_mat()
+	} // Tile::normalize_mod_mat()*/
 
 
 	bool Tile::normalize(mat_real_t& mat) {
@@ -679,7 +687,7 @@ namespace hir {
 
 	//double Tile::compute_chi2(const mat_real_t& pattern, unsigned int mod_f_i, const mat_uint_t& mask,
 	//							real_t c_factor, real_t base_norm) {
-	real_t Tile::compute_chi2(const mat_real_t& pattern, unsigned int mod_f_i, const mat_uint_t& mask,
+	/*real_t Tile::compute_chi2(const mat_real_t& pattern, unsigned int mod_f_i, const mat_uint_t& mask,
 								real_t base_norm) {
 		real_t chi2 = 0.0;
 		#ifdef USE_GPU
@@ -713,7 +721,7 @@ namespace hir {
 		//chi2 = (pow((real_t) size_, 5) * 1e-6) * chi2 / (base_norm * base_norm);
 		chi2 = (pow((real_t) size_, 2.5)) * chi2 / (base_norm * base_norm);
 		return chi2;
-	} // Tile::compute_chi2()
+	} // Tile::compute_chi2()*/
 
 
 	real_t Tile::compute_chi2(const mat_real_t& a, const mat_real_t& b, const mat_uint_t& mask,
@@ -762,8 +770,8 @@ namespace hir {
 
 
 	bool Tile::virtual_move_random_particle() {
-		old_pos_ = floor(mt_rand_01() * num_particles_);
-		new_pos_ = floor(mt_rand_01() *	(size_ * size_ - num_particles_)) + num_particles_;
+		old_pos_ = floor(mt_rand_gen_.rand() * num_particles_);
+		new_pos_ = floor(mt_rand_gen_.rand() * (size_ * size_ - num_particles_)) + num_particles_;
 		old_index_ = indices_[old_pos_];
 		new_index_ = indices_[new_pos_];
 		//std::cout << "++++ old_pos,new_pos: " << old_pos_ << "," << new_pos_
@@ -774,8 +782,8 @@ namespace hir {
 
 	bool Tile::virtual_move_random_particle_restricted(unsigned int dist) {
 		while(1) {
-			old_pos_ = floor(mt_rand_01() * num_particles_);
-			new_pos_ = floor(mt_rand_01() *	(size_ * size_ - num_particles_)) + num_particles_;
+			old_pos_ = floor(mt_rand_gen_.rand() * num_particles_);
+			new_pos_ = floor(mt_rand_gen_.rand() *	(size_ * size_ - num_particles_)) + num_particles_;
 			old_index_ = indices_[old_pos_];
 			new_index_ = indices_[new_pos_];
 			int old_x = old_index_ / size_, old_y = old_index_ % size_;
@@ -806,7 +814,7 @@ namespace hir {
 
 	#ifdef USE_DFT
 
-	bool Tile::compute_dft2(mat_complex_t& vandermonde_mat,
+	/*bool Tile::compute_dft2(mat_complex_t& vandermonde_mat,
 							unsigned int in_buff_i, unsigned int out_buff_i) {
 		//std::cout << "++ compute_dft2" << std::endl;
 		unsigned int old_row = old_index_ / size_;
@@ -834,12 +842,11 @@ namespace hir {
 		#endif // USE_GPU
 
 		return true;
-	} // Tile::compute_dft2()
+	} // Tile::compute_dft2()*/
 
 
 	bool Tile::compute_dft2(mat_complex_t& vandermonde_mat, unsigned int old_row, unsigned int old_col,
-							unsigned int new_row, unsigned int new_col,
-							mat_complex_t& dft_mat) {
+							unsigned int new_row, unsigned int new_col, mat_complex_t& dft_mat) {
 		#ifdef USE_GPU
 			gtile_.compute_dft2(old_row, old_col, new_row, new_col, num_particles_, dft_mat);
 		#else
@@ -861,9 +868,8 @@ namespace hir {
 	} // Tile::compute_dft2()
 
 
-	bool Tile::update_fft_mat(mat_complex_t& dft_mat, mat_complex_t& f_mat,
-								mat_complex_t& new_f_mat,
-								unsigned int in_buff_i, unsigned int out_buff_i) {
+	bool Tile::update_fft_mat(const mat_complex_t& dft_mat, const mat_complex_t& in_f_mat,
+								mat_complex_t& out_f_mat) {
 		#ifdef USE_GPU
 			// this has been merged into compute_dft2 for gpu
 		#else
@@ -871,14 +877,14 @@ namespace hir {
 			#pragma omp parallel for collapse(2)
 			for(int i = 0; i < size_; ++ i) {
 				for(int j = 0; j < size_; ++ j) {
-					new_f_mat(i, j) = dft_mat(i, j) + f_mat(i, j);
+					out_f_mat(i, j) = dft_mat(i, j) + in_f_mat(i, j);
 				} // for j
 			} // for i
 		#endif // USE_GPU
 		return true;
 	} // Tile::update_fft_mat()
 
-	bool Tile::update_fft(mat_complex_t& f_mat, mat_complex_t& dft_mat) {
+	/*bool Tile::update_fft(mat_complex_t& f_mat, mat_complex_t& dft_mat) {
 		#ifdef USE_GPU
 			// this has been merged into compute_dft2 for gpu
 		#else
@@ -890,7 +896,7 @@ namespace hir {
 			} // for i
 		#endif // USE_GPU
 		return true;
-	} // Tile::update_fft_mat()
+	} // Tile::update_fft()*/
 
 	#endif
 

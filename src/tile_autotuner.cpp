@@ -3,7 +3,7 @@
  *
  *  File: tile_autotuner.cpp
  *  Created: Sep 05, 2013
- *  Modified: Mon 09 Sep 2013 01:35:38 PM PDT
+ *  Modified: Wed 11 Sep 2013 05:24:25 PM PDT
  *
  *  Author: Abhinav Sarje <asarje@lbl.gov>
  */
@@ -182,7 +182,8 @@ namespace hir {
 													old_index, new_index,
 													old_x, new_x, old_y, new_y);
 		compute_dft2(vandermonde, old_x, old_y, new_x, new_y, autotuner_.dft_mat_);
-		update_fft(autotuner_.f_mat_, autotuner_.dft_mat_);
+		//update_fft(autotuner_.f_mat_, autotuner_.dft_mat_);
+		update_fft_mat(autotuner_.dft_mat_, autotuner_.f_mat_, autotuner_.f_mat_);
 		compute_mod(autotuner_.f_mat_, autotuner_.mod_f_mat_);
 		double new_chi2 = compute_chi2(pattern, autotuner_.mod_f_mat_, mask, base_norm);
 		double diff_chi2 = autotuner_.prev_chi2_ - new_chi2;
@@ -190,7 +191,7 @@ namespace hir {
 		if(diff_chi2 > 0.0) accept = true;
 		else {
 			real_t p = exp(diff_chi2 * (autotuner_.cooling_factor_ * iter + 1) / autotuner_.tstar_);
-			real_t prand = mt_rand_01();
+			real_t prand = mt_rand_gen_.rand();
 			if(prand < p) accept = true;
 		} // if-else
 		if(accept) {	// accept the move
@@ -208,8 +209,8 @@ namespace hir {
 			unsigned int &old_pos, unsigned int &new_pos, unsigned int &old_index, unsigned int &new_index,
 			unsigned int &old_x, unsigned int &new_x, unsigned int &old_y, unsigned int &new_y) {
 		while(1) {
-			old_pos = floor(mt_rand_01() * num_particles_);
-			new_pos = floor(mt_rand_01() * (size_ * size_ - num_particles_)) + num_particles_;
+			old_pos = floor(mt_rand_gen_.rand() * num_particles_);
+			new_pos = floor(mt_rand_gen_.rand() * (size_ * size_ - num_particles_)) + num_particles_;
 			old_index = autotuner_.indices_[old_pos];
 			new_index = autotuner_.indices_[new_pos];
 			old_x = old_index / size_; old_y = old_index % size_;
