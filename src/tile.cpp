@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 13 Sep 2013 09:27:21 AM PDT
+  *  Modified: Fri 13 Sep 2013 10:34:04 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -54,12 +54,12 @@ namespace hir {
 		f_mat_.push_back(mat_complex_t(size_, size_));
 		f_mat_.push_back(mat_complex_t(size_, size_));
 		mytimer.stop();
-		std::cout << "**   FFT matrix initialization time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		//std::cout << "**   FFT matrix initialization time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		mytimer.start();
 		mod_f_mat_.push_back(mat_real_t(size_, size_));
 		mod_f_mat_.push_back(mat_real_t(size_, size_));
 		mytimer.stop();
-		std::cout << "**      FFT mod initialization time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		//std::cout << "**      FFT mod initialization time: " << mytimer.elapsed_msec() << " ms." << std::endl;
 		#ifdef USE_GPU
 			// device memory allocation takes all the time
 			mytimer.start();
@@ -67,8 +67,8 @@ namespace hir {
 			cucomplex_buff_ = new (std::nothrow) cucomplex_t[size2];
 			mytimer.stop();
 		#endif // USE_GPU
-		std::cout << "**       Memory initialization time: " << mytimer.elapsed_msec()
-						<< " ms." << std::endl;
+		//std::cout << "**       Memory initialization time: " << mytimer.elapsed_msec()
+		//				<< " ms." << std::endl;
 	} // Tile::Tile()
 
 
@@ -140,8 +140,8 @@ namespace hir {
 		mytimer.start();
 		update_model();
 		mytimer.stop();
-		std::cout << "**  Initial model construction time: " << mytimer.elapsed_msec() << " ms." << std::endl;
-		std::cout << "++              Number of particles: " << num_particles_ << std::endl;
+		//std::cout << "**  Initial model construction time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		//std::cout << "++              Number of particles: " << num_particles_ << std::endl;
 		//print_matrix("a_mat", a_mat_.data(), rows, cols);
 		#ifdef USE_GPU
 			unsigned int block_x = CUDA_BLOCK_SIZE_X_;
@@ -202,41 +202,17 @@ namespace hir {
 			return false;
 		} // if
 		mytimer.stop();
-		std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
-					<< " ms." << std::endl;
+		//std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
+		//			<< " ms." << std::endl;
 
-		mytimer.start();
 		compute_fft_mat();
-		mytimer.stop();
-		std::cout << "**         Initial FFT compute time: " << mytimer.elapsed_msec()
-					<< " ms." << std::endl;
-		mytimer.start();
 		compute_mod_mat(f_mat_i_);
-		mytimer.stop();
-		std::cout << "**         Initial mod compute time: " << mytimer.elapsed_msec()
-					<< " ms." << std::endl;
-		mytimer.start();
 		#ifndef USE_GPU
 			//mask_mat(mask, 1 - mod_f_mat_i_);
 		#endif // USE_GPU
 		copy_mod_mat(1 - mod_f_mat_i_);
-		mytimer.stop();
-		std::cout << "**           Initial mask/copy time: " << mytimer.elapsed_msec()
-					<< " ms." << std::endl;
-		mytimer.start();
-		//compute_model_norm(1 - mod_f_mat_i_, mask);
-		mytimer.stop();
-		std::cout << "**  Initial model norm compute time: " << mytimer.elapsed_msec()
-					<< " ms." << std::endl;
-		//c_factor_ = base_norm / model_norm_;
-		mytimer.start();
-		//prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, mask, c_factor_, base_norm);
-		//prev_chi2_ = compute_chi2(pattern, 1 - mod_f_mat_i_, mask, base_norm);
 		prev_chi2_ = compute_chi2(pattern, mod_f_mat_[1 - mod_f_mat_i_], mask, base_norm);
-		mytimer.stop();
-		std::cout << "**        Initial chi2 compute time: " << mytimer.elapsed_msec()
-					<< " ms." << std::endl;
-		std::cout << "++         Initial chi2-error value: " << prev_chi2_ << std::endl;
+		//std::cout << "++         Initial chi2-error value: " << prev_chi2_ << std::endl;
 
 		accepted_moves_ = 0;
 
@@ -468,7 +444,6 @@ namespace hir {
 	#ifndef USE_GPU // use CPU
 
 	bool Tile::compute_fft_mat() {
-		//std::cout << "++ Computing model FFT ..." << std::endl;
 		unsigned int size2 = size_ * size_;
 		real_t* orig_a_mat = a_mat_.data();
 		for(int i = 0; i < size2; ++ i) {
@@ -481,11 +456,6 @@ namespace hir {
 		fftw_execute(fft_plan_);
 		#pragma omp parallel
 		{
-			#ifdef _OPENMP
-				if(omp_get_thread_num() == 0)
-					std::cout << "++ Using " << omp_get_num_threads() << " OpenMP threads."
-								<< std::endl << std::flush;
-			#endif
 			#pragma omp for collapse(2)
 			for(unsigned int i = 0; i < size_; ++ i) {
 				for(unsigned int j = 0; j < size_; ++ j) {
@@ -565,8 +535,6 @@ namespace hir {
 	#else // USE_GPU
 
 	bool Tile::compute_fft_mat() {
-		std::cout << "++ Computing model FFT on GPU ..." << std::endl;
-
 		gtile_.compute_fft_mat(f_mat_i_);
 		return true;
 	} // Tile::compute_fft_mat()
@@ -581,7 +549,6 @@ namespace hir {
 	#ifndef USE_DFT
 
 	bool Tile::compute_fft_mat(unsigned int buff_i) {
-		//std::cout << "++ Computing model FFT on GPU ..." << std::endl;
 		gtile_.compute_virtual_fft_mat(buff_i);
 		return true;
 	} // Tile::compute_fft_mat()
@@ -982,7 +949,7 @@ namespace hir {
 		real_t *mod_f_buff = new (std::nothrow) real_t[size2];
 		complex_t *f_buff = new (std::nothrow) complex_t[size2];
 		if(mod_f_buff == NULL || f_buff == NULL) {
-			std::cout << "error: could not allocate memory for f buffers in update_f_mats" << std::endl;
+			std::cerr << "error: could not allocate memory for f buffers in update_f_mats" << std::endl;
 			return false;
 		} // if
 

@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 13 Sep 2013 09:35:15 AM PDT
+  *  Modified: Fri 13 Sep 2013 11:06:35 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -34,17 +34,10 @@ namespace hir {
 			mask_mat_(0, 0),
 			cropped_mask_mat_(0, 0),
 			vandermonde_mat_(0, 0) {
-		std::cout << "*****************************************************************" << std::endl;
-		std::cout << "***                      HipRMC v0.1 beta                     ***" << std::endl;
-		std::cout << "*****************************************************************" << std::endl;
-		std::cout << std::endl;
-
 		if(!HipRMCInput::instance().construct_input_config(filename)) {
 			std::cerr << "error: failed to construct input configuration" << std::endl;
 			exit(1);
 		} // if
-
-		HipRMCInput::instance().print_all();
 
 		rows_ = HipRMCInput::instance().num_rows();
 		cols_ = HipRMCInput::instance().num_cols();
@@ -76,6 +69,20 @@ namespace hir {
 				exit(1);
 			} // if
 		#endif
+
+		#ifdef USE_MPI
+			if(multi_node_.is_master()) {
+		#endif
+				std::cout << "*****************************************************************" << std::endl;
+				std::cout << "***                      HipRMC v0.1 beta                     ***" << std::endl;
+				std::cout << "*****************************************************************" << std::endl;
+				std::cout << std::endl;
+
+				HipRMCInput::instance().print_all();
+		#ifdef USE_MPI
+			} // if
+		#endif
+
 		#ifdef USE_GPU
 			if(!init_gpu()) {
 				std::cerr << "error: " << std::endl;
@@ -210,7 +217,13 @@ namespace hir {
 
 
 	bool RMC::init() {
-		std::cout << "++ Initializing HipRMC ..." << std::endl;
+		#ifdef USE_MPI
+			if(multi_node_.is_master()) {
+		#endif
+				std::cout << "++ Initializing HipRMC ..." << std::endl;
+		#ifdef USE_MPI
+			} // if
+		#endif
 
 		real_t *img_data = new (std::nothrow) real_t[rows_ * cols_];
 		unsigned int *mask_data = new (std::nothrow) unsigned int[rows_ * cols_];
@@ -227,11 +240,11 @@ namespace hir {
 				1 * (multi_node_.rank("real_world") < global_num_tiles_ % multi_node_.size("real_world"));
 		} // if-else
 
-		std::cout << "I am processor " << multi_node_.rank("real_world") << std::endl;
-
 		if(multi_node_.is_master("real_world")) {
+			std::cout << "++     Number of MPI processes used: " << multi_node_.size("real_world") << std::endl;
 		#endif // USE_MPI
-			// create output directory first
+
+			// create output directory
 			const std::string p = HipRMCInput::instance().label();
 			if(!boost::filesystem::create_directory(p)) {
 				std::cerr << "error: could not create output directory " << p << std::endl;
@@ -395,17 +408,18 @@ namespace hir {
 			cv::imwrite(HipRMCInput::instance().label() + "/base_fft_pattern.tif", img);
 		#endif // USE_MODEL_INPUT
 
-			std::cout << "Processor " << multi_node_.rank("real_world")
-						<< " has " << num_tiles_ << " tiles" << std::endl;
-
 		#ifdef USE_MPI
 		} else {	// slave node
+			// nothing to do here
 		} // if-else
 		if(!multi_node_.is_idle("real_world")) {
 			multi_node_.broadcast("real_world", img_data, rows_ * cols_);
 			multi_node_.broadcast("real_world", mask_data, rows_ * cols_);
 		} // if
 		#endif // USE_MPI
+
+		std::cout << "++      Processor " << multi_node_.rank("real_world")
+					<< " number of tiles: " << num_tiles_ << std::endl;
 
 		if(!multi_node_.is_idle("real_world")) {
 			in_pattern_.populate(img_data);
@@ -452,7 +466,7 @@ namespace hir {
 	//							const real_t* cooling, unsigned int max_dist) {
 	// not used: tstar, cooling ...
 	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading, unsigned int max_dist) {
-		std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
+		//std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
 		// initialize tiles
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
 			tiles_.push_back(Tile(tile_size_, tile_size_, indices, size_));
@@ -762,7 +776,7 @@ namespace hir {
 			} // for
 		}
 		base_norm_ = base_norm;
-		std::cout << "++          Base pattern norm value: " << base_norm_ << std::endl;
+		//std::cout << "++          Base pattern norm value: " << base_norm_ << std::endl;
 		return true;
 	} // RMC::compute_base_norm();
 
@@ -791,8 +805,8 @@ namespace hir {
 
 		if(multi_node_.is_idle("real_world")) return true;
 		if(multi_node_.is_master("real_world")) {
-			std::cout << "++                Current tile size: " << tile_size_ << " x " << tile_size_
-						<< std::endl;
+			std::cout << std::endl << "++                Current tile size: "
+						<< tile_size_ << " x " << tile_size_ << std::endl;
 		} // if
 
 		if(!initialize_simulation(scale_factor)) {
@@ -815,11 +829,18 @@ namespace hir {
 		//} // for
 		unsigned int ten_percent = floor(num_steps / 10);
 		unsigned int curr_percent = 10;
-		std::cout << "++ Performing simulation on " << num_tiles_ << " tiles ..." << std::endl;
+		std::cout << "++ Performing simulation on " << num_tiles_ << " tiles ... ";
+		#ifdef USE_MPI
+			std::cout << "[says process " << multi_node_.rank("real_world") << "]";
+			multi_node_.barrier("real_world");
+		#endif
+		std::cout << std::endl;
 		for(unsigned int step = 0; step < num_steps; ++ step) {
-			//std::cout << "." << std::flush;
 			if((step + 1) % ten_percent == 0) {
-				std::cout << "    " << curr_percent << "\% done at step " << step + 1 << std::endl;
+				#ifdef USE_MPI
+					if(multi_node_.is_master("real_world"))
+				#endif
+						std::cout << "    " << curr_percent << "\% done at step " << step + 1 << std::endl;
 				curr_percent += 10;
 			} // if
 			for(unsigned int i = 0; i < num_tiles_; ++ i) {
@@ -837,17 +858,34 @@ namespace hir {
 				} // if*/
 			} // for
 		} // for
-		std::cout << "++ Simulation done." << std::endl;
+
+		#ifdef USE_MPI
+			multi_node_.barrier("real_world");
+			if(multi_node_.is_master("real_world"))
+		#endif
+				std::cout << "++ Simulation done." << std::endl;
+
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			double chi2 = 0.0;
 			mat_real_t a(tile_size_, tile_size_);
 			tiles_[i].finalize_result(chi2, a);
-			std::cout << "++    Tile " << i << " final chi2-error value: " << chi2 << std::endl;
-			std::cout << "++      Tile " << i << " total accepted moves: "
+			std::cout << "++ ";
+			#ifdef USE_MPI
+				std::cout << "P" << multi_node_.rank("real_world");
+			#else
+				std::cout << "  ";
+			#endif
+			std::cout << " Tile " << i << " final chi2-error value: " << chi2 << std::endl;
+			std::cout << "++ ";
+			#ifdef USE_MPI
+				std::cout << "  P" << multi_node_.rank("real_world");
+			#else
+				std::cout << "    ";
+			#endif
+			std::cout << " Tile " << i << " total accepted moves: "
 						<< tiles_[i].accepted_moves()
 						<< " [" << (real_t) tiles_[i].accepted_moves() / num_steps * 100 << "%]"
 						<< std::endl;
-			tiles_[i].print_times();
 
 			#ifdef USE_GPU
 				// temp ... for bandwidth computation of dft2 ...
@@ -863,11 +901,14 @@ namespace hir {
 						<< " MB/s" << std::endl;
 			#endif
 
-			std::cout << "++ Saving model ... ";
+			//std::cout << "++ Saving model ... ";
 			tiles_[i].save_model();
 			tiles_[i].clear_chi2_list();
-			std::cout << "done." << std::endl << std::endl;
+			//std::cout << "done." << std::endl << std::endl;
 		} // for
+		//for(unsigned int i = 0; i < num_tiles_; ++ i) {
+		//	tiles_[i].print_times();
+		//} // for
 		destroy_simulation_tiles();
 
 		return true;
@@ -942,15 +983,12 @@ namespace hir {
 			} // if
 			num_steps = num_steps_fac * tile_size_;
 			simulate(num_steps, rate, curr_scale_fac);
-			#ifdef USE_MPI
-				multi_node_.barrier("real_world");
-			#endif
 		} // for
 		sim_timer.stop();
 		#ifdef USE_MPI
 			if(multi_node_.is_master("real_world"))
 		#endif
-				std::cout << "      Total simulation time: " << sim_timer.elapsed_msec()
+				std::cout << "**           Total simulation time: " << sim_timer.elapsed_msec()
 							<< " ms." << std::endl;
 		return true;
 	} // RMC::simulate_and_scale()
