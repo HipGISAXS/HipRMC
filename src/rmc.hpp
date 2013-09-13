@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 09 Sep 2013 05:34:48 PM PDT
+  *  Modified: Thu 12 Sep 2013 02:02:56 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -13,6 +13,9 @@
 
 #include <opencv2/opencv.hpp>
 
+#ifdef USE_MPI
+#include "multi_node_comm.hpp"
+#endif
 #include "typedefs.hpp"
 #include "tile.hpp"
 
@@ -31,12 +34,14 @@ namespace hir {
 			mat_uint_t mask_mat_;				// mask matrix of 1 and 0
 			mat_uint_t cropped_mask_mat_;		// current mask, crappoed to tile size
 
+			unsigned int global_num_tiles_;
 			unsigned int num_tiles_;	// total number of tiles
 			vec_tile_t tiles_;			// the tiles
 			mat_complex_t vandermonde_mat_;
 			real_t base_norm_;			// norm of input
 
 			#ifdef USE_MPI
+				MultiNode multi_node_;			// for communication across multiple nodes
 			#endif
 
 			// extracts raw data from image
@@ -62,8 +67,7 @@ namespace hir {
 			bool normalize_cropped_pattern();
 
 		public:
-			RMC(char*);
-			//RMC(int, char**, unsigned int, unsigned int, const char*, unsigned int, unsigned int, real_t*);
+			RMC(int, char**, char*);
 			~RMC();
 			bool simulate(int, unsigned int, unsigned int);
 			//bool simulate_and_scale(int, unsigned int, unsigned int);

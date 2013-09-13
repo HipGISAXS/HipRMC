@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 11 Sep 2013 05:23:21 PM PDT
+  *  Modified: Fri 13 Sep 2013 09:27:21 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -117,7 +117,7 @@ namespace hir {
 
 
 	// initialize with raw data - done only once
-	bool Tile::init(real_t loading, unsigned int max_move_dist) {
+	bool Tile::init(real_t loading, unsigned int max_move_dist, char* prefix) {
 	//bool Tile::init(real_t loading, real_t tstar, real_t cooling, unsigned int max_move_dist,
 	//				real_t base_norm, mat_real_t& pattern,
 	//				const mat_complex_t& vandermonde, mat_uint_t& mask) {
@@ -133,6 +133,8 @@ namespace hir {
 		unsigned int cols = a_mat_.num_cols(), rows = a_mat_.num_rows();
 		num_particles_ = ceil(loading * rows * cols);
 		// NOTE: the first num_particles_ entries in indices_ are filled, rest are empty
+
+		prefix_ = std::string(prefix);
 
 		// fill a_mat_ with particles
 		mytimer.start();
@@ -348,7 +350,7 @@ namespace hir {
 		// write current model at every "steps"
 		if(iter % 1000 == 0) {
 			update_model();
-			create_image("currmodel", iter / 1000, a_mat_, false);
+			create_image("model", iter / 1000, a_mat_, false);
 		} // if
 
 		return true;
@@ -356,10 +358,14 @@ namespace hir {
 
 
 	void Tile::create_image(std::string str, unsigned int iter, const mat_real_t &mat, bool swapped) {
-		std::stringstream num;
-		num << std::setfill('0') << std::setw(8) << iter;
-		char str0[9];
-		num >> str0;
+		std::stringstream num_iter;
+		num_iter << std::setfill('0') << std::setw(4) << iter;
+		char str0[5];
+		num_iter >> str0;
+		std::stringstream num_size;
+		num_size << std::setfill('0') << std::setw(4) << size_;
+		char str1[5];
+		num_size >> str1;
 		double min_val, max_val;
 		woo::matrix_min_max(mat, min_val, max_val);
 
@@ -391,9 +397,32 @@ namespace hir {
 		} // for i
 		wil::Image img(size_, size_, 30, 30, 30);
 		img.construct_image(data);
-		img.save(HipRMCInput::instance().label() + "/" + std::string(str0) + "_" + str + ".tif");
+		std::string filename = prefix_ + "_" + std::string(str1) + "_" + std::string(str0) + "_" + str + ".tif";
+		img.save(HipRMCInput::instance().label() + "/" + filename);
 		delete[] data;
 	} // Tile::create_image()
+
+
+	bool Tile::save_chi2_list() {
+		std::stringstream num_size;
+		num_size << std::setfill('0') << std::setw(4) << size_;
+		char str1[5];
+		num_size >> str1;
+		std::string filename = prefix_ + "_" + std::string(str1) + "_chi2_list.dat";
+		std::ofstream chi2out(HipRMCInput::instance().label() + "/" + filename, std::ios::out);
+		for(int i = 0; i < chi2_list_.size(); ++ i) {
+			chi2out << i << "\t" << std::setprecision(std::numeric_limits<double>::digits10 + 1)
+					<< chi2_list_[i] << std::endl;
+		} // for
+		chi2out.close();
+		return true;
+	} // Tile::save_chi2_list()
+
+
+	bool Tile::clear_chi2_list() {
+		chi2_list_.clear();
+		return true;
+	} // Tile::clear_chi2_list()
 
 
 	bool Tile::update_model() {

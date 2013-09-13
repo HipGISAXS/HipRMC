@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 11 Sep 2013 05:23:15 PM PDT
+  *  Modified: Fri 13 Sep 2013 09:32:57 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -91,6 +91,8 @@ namespace hir {
 			//std::mt19937_64 ms_rand_gen_;
 			woo::MTRandomNumberGenerator mt_rand_gen_;
 
+			std::string prefix_;								// used as prefix to image filenames
+
 			woo::BoostChronoTimer mytimer_;
 
 			// some temporary variables ...
@@ -143,6 +145,9 @@ namespace hir {
 			double vmove_time_, dft2_time_, mod_time_, norm_time_, chi2_time_;
 			double rest_time_;
 
+			void create_image(std::string, unsigned int, const mat_real_t&, bool);
+			bool save_chi2_list();
+
 		public:
 			Tile(unsigned int, unsigned int, const std::vector<unsigned int>&, unsigned int);
 			Tile(const Tile&);
@@ -150,7 +155,7 @@ namespace hir {
 
 			// initialize with raw data
 			//bool init(real_t, real_t, real_t, unsigned int, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
-			bool init(real_t, unsigned int);
+			bool init(real_t, unsigned int, char*);
 			bool init_scale(real_t, mat_real_t&, mat_complex_t&, mat_uint_t&, int);
 			bool destroy_scale();
 			// simulation functions
@@ -167,105 +172,19 @@ namespace hir {
 			bool print_times();
 			bool finalize_result(double&, mat_real_t&);
 
-			void create_image(std::string, unsigned int, const mat_real_t&, bool);
 			bool scale_step();
 			bool print_a_mat();
 			unsigned int accepted_moves() const { return accepted_moves_; }
 
 			bool normalize_mod(unsigned int);
 
-			bool save_mat_image(unsigned int i) {
-				create_image("modfft", i, mod_f_mat_[mod_f_mat_i_], true);
-				/*unsigned int nrows = mod_f_mat_[mod_f_mat_i_].num_rows();
-				unsigned int ncols = mod_f_mat_[mod_f_mat_i_].num_cols();
-				wil::Image img(nrows, ncols, 30, 30, 30);
-				real_t* data = new (std::nothrow) real_t[nrows * ncols];
-				for(int i = 0; i < nrows; ++ i) {
-					for(int j = 0; j < ncols; ++ j) {
-						int i_swap = (i + (nrows >> 1)) % nrows;
-						int j_swap = (j + (ncols >> 1)) % ncols;
-						real_t temp = mod_f_mat_[mod_f_mat_i_](i_swap, j_swap);
-						data[i * ncols + j] = temp;
-					} // for
-				} // for
-				img.construct_image(data);
-				std::string str("_modfft.tif");
-				std::stringstream num;
-				num << std::setfill('0') << std::setw(6) << i;
-				char str0[7];
-				num >> str0;
-				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
-				img.save(str);
-				delete[] data;*/
+			bool clear_chi2_list();
+			bool save_model() {
+				create_image("fft", 0, mod_f_mat_[mod_f_mat_i_], true);
+				create_image("final_model", 0, a_mat_, false);
+				save_chi2_list();
 				return true;
-			} // save_mat_image()
-
-			bool save_fmat_image(unsigned int i) {
-				//create_image("fft", i, f_mat_[f_mat_i_], true);
-				/*unsigned int nrows = f_mat_[f_mat_i_].num_rows(), ncols = f_mat_[f_mat_i_].num_cols();
-				wil::Image img(nrows, ncols, 30, 30, 30);
-				real_t* data = new (std::nothrow) real_t[nrows * ncols];
-				for(int i = 0; i < nrows; ++ i) {
-					for(int j = 0; j < ncols; ++ j) {
-						int i_swap = (i + (nrows >> 1)) % nrows;
-						int j_swap = (j + (ncols >> 1)) % ncols;
-						real_t temp = f_mat_[f_mat_i_](i_swap, j_swap).real();
-						data[i * ncols + j] = temp * temp;
-					} // for
-				} // for
-				img.construct_image(data);
-				std::string str("_fft.tif");
-				std::stringstream num;
-				num << std::setfill('0') << std::setw(6) << i;
-				char str0[7];
-				num >> str0;
-				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
-				img.save(str);
-				delete[] data;*/
-				return true;
-			} // save_fmat_image()
-
-/*			bool save_mat_image_direct(unsigned int i, unsigned int iter) {
-				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols(), 30, 30, 30);
-				img.construct_image_direct(a_mat_.data());
-				std::string str("_model.tif");
-				std::stringstream num;
-				num << std::setfill('0') << std::setw(6) << i << "_" << iter;
-				char str0[15];
-				num >> str0;
-				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
-				img.save(str);
-			} // save_mat_image_direct()
-*/
-			bool save_mat_image_direct(unsigned int i) {
-				create_image("model", i, a_mat_, false);
-/*				wil::Image img(a_mat_.num_rows(), a_mat_.num_cols(), 30, 30, 30);
-				img.construct_image_direct(a_mat_.data());
-				std::string str("_model.tif");
-				std::stringstream num;
-				num << std::setfill('0') << std::setw(6) << i;
-				char str0[7];
-				num >> str0;
-				str = HipRMCInput::instance().label() + "/" + std::string(str0) + str;
-				img.save(str);*/
-				return true;
-			} // save_mat_image_direct()
-
-			bool save_chi2_list(unsigned int i) {
-				std::stringstream num;
-				num << std::setfill('0') << std::setw(6) << i;
-				char str0[7];
-				num >> str0;
-				std::string str("_chi2_list.dat");
-				std::ofstream chi2out(HipRMCInput::instance().label() + "/" + std::string(str0) + str,
-										std::ios::out | std::ios::app);
-				for(unsigned int i = 0; i < chi2_list_.size(); ++ i) {
-					chi2out << i << "\t" << std::setprecision(std::numeric_limits<double>::digits10 + 1)
-							<< chi2_list_[i] << std::endl;
-				} // for
-				chi2out.close();
-				return true;
-			} // save_chi2_list()
+			} // save_model()
 
 			// accessors
 			real_t loading() const { return loading_factor_; }
