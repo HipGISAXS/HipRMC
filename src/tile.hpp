@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 13 Sep 2013 09:32:57 AM PDT
+  *  Modified: Sat 05 Oct 2013 07:49:04 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -50,20 +50,20 @@ namespace hir {
 			std::vector<mat_real_t> mod_f_mat_;		// auto_F buffers
 
 			// used in both cpu and gpu versions
-			std::vector<unsigned int> indices_;					// NOTE: the first num_particles_ entries
-																// in indices_ are 'filled', rest are 'empty'
-			unsigned int f_mat_i_;								// current f buffer index
-			unsigned int mod_f_mat_i_;							// current mod_f buffer index
-			real_t loading_factor_;								// loading factor
-			real_t tstar_;										// temperature factor
-			real_t cooling_factor_;								// cooling with iteration number
-			bool tstar_set_;									// whether tstar was set previously
-			unsigned int num_particles_;						// number of particles (duh!)
-			unsigned int max_move_distance_;					// limit on particle movement
-			//double model_norm_;									// norm of current model
-			//double c_factor_;									// c factor
+			std::vector<unsigned int> indices_;				// NOTE: the first num_particles_ entries
+															// in indices_ are 'filled', rest are 'empty'
+			unsigned int f_mat_i_;							// current f buffer index
+			unsigned int mod_f_mat_i_;						// current mod_f buffer index
+			real_t loading_factor_;							// loading factor
+			real_t tstar_;									// temperature factor
+			real_t cooling_factor_;							// cooling with iteration number
+			bool tstar_set_;								// whether tstar was set previously
+			unsigned int num_particles_;					// number of particles (duh!)
+			unsigned int max_move_distance_;				// limit on particle movement
+			//double model_norm_;							// norm of current model
+			//double c_factor_;								// c factor
 
-			TileAutotuner autotuner_;							// autotuner
+			TileAutotuner autotuner_;						// autotuner
 
 			#ifdef USE_GPU
 				cucomplex_t* cucomplex_buff_;
@@ -154,7 +154,6 @@ namespace hir {
 			~Tile();
 
 			// initialize with raw data
-			//bool init(real_t, real_t, real_t, unsigned int, real_t, mat_real_t&, const mat_complex_t&, mat_uint_t&);
 			bool init(real_t, unsigned int, char*);
 			bool init_scale(real_t, mat_real_t&, mat_complex_t&, mat_uint_t&, int);
 			bool destroy_scale();

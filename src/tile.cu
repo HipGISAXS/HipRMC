@@ -3,13 +3,13 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Mon 09 Sep 2013 12:49:31 PM PDT
+  *  Modified: Sat 05 Oct 2013 08:19:27 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
 #include <iostream>
-#include <thrust/reduce.h>
+//#include <thrust/reduce.h>
 
 #include <woo/reduce/reduce.cuh>
 

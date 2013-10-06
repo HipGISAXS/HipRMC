@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 13 Sep 2013 10:34:04 AM PDT
+  *  Modified: Sat 05 Oct 2013 02:50:57 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -54,12 +54,14 @@ namespace hir {
 		f_mat_.push_back(mat_complex_t(size_, size_));
 		f_mat_.push_back(mat_complex_t(size_, size_));
 		mytimer.stop();
-		//std::cout << "**   FFT matrix initialization time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		//std::cout << "**   FFT matrix initialization time: " << mytimer.elapsed_msec() << " ms."
+		//			<< std::endl;
 		mytimer.start();
 		mod_f_mat_.push_back(mat_real_t(size_, size_));
 		mod_f_mat_.push_back(mat_real_t(size_, size_));
 		mytimer.stop();
-		//std::cout << "**      FFT mod initialization time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		//std::cout << "**      FFT mod initialization time: " << mytimer.elapsed_msec() << " ms."
+		//			<< std::endl;
 		#ifdef USE_GPU
 			// device memory allocation takes all the time
 			mytimer.start();
