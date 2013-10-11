@@ -3,7 +3,7 @@
  *
  *  File: tile_autotuner.cpp
  *  Created: Sep 05, 2013
- *  Modified: Wed 09 Oct 2013 02:51:48 PM PDT
+ *  Modified: Fri 11 Oct 2013 04:55:05 PM PDT
  *
  *  Author: Abhinav Sarje <asarje@lbl.gov>
  */
@@ -55,7 +55,8 @@ namespace hir {
 	} // TileAutotuner::~TileAutotuner()
 
 
-	bool TileAutotuner::init(const vec_uint_t &indices, unsigned int num_particles, real_t tstar) {
+	bool TileAutotuner::init(const vec_uint_t &indices, unsigned int num_particles, real_t tstar,
+							woo::MultiNode& multi_node) {
 		tstar_ = tstar;
 		cooling_factor_ = 0.0;
 		indices_ = indices;
@@ -85,7 +86,8 @@ namespace hir {
 	// autotune the temperature (tstar)
 	bool Tile::autotune_temperature(const mat_real_t& pattern, mat_complex_t& vandermonde,
 									const mat_uint_t& mask,
-									real_t base_norm, int num_steps) {
+									real_t base_norm, int num_steps,
+									woo::MultiNode& multi_node) {
 		//std::cout << "++ Autotuning temperature ..." << std::endl;
 		std::map <const real_t, real_t> acceptance_map;
 		real_t tmin = 0.0, tstep = 0.01, tmax = 2.0, tstar = tmin;
@@ -93,12 +95,12 @@ namespace hir {
 		if(tstar_set_) tmax = tstar_;
 		for(int i = 0; tstar < tmax + tstep; ++ i, tstar += tstep) {
 			// simulate few steps with current tstar and obtain the acceptance rate
-			if(!init_autotune(pattern, mask, tstar, base_norm)) {
+			if(!init_autotune(pattern, mask, tstar, base_norm, multi_node)) {
 				std::cout << "error: failed to initialize autotuner" << std::endl;
 				return false;
 			} // if
 			for(int iter = 0; iter < tstar_tune_steps; ++ iter) {
-				simulate_autotune_step(pattern, vandermonde, mask, base_norm, iter);
+				simulate_autotune_step(pattern, vandermonde, mask, base_norm, iter, multi_node);
 			} // for
 			acceptance_map[tstar] = ((real_t) autotuner_.accepted_moves_) / tstar_tune_steps;
 			//std::cout << "@@\t" << tstar << "\t" << acceptance_map[tstar] << std::endl;
@@ -158,13 +160,13 @@ namespace hir {
 
 	// to be executed at beginning of each autotune
 	bool Tile::init_autotune(const mat_real_t& pattern, const mat_uint_t& mask,
-								real_t tstar, real_t base_norm) {
+								real_t tstar, real_t base_norm, woo::MultiNode& multi_node) {
 		// initialize the autotuner
-		autotuner_.init(indices_, num_particles_, tstar);
+		autotuner_.init(indices_, num_particles_, tstar, multi_node);
 		compute_fft(autotuner_.a_mat_, autotuner_.f_mat_);
 		compute_mod(autotuner_.f_mat_, autotuner_.mod_f_mat_);
 		// compute the initial chi2
-		autotuner_.prev_chi2_ = compute_chi2(pattern, autotuner_.mod_f_mat_, mask, base_norm);
+		autotuner_.prev_chi2_ = compute_chi2(pattern, autotuner_.mod_f_mat_, mask, base_norm, multi_node);
 
 		return true;
 	} // Tile::init_autotune()
@@ -174,18 +176,19 @@ namespace hir {
 										mat_complex_t& vandermonde,
 										const mat_uint_t& mask,
 										real_t base_norm,
-										unsigned int iter) {
+										unsigned int iter,
+										woo::MultiNode& multi_node) {
 		unsigned int old_x = 0, old_y = 0, new_x = 0, new_y = 0;
 		unsigned int old_pos = 0, new_pos = 0, old_index = 0, new_index = 0;
 		autotune_move_random_particle_restricted(max_move_distance_,
 													old_pos, new_pos,
 													old_index, new_index,
 													old_x, new_x, old_y, new_y);
-		compute_dft2(vandermonde, old_x, old_y, new_x, new_y, autotuner_.dft_mat_);
+		compute_dft2(vandermonde, old_x, old_y, new_x, new_y, autotuner_.dft_mat_, multi_node);
 		//update_fft(autotuner_.f_mat_, autotuner_.dft_mat_);
 		update_fft_mat(autotuner_.dft_mat_, autotuner_.f_mat_, autotuner_.f_mat_);
 		compute_mod(autotuner_.f_mat_, autotuner_.mod_f_mat_);
-		double new_chi2 = compute_chi2(pattern, autotuner_.mod_f_mat_, mask, base_norm);
+		double new_chi2 = compute_chi2(pattern, autotuner_.mod_f_mat_, mask, base_norm, multi_node);
 		double diff_chi2 = autotuner_.prev_chi2_ - new_chi2;
 		bool accept = false;
 		if(diff_chi2 > 0.0) accept = true;

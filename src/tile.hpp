@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 09 Oct 2013 01:50:28 PM PDT
+  *  Modified: Fri 11 Oct 2013 04:53:29 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -26,7 +26,9 @@
 #include <woo/random/woo_mtrandom.hpp>
 
 #include "wil/image.hpp"
+#include "woo/comm/multi_node_comm.hpp"
 
+#include "constants.hpp"
 #include "typedefs.hpp"
 #ifdef USE_GPU
 #include "tile.cuh"
@@ -41,11 +43,16 @@ namespace hir {
 
 		private:
 			// following define a tile
-			//unsigned int size_;						// num rows = num cols = size
-			unsigned int rows_;
-			unsigned int cols_;
+			unsigned int size_;						// current global tile size
+			unsigned int rows_;						// number of local rows
+			unsigned int cols_;						// number of local cols
 			unsigned int final_size_;				// target model size (when using scaling)
 			mat_real_t a_mat_;						// the current model
+
+			unsigned int min_row_index_;			// global index of first local row
+			unsigned int max_row_index_;			// global index of last local row
+													// == min_row_index_ + a_mat_.num_rows() - 1
+			unsigned int row_offsets_[MAX_NUM_PROCS];
 
 			// buffers used only for cpu version
 			std::vector<mat_complex_t> f_mat_;		// F buffers
@@ -101,19 +108,19 @@ namespace hir {
 
 
 			// functions
-			bool compute_fft_mat();
-			bool compute_fft_mat(unsigned int);
+			bool compute_fft_mat(woo::MultiNode&);
+			bool compute_fft_mat(unsigned int, woo::MultiNode&);
 			#ifndef USE_GPU // use cpu
 				bool execute_fftw(fftw_complex*, fftw_complex*);
 			#endif
-			bool compute_mod_mat(unsigned int);
+			bool compute_mod_mat(unsigned int, woo::MultiNode&);
 			//bool normalize_mod_mat(unsigned int);
 			//bool compute_model_norm(unsigned int, const mat_uint_t&);
 			//double compute_chi2(const mat_real_t&, unsigned int, real_t);
 			//real_t compute_chi2(const mat_real_t&, unsigned int, const mat_uint_t&, real_t);
 			bool virtual_move_random_particle();
-			bool virtual_move_random_particle_restricted(unsigned int);
-			bool move_particle(real_t);
+			bool virtual_move_random_particle_restricted(unsigned int, woo::MultiNode&);
+			bool move_particle(real_t, woo::MultiNode&);
 			#ifdef USE_DFT
 				//bool compute_dft2(mat_complex_t&, unsigned int, unsigned int);
 				bool update_fft_mat(const mat_complex_t&, const mat_complex_t&, mat_complex_t&);
@@ -123,10 +130,11 @@ namespace hir {
 			bool update_indices();
 
 			// for autotuner (tstar)
-			bool autotune_temperature(const mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, int);
-			bool init_autotune(const mat_real_t&, const mat_uint_t&, real_t, real_t);
+			bool autotune_temperature(const mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, int,
+										woo::MultiNode&);
+			bool init_autotune(const mat_real_t&, const mat_uint_t&, real_t, real_t, woo::MultiNode&);
 			bool simulate_autotune_step(const mat_real_t&, mat_complex_t&, const mat_uint_t&,
-										real_t, unsigned int);
+										real_t, unsigned int, woo::MultiNode&);
 			bool autotune_move_random_particle_restricted(unsigned int, unsigned int&, unsigned int&,
 					unsigned int&, unsigned int&, unsigned int&, unsigned int&, unsigned int&, unsigned int&);
 			bool compute_fft(const mat_real_t&, mat_complex_t&);
@@ -134,10 +142,11 @@ namespace hir {
 			bool normalize(mat_real_t&);
 			#ifdef USE_DFT
 				bool compute_dft2(mat_complex_t&, unsigned int, unsigned int, unsigned int, unsigned int,
-									mat_complex_t&);
+									mat_complex_t&, woo::MultiNode&);
 				//bool update_fft(mat_complex_t&, mat_complex_t&);
 			#endif
-			real_t compute_chi2(const mat_real_t&, const mat_real_t&, const mat_uint_t&, real_t);
+			real_t compute_chi2(const mat_real_t&, const mat_real_t&, const mat_uint_t&, real_t,
+								woo::MultiNode&);
 
 			// to record timings
 			double vmove_time_, dft2_time_, mod_time_, norm_time_, chi2_time_;
@@ -152,12 +161,13 @@ namespace hir {
 			~Tile();
 
 			// initialize with raw data
-			bool init(real_t, unsigned int, char*);
-			bool init_scale(real_t, mat_real_t&, mat_complex_t&, mat_uint_t&, int);
+			bool init(real_t, unsigned int, char*, int, woo::MultiNode&);
+			bool init_scale(real_t, mat_real_t&, mat_complex_t&, mat_uint_t&, int, woo::MultiNode&);
 			bool destroy_scale();
 			// simulation functions
-			bool simulate_step(const mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, unsigned int);
-			bool update_model();
+			bool simulate_step(const mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, unsigned int,
+								woo::MultiNode&);
+			bool update_model(woo::MultiNode&);
 			#ifndef USE_DFT
 				bool update_virtual_model();
 			#endif
@@ -167,7 +177,7 @@ namespace hir {
 			#endif
 			bool update_from_model();
 			bool print_times();
-			bool finalize_result(double&, mat_real_t&);
+			bool finalize_result(double&, mat_real_t&, woo::MultiNode&);
 
 			bool scale_step();
 			bool print_a_mat();

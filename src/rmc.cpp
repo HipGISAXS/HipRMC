@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 09 Oct 2013 01:45:00 PM PDT
+  *  Modified: Fri 11 Oct 2013 04:57:32 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -125,7 +125,7 @@ namespace hir {
 			//num_tiles_ = 1 - idle;
 
 			// tile number this processor is responsible for (round robin distribution)
-			int tile_num = multi_node().rank("world") % global_num_tiles_;
+			int tile_num = multi_node_.rank("world") % global_num_tiles_;
 			// create new communicator
 			multi_node_.split("real_world", "world", tile_num);
 			num_tiles_ = 1;
@@ -328,6 +328,8 @@ namespace hir {
 		int real_world_rank = multi_node_.rank("real_world");
 		local_rows_ = rows_;
 		local_cols_ = floor(cols_ / real_world_size) + (real_world_rank < cols_ % real_world_size);
+		real_t *local_img_data = NULL;
+		unsigned int *local_mask_data = NULL;
 		// the masters will scatter the matrices among others in the real world
 		// calculate sizes to send to all
 		if(real_world_size > 1) {
@@ -446,7 +448,7 @@ namespace hir {
 			char prefix[10];
 			temp >> prefix;
 			int num_particles = loading[i] * tile_size_ * tile_size_;
-			tiles_[i].init(loading[i], max_dist, prefix, num_particles);
+			tiles_[i].init(loading[i], max_dist, prefix, num_particles, multi_node_);
 		} // for
 		return true;
 	} // RMC::initialize_tiles()
@@ -471,7 +473,7 @@ namespace hir {
 	bool RMC::initialize_simulation_tiles(int num_steps) {
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			tiles_[i].init_scale(base_norm_, cropped_pattern_, vandermonde_mat_,
-									cropped_mask_mat_, num_steps);
+									cropped_mask_mat_, num_steps, multi_node_);
 		} // for
 		return true;
 	} // RMC::initialize_simulation_tiles()
@@ -529,10 +531,20 @@ namespace hir {
 	bool RMC::initialize_particles_random(vec_uint_t &indices) {
 		indices.clear();
 		// create array of random indices
-		unsigned int start = matrix_offset_ - local_tile_size_ * local_tile_size_;
-		for(unsigned int i = start; i < local_tile_size_ * local_tile_size_; ++ i) indices.push_back(i);
+		unsigned int start = 0; //matrix_offset_ - local_tile_size_ * local_tile_size_;
+		for(unsigned int i = start; i < tile_size_ * tile_size_; ++ i) indices.push_back(i);
 		#ifdef USE_MPI
-			multi_node_.random_shuffle("real_world", indices);
+			//multi_node_.random_shuffle("real_world", indices);
+			// currently all procs will have the whole indices array
+			if(multi_node_.is_master("real_world")) {
+				std::random_device rd;
+				std::mt19937_64 gen(rd());
+				std::shuffle(indices.begin(), indices.end(), gen);
+			} // if
+			unsigned int *recv_buff = new (std::nothrow) unsigned int[indices.size()];
+			multi_node_.broadcast("real_world", &indices[0], indices.size());
+			//for(int i = 0; i < indices.size(); ++ i) indices[i] = recv_buff[i];
+			delete[] recv_buff;
 		#else
 			// using mersenne-twister
 			// TODO: use woo library instead ... 
@@ -585,11 +597,10 @@ namespace hir {
 				int pnum = multi_node_.size("real_world");
 				int prank = multi_node_.rank("real_world");
 				// find the processor rank which contains the start row (total_skip_rows)
-				int proc_row_offsets[pnum];
+				unsigned int proc_row_offsets[pnum];
 				multi_node_.allgather("real_world", &tile_offset_rows_, 1, proc_row_offsets, 1);
 				int p1 = 0; while(total_skip_rows >= proc_row_offsets[p1]) ++ p1;
 				-- p1;	// one above
-				for(int i = 0; i < p1; ++ i) recv_rows[i] = 0;	// nothing to receive from these
 				// find proc rank which contains the end row (total_skip_rows + tile_size)
 				int p2 = 0; while(total_skip_rows + tile_size_ >= proc_row_offsets[p2]) ++ p2;
 				-- p2;	// one above
@@ -607,9 +618,9 @@ namespace hir {
 				int insert_rows = local_tile_rows_ - cropped_pattern_.num_rows();
 				int insert_cols = local_tile_cols_ - cropped_pattern_.num_cols();
 				cropped_pattern_.incr_rows(insert_rows);
-				cropped_pattern_.incr_cols(insert_cols);
+				cropped_pattern_.incr_columns(insert_cols);
 				cropped_mask_mat_.incr_rows(insert_rows);
-				cropped_mask_mat_.incr_cols(insert_cols);
+				cropped_mask_mat_.incr_columns(insert_cols);
 				if(cropped_pattern_.num_rows() != cropped_mask_mat_.num_rows() ||
 						cropped_pattern_.num_cols() != cropped_mask_mat_.num_cols()) {
 					std::cerr << "error: mismatch in sizes of cropped pattern and mask" << std::endl;
@@ -916,8 +927,8 @@ namespace hir {
 			for(unsigned int i = 0; i < num_tiles_; ++ i) {
 				//tiles_[i].simulate_step(scaled_pattern_, vandermonde_mat_, mask_mat_, base_norm_);
 				tiles_[i].simulate_step(cropped_pattern_, vandermonde_mat_, cropped_mask_mat_,
-										base_norm_, step);
-				if((step + 1) % rate == 0) tiles_[i].update_model();
+										base_norm_, step, multi_node_);
+				if((step + 1) % rate == 0) tiles_[i].update_model(multi_node_);
 				/*if(step % 100 == 0) {
 					tiles_[i].update_model();
 					#ifdef USE_GPU
@@ -938,7 +949,7 @@ namespace hir {
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			double chi2 = 0.0;
 			mat_real_t a(tile_size_, tile_size_);
-			tiles_[i].finalize_result(chi2, a);
+			tiles_[i].finalize_result(chi2, a, multi_node_);
 			std::cout << "++ ";
 			#ifdef USE_MPI
 				std::cout << "P" << multi_node_.rank("world");
@@ -1038,7 +1049,7 @@ namespace hir {
 			if(tile_size_ < size_) {
 				// loop over the local tiles
 				for(unsigned int i = 0; i < num_tiles_; ++ i) {
-					tiles_[i].update_model();
+					tiles_[i].update_model(multi_node_);
 					if(tile_size_ + scale_factor > size_) {
 						curr_scale_fac = size_ - tile_size_;
 					} // if
@@ -1071,7 +1082,7 @@ namespace hir {
 		unsigned int num_steps = final_size - size_;
 		for(unsigned int i = 0; i < num_steps; ++ i) {
 			// make sure all indices info is in a_mat_
-			tiles_[0].update_model();
+			tiles_[0].update_model(multi_node_);
 			tiles_[0].scale_step();
 			//tiles_[0].save_mat_image_direct(i);
 			// update indices_ and other stuff using the new model

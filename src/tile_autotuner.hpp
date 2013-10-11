@@ -3,13 +3,15 @@
  *
  *  File: tile_autotuner.hpp
  *  Created: Sep 05, 2013
- *  Modified: Sun 08 Sep 2013 10:03:05 AM PDT
+ *  Modified: Fri 11 Oct 2013 04:51:18 PM PDT
  *
  *  Author: Abhinav Sarje <asarje@lbl.gov>
  */
 
 #ifndef __TILE_AUTOTUNER_HPP__
 #define __TILE_AUTOTUNER_HPP__
+
+#include "woo/comm/multi_node_comm.hpp"
 
 #include "typedefs.hpp"
 
@@ -33,7 +35,7 @@ namespace hir {
 
 			unsigned int accepted_moves_;		// number of accepted moves
 
-			bool init(const vec_uint_t&, unsigned int, real_t);
+			bool init(const vec_uint_t&, unsigned int, real_t, woo::MultiNode&);
 			bool update_a_mat();
 			bool scale_step();
 
