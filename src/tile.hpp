@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 05 Oct 2013 07:49:04 PM PDT
+  *  Modified: Wed 09 Oct 2013 01:50:28 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -41,7 +41,9 @@ namespace hir {
 
 		private:
 			// following define a tile
-			unsigned int size_;						// num rows = num cols = size
+			//unsigned int size_;						// num rows = num cols = size
+			unsigned int rows_;
+			unsigned int cols_;
 			unsigned int final_size_;				// target model size (when using scaling)
 			mat_real_t a_mat_;						// the current model
 
@@ -60,8 +62,6 @@ namespace hir {
 			bool tstar_set_;								// whether tstar was set previously
 			unsigned int num_particles_;					// number of particles (duh!)
 			unsigned int max_move_distance_;				// limit on particle movement
-			//double model_norm_;							// norm of current model
-			//double c_factor_;								// c factor
 
 			TileAutotuner autotuner_;						// autotuner
 
@@ -88,9 +88,7 @@ namespace hir {
 			unsigned int new_index_;
 
 			// for random number generation
-			//std::mt19937_64 ms_rand_gen_;
 			woo::MTRandomNumberGenerator mt_rand_gen_;
-
 			std::string prefix_;								// used as prefix to image filenames
 
 			woo::BoostChronoTimer mytimer_;

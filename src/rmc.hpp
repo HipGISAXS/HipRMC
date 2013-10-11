@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 06 Oct 2013 10:48:52 AM PDT
+  *  Modified: Wed 09 Oct 2013 02:51:51 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -43,6 +43,9 @@ namespace hir {
 			unsigned int tile_size_;			// current tile size
 			unsigned int local_tile_rows_;		// current local tile num rows
 			unsigned int local_tile_cols_;		// current local tile num cols
+			unsigned int tile_offset_;			// offset into a current tile (num of elements)
+			unsigned int tile_offset_rows_;		// rows offset into a current tile (num of rows)
+			unsigned int tile_offset_cols_;		// cols offset into a current tile (num of cols)
 
 			unsigned int global_num_tiles_;		// total number of tiles globally
 			unsigned int num_tiles_;			// total number of lcoal tiles

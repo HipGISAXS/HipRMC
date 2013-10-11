@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 05 Oct 2013 02:50:57 PM PDT
+  *  Modified: Wed 09 Oct 2013 02:51:46 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -119,12 +119,8 @@ namespace hir {
 
 
 	// initialize with raw data - done only once
-	bool Tile::init(real_t loading, unsigned int max_move_dist, char* prefix) {
-	//bool Tile::init(real_t loading, real_t tstar, real_t cooling, unsigned int max_move_dist,
-	//				real_t base_norm, mat_real_t& pattern,
-	//				const mat_complex_t& vandermonde, mat_uint_t& mask) {
-		// pattern, vandermonde and mask not used ...
-
+	bool Tile::init(real_t loading, unsigned int max_move_dist, char* prefix, int num_particles,
+			MultiNode& multi_node) {
 		woo::BoostChronoTimer mytimer;
 
 		loading_factor_ = loading;
@@ -132,33 +128,21 @@ namespace hir {
 		//cooling_factor_ = cooling;
 		tstar_set_ = false;
 		max_move_distance_ = max_move_dist;
-		unsigned int cols = a_mat_.num_cols(), rows = a_mat_.num_rows();
-		num_particles_ = ceil(loading * rows * cols);
+		num_particles_ = num_particles;
 		// NOTE: the first num_particles_ entries in indices_ are filled, rest are empty
-
 		prefix_ = std::string(prefix);
 
 		// fill a_mat_ with particles
 		mytimer.start();
-		update_model();
+		update_model(multi_node);
 		mytimer.stop();
-		//std::cout << "**  Initial model construction time: " << mytimer.elapsed_msec() << " ms." << std::endl;
+		//std::cout << "**  Initial model construction time: " << mytimer.elapsed_msec() << " ms."
+		//			<< std::endl;
 		//std::cout << "++              Number of particles: " << num_particles_ << std::endl;
-		//print_matrix("a_mat", a_mat_.data(), rows, cols);
 		#ifdef USE_GPU
 			unsigned int block_x = CUDA_BLOCK_SIZE_X_;
 			unsigned int block_y = CUDA_BLOCK_SIZE_Y_;
-			//for(unsigned int i = 0; i < size_; ++ i) {
-			//	for(unsigned int j = 0; j < size_; ++ j) {
-			//		complex_t temp = vandermonde(i, j);
-			//		cucomplex_buff_[size_ * i + j].x = temp.real();
-			//		cucomplex_buff_[size_ * i + j].y = temp.imag();
-			//	} // for
-			//} // for
-			//gtile_.init(pattern.data(), cucomplex_buff_, a_mat_.data(), mask.data(), final_size_, size_,
-			//			block_x, block_y);
 			gtile_.init(a_mat_.data(), final_size_, size_, block_x, block_y);
-			//print_cucmatrix("vandermonde", cucomplex_buff_, size_, size_);
 		#endif // USE_GPU
 
 		return true;
@@ -167,9 +151,11 @@ namespace hir {
 
 	// to be executed at simulation beginning after a scaling
 	bool Tile::init_scale(real_t base_norm, mat_real_t& pattern, mat_complex_t& vandermonde,
-							mat_uint_t& mask, int num_steps) {
-		if(pattern.num_rows() != size_ || vandermonde.num_rows() != size_ || mask.num_rows() != size_) {
-			std::cerr << "error: some matrix size is not what it should be! check your BUGGY code!"
+							mat_uint_t& mask, int num_steps, MultiNode& multi_node) {
+		if(pattern.num_rows() != rows_ || vandermonde.num_rows() != rows_ ||
+				mask.num_rows() != rows_ || pattern.num_cols() != cols_ ||\
+				vandermonde.num_cols() != cols_ || mask.num_cols() != cols_) {
+			std::cerr << "error: some matrix size is not what it should be!"
 						<< std::endl;
 			return false;
 		} // if
@@ -198,22 +184,25 @@ namespace hir {
 		#endif // USE_GPU
 
 		// autotune temperature (tstar)
-		mytimer.start();
-		if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps)) {
-			std::cerr << "error: failed to autotune temperature" << std::endl;
-			return false;
+		if(multi_node.is_master("real_world")) {
+			mytimer.start();
+			if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps)) {
+				std::cerr << "error: failed to autotune temperature" << std::endl;
+				return false;
+			} // if
+			mytimer.stop();
+			//std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
+			//			<< " ms." << std::endl;
 		} // if
-		mytimer.stop();
-		//std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
-		//			<< " ms." << std::endl;
+		// send to all
+		multi_node.broadcast("real_world", &tstar_, 1, &tstar_, 1);
+		multi_node.broadcast("real_world", &cooling_, 1, &cooling_, 1);
+		tstar_set_ = true;
 
-		compute_fft_mat();
-		compute_mod_mat(f_mat_i_);
-		#ifndef USE_GPU
-			//mask_mat(mask, 1 - mod_f_mat_i_);
-		#endif // USE_GPU
+		compute_fft_mat(multi_node);
+		compute_mod_mat(f_mat_i_, multi_node);
 		copy_mod_mat(1 - mod_f_mat_i_);
-		prev_chi2_ = compute_chi2(pattern, mod_f_mat_[1 - mod_f_mat_i_], mask, base_norm);
+		prev_chi2_ = compute_chi2(pattern, mod_f_mat_[1 - mod_f_mat_i_], mask, base_norm, multi_node);
 		//std::cout << "++         Initial chi2-error value: " << prev_chi2_ << std::endl;
 
 		accepted_moves_ = 0;
@@ -248,32 +237,30 @@ namespace hir {
 	bool Tile::simulate_step(const mat_real_t& pattern,
 							mat_complex_t& vandermonde,
 							const mat_uint_t& mask,
-							real_t base_norm, unsigned int iter) {
-		//create_image("pattern", iter, pattern, false);
-		//std::cout << "++ simulate_step" << std::endl;
+							real_t base_norm, unsigned int iter,
+							MultiNode& multi_node) {
 		// do all computations in scratch buffers
 		unsigned int f_scratch_i = 1 - f_mat_i_;
 		unsigned int mod_f_scratch_i = 1 - mod_f_mat_i_;
 
 		mytimer_.start();
 		//virtual_move_random_particle();
-		virtual_move_random_particle_restricted(max_move_distance_);
+		virtual_move_random_particle_restricted(max_move_distance_, multi_node);
 		mytimer_.stop(); vmove_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
 		#ifdef USE_DFT
-			//compute_dft2(vandermonde, f_mat_i_, f_scratch_i);
 			unsigned int old_row = old_index_ / size_;
 			unsigned int old_col = old_index_ % size_;
 			unsigned int new_row = new_index_ / size_;
 			unsigned int new_col = new_index_ % size_;
-			compute_dft2(vandermonde, old_row, old_col, new_row, new_col, dft_mat_);
+			compute_dft2(vandermonde, old_row, old_col, new_row, new_col, dft_mat_, multi_node);
 			#ifndef USE_GPU
 				update_fft_mat(dft_mat_, f_mat_[f_mat_i_], f_mat_[f_scratch_i]);
 			#endif // USE_GPU
 		#else	// use FFT at all steps
-			update_virtual_model();
-			compute_fft_mat(f_scratch_i);
+			update_virtual_model(multi_node);
+			compute_fft_mat(f_scratch_i, multi_node);
 		#endif
 		mytimer_.stop(); dft2_time_ += mytimer_.elapsed_msec();
 
@@ -287,42 +274,30 @@ namespace hir {
 		mytimer_.stop(); norm_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
-		//double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, mask, new_c_factor, base_norm);
-		//double new_chi2 = compute_chi2(pattern, mod_f_scratch_i, mask, base_norm);
-		double new_chi2 = compute_chi2(pattern, mod_f_mat_[mod_f_scratch_i], mask, base_norm);
+		double new_chi2 = compute_chi2(pattern, mod_f_mat_[mod_f_scratch_i], mask, base_norm,
+										multi_node);
+		chi2_list_.push_back(new_chi2);		// save this chi2 value
 		mytimer_.stop(); chi2_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
 		double diff_chi2 = prev_chi2_ - new_chi2;
-		//std::cout << "++++ chi2 diff:\t" << prev_chi2_ << "\t" << new_chi2 << "\t" << diff_chi2
-		//			<< "\t c_factor: " << new_c_factor << std::endl;
-		//std::cout << "@ " << iter << "\t" << diff_chi2 << "\t";		// temp ...
-		bool accept = false;
-		if(diff_chi2 > 0.0) {
-			accept = true;
-			//std::cout << "-\t-\t";				// temp ...
-		} else {
-			real_t p = exp(diff_chi2 * (cooling_factor_ * iter + 1) / tstar_);
-			//real_t temperature = tstar_ / (cooling_factor_ * iter + 1);	// temp ...
-			//std::cout << temperature << "\t" << p << "\t";		// temp ...
-			real_t prand = mt_rand_gen_.rand();
-			if(prand < p) accept = true;
-		} // if-else
+		int accept = 0;
+		if(multi_node.is_master("real_world")) {
+			if(diff_chi2 > 0.0) {
+				accept = 1;
+			} else {
+				real_t p = exp(diff_chi2 * (cooling_factor_ * iter + 1) / tstar_);
+				real_t prand = mt_rand_gen_.rand();
+				if(prand < p) accept = 1;
+			} // if-else
+		} // if
+		multi_node.broadcast("real_world", &accept, 1, &accept, 1);
 		if(accept) {	// accept the move
 			// update to newly computed stuff
 			// make scratch as current
 			++ accepted_moves_;
-			//create_image("diff", accepted_moves_, diff_mat_, true);
-			//create_image("mod", accepted_moves_, mod_f_mat_[mod_f_scratch_i], true);
-			move_particle(new_chi2);
-			//c_factor_ = new_c_factor;
-			chi2_list_.push_back(new_chi2);		// save this chi2 value
-			//update_model();
-			//create_image("newm", accepted_moves_, a_mat_, false);
-			//std::cout << "1\t";		// temp ...
+			move_particle(new_chi2, multi_node);
 		} // if
-		//else std::cout << "0\t";	// temp ...
-		//std::cout << accepted_moves_ << std::endl;	// temp ...
 		mytimer_.stop(); rest_time_ += mytimer_.elapsed_msec();
 
 		// write current model at every "steps"
@@ -375,7 +350,8 @@ namespace hir {
 		} // for i
 		wil::Image img(size_, size_, 30, 30, 30);
 		img.construct_image(data);
-		std::string filename = prefix_ + "_" + std::string(str1) + "_" + std::string(str0) + "_" + str + ".tif";
+		std::string filename = prefix_ + "_" + std::string(str1) + "_" + std::string(str0) +
+								"_" + str + ".tif";
 		img.save(HipRMCInput::instance().label() + "/" + filename);
 		delete[] data;
 	} // Tile::create_image()
@@ -521,13 +497,13 @@ namespace hir {
 		return true;
 	} // Tile::compute_fft_mat()
 
-	#endif
+	#endif	// USE_DFT
 
 
 	bool Tile::execute_fftw(fftw_complex* input, fftw_complex* output) {
 		// create fft plan
 		fftw_plan plan;
-		plan = fftw_plan_dft_2d(size_, size_, input, output, FFTW_FORWARD, FFTW_ESTIMATE);
+		plan = fftw_plan_dft_2d(rows_, cols_, input, output, FFTW_FORWARD, FFTW_ESTIMATE);
 		fftw_execute(plan);
 		// destroy fft plan
 		fftw_destroy_plan(plan);
@@ -566,8 +542,8 @@ namespace hir {
 			gtile_.normalize_mod_mat(1 - mod_f_mat_i_);
 		#else // USE CPU
 			#pragma omp parallel for collapse(2)
-			for(unsigned int i = 0; i < size_; ++ i) {
-				for(unsigned int j = 0; j < size_; ++ j) {
+			for(unsigned int i = 0; i < rows_; ++ i) {
+				for(unsigned int j = 0; j < cols_; ++ j) {
 					complex_t temp_f = f_mat_[f_i](i, j);
 					real_t temp = temp_f.real() * temp_f.real() + temp_f.imag() * temp_f.imag();
 					mod_f_mat_[1 - mod_f_mat_i_](i, j) = temp;
@@ -575,7 +551,6 @@ namespace hir {
 			} // for
 			//normalize_mod_mat(1 - mod_f_mat_i_);
 			normalize(mod_f_mat_[1 - mod_f_mat_i_]);
-			//print_matrix("mod_f_mat_[1 - mod_f_mat_i_]", mod_f_mat_[1 - mod_f_mat_i_].data(), size_, size_);
 			return true;
 		#endif // USE_GPU
 	} // Tile::compute_mod_mat()
@@ -587,8 +562,8 @@ namespace hir {
 			gtile_.normalize(dst);
 		#else // USE CPU
 			#pragma omp parallel for collapse(2)
-			for(unsigned int i = 0; i < size_; ++ i) {
-				for(unsigned int j = 0; j < size_; ++ j) {
+			for(unsigned int i = 0; i < src.num_rows(); ++ i) {
+				for(unsigned int j = 0; j < src.num_cols(); ++ j) {
 					complex_t temp_f = src(i, j);
 					real_t temp = temp_f.real() * temp_f.real() + temp_f.imag() * temp_f.imag();
 					dst(i, j) = temp;
@@ -648,8 +623,8 @@ namespace hir {
 		real_t min_val, max_val;
 		woo::matrix_min_max(mat, min_val, max_val);
 		#pragma omp parallel for collapse(2)
-		for(unsigned int i = 0; i < size_; ++ i) {
-			for(unsigned int j = 0; j < size_; ++ j) {
+		for(unsigned int i = 0; i < mat.num_rows(); ++ i) {
+			for(unsigned int j = 0; j < mat.num_cols(); ++ j) {
 				if(i == 0 && j == 0) continue;
 				mat(i, j) = (mat(i, j) - min_val) / (max_val - min_val);
 			} // for
@@ -729,8 +704,8 @@ namespace hir {
 			chi2 = gtile_.compute_chi2(a, b);
 		#else
 			#pragma omp parallel for collapse(2) reduction(+:chi2)
-			for(unsigned int i = 0; i < size_; ++ i) {
-				for(unsigned int j = 0; j < size_; ++ j) {
+			for(unsigned int i = 0; i < a.num_rows(); ++ i) {
+				for(unsigned int j = 0; j < a.num_cols(); ++ j) {
 					if(i == 0 && j == 0) continue;
 					int i_swap = (i + (size_ >> 1)) % size_;
 					int j_swap = (j + (size_ >> 1)) % size_;

@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 05 Oct 2013 08:18:22 PM PDT
+  *  Modified: Wed 09 Oct 2013 01:45:00 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -360,14 +360,18 @@ namespace hir {
 			// compute offsets
 			unsigned int local_size = local_rows_ * local_cols_;
 			multi_node_.scan_sum("real_world", local_size, matrix_offset_);
+			matrix_offset_ -= local_rows_ * local_cols_;
 			unsigned int local_rows = local_rows_;
-			multi_node_.scan_sum("real_world", local_rows, start_row_);
-			start_row_ -= local_rows;
+			multi_node_.scan_sum("real_world", local_rows, tile_offset_rows_);
+			tile_offset_rows_ -= local_rows;
+			tile_offset_cols_ = 0;
 
 		} else {
 			local_img_data = img_data;
 			local_mask_data = mask_data;
-			matrix_offset_ = local_rows_ * local_cols_;
+			matrix_offset_ = 0;
+			tile_offset_rows_ = 0;
+			tile_offset_cols_ = 0;
 		} // if-else
 
 		#else
@@ -376,6 +380,9 @@ namespace hir {
 		int local_cols_ = cols_;
 		local_img_data = img_data;
 		local_mask_data = mask_data;
+		matrix_offset_ = 0;
+		tile_offset_rows_ = 0;
+		tile_offset_cols_ = 0;
 
 		#endif // USE_MPI
 
@@ -392,11 +399,10 @@ namespace hir {
 		vec_uint_t indices;
 		initialize_particles_random(indices);
 
-		// FIXME: this is not really correct ...
 		int tile_num_offset = 0;
 		#ifdef USE_MPI
-		int rem = global_num_tiles_ % multi_node_.size();
-		tile_num_offset = multi_node_.rank() * num_tiles_ + (multi_node_.rank() >= rem) * rem;
+			// the assignment is round robin
+			tile_num_offset = multi_node_.rank("world") % global_num_tiles_;
 		#endif // USE_MPI
 
 		initialize_tiles(indices, &(HipRMCInput::instance().loading()[tile_num_offset]),
@@ -427,7 +433,7 @@ namespace hir {
 		//std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
 		// initialize tiles
 		for(unsigned int i = 0; i < num_tiles_; ++ i)
-			tiles_.push_back(Tile(local_tile_size_, local_tile_size_, indices, size_));
+			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_));
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			// construct prefix
 			std::stringstream temp;
@@ -439,12 +445,9 @@ namespace hir {
 			temp << "_" << std::setfill('0') << std::setw(4) << i;
 			char prefix[10];
 			temp >> prefix;
-			tiles_[i].init(loading[i], max_dist, prefix);
+			int num_particles = loading[i] * tile_size_ * tile_size_;
+			tiles_[i].init(loading[i], max_dist, prefix, num_particles);
 		} // for
-			//tiles_[i].init(loading[i], tstar[i], cooling[i], max_dist, base_norm_,
-			//				cropped_pattern_, vandermonde_mat_, cropped_mask_mat_);
-			// not used: tstar, cooling, cropped_pattern_, vandermonde_mat_, cropped_mask_mat_
-			//tiles_[i].init(loading[i], base_norm_, scaled_pattern_, vandermonde_mat_, mask_mat_);
 		return true;
 	} // RMC::initialize_tiles()
 
@@ -469,7 +472,6 @@ namespace hir {
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			tiles_[i].init_scale(base_norm_, cropped_pattern_, vandermonde_mat_,
 									cropped_mask_mat_, num_steps);
-			//tiles_[i].init_scale(base_norm_, scaled_pattern_, vandermonde_mat_, cropped_mask_mat_);
 		} // for
 		return true;
 	} // RMC::initialize_simulation_tiles()
@@ -488,8 +490,7 @@ namespace hir {
 		// compute vandermonde matrix
 		// generate 1st order power (full 360 deg rotation in polar coords)
 		std::vector<complex_t> first_pow;
-		unsigned int start = start_row_;
-		for(unsigned int i = start_row_; i < start_row + local_tile_rows_; ++ i) {
+		for(unsigned int i = tile_offset_rows_; i < tile_offset_rows_ + local_tile_rows_; ++ i) {
 			real_t temp = - 2.0 * PI_ * ((real_t) i / tile_size_);
 			real_t temp_r = cos(temp);
 			real_t temp_i = sin(temp);
@@ -566,132 +567,232 @@ namespace hir {
 	} // RMC::scale_pattern_to_tile()
 */
 
+	// this constructs cropped pattern to a given tile_size_ (local_tile_rows_ and local_tile_cols_)
 	bool RMC::crop_pattern_to_tile(unsigned int scale_factor) {
-		if(size_ == tile_size_) {
-			cropped_pattern_ = in_pattern_;
-			cropped_mask_mat_ = mask_mat_;
-		} else {
-			// increase the size of the cropped pattern
-			if(cropped_pattern_.num_rows() + scale_factor == tile_size_) {
-				cropped_pattern_.incr_rows(scale_factor);
-				cropped_pattern_.incr_columns(scale_factor);
-			} // if
-			if(cropped_mask_mat_.num_rows() + scale_factor == tile_size_) {
-				cropped_mask_mat_.incr_rows(scale_factor);
-				cropped_mask_mat_.incr_columns(scale_factor);
-			} // if
-			// populate with the cropped data
-			int skip_rows = (size_ - tile_size_) >> 1;
-			int skip_cols = skip_rows;
+		#ifdef USE_MPI
+			if(size_ == tile_size_) {	// this is the last step
+				if(local_tile_rows_ != local_rows_ || local_tile_cols_ != local_cols_) {
+					std::cerr << "error: something fishy with local tile sizes" << std::endl;
+					return false;
+				} // if
+				cropped_pattern_ = in_pattern_;
+				cropped_mask_mat_ = mask_mat_;
+				// TODO: check ...
+			} else {
+				// compute local_tile_rows_ and local_tile_cols_
+				local_tile_rows_ = local_tile_cols_ = 0;
+				int total_skip_rows = (rows_ - tile_size_) >> 1;
+				int pnum = multi_node_.size("real_world");
+				int prank = multi_node_.rank("real_world");
+				// find the processor rank which contains the start row (total_skip_rows)
+				int proc_row_offsets[pnum];
+				multi_node_.allgather("real_world", &tile_offset_rows_, 1, proc_row_offsets, 1);
+				int p1 = 0; while(total_skip_rows >= proc_row_offsets[p1]) ++ p1;
+				-- p1;	// one above
+				for(int i = 0; i < p1; ++ i) recv_rows[i] = 0;	// nothing to receive from these
+				// find proc rank which contains the end row (total_skip_rows + tile_size)
+				int p2 = 0; while(total_skip_rows + tile_size_ >= proc_row_offsets[p2]) ++ p2;
+				-- p2;	// one above
+				local_tile_cols_ = tile_size_;
+				if(prank == p1 && prank == p2) local_tile_rows_ = tile_size_;
+				else if(prank == p1)
+					local_tile_rows_ = proc_row_offsets[prank] + local_rows_ - total_skip_rows;
+				else if(prank == p2)
+					local_tile_rows_ = proc_row_offsets[prank] + local_rows_ -
+										(total_skip_rows + tile_size_);
+				else if(prank > p1 && prank < p2) local_tile_rows_ = local_rows_;
+				else local_tile_rows_ = 0;
+
+				// increase the size of the local cropped matrices
+				int insert_rows = local_tile_rows_ - cropped_pattern_.num_rows();
+				int insert_cols = local_tile_cols_ - cropped_pattern_.num_cols();
+				cropped_pattern_.incr_rows(insert_rows);
+				cropped_pattern_.incr_cols(insert_cols);
+				cropped_mask_mat_.incr_rows(insert_rows);
+				cropped_mask_mat_.incr_cols(insert_cols);
+				if(cropped_pattern_.num_rows() != cropped_mask_mat_.num_rows() ||
+						cropped_pattern_.num_cols() != cropped_mask_mat_.num_cols()) {
+					std::cerr << "error: mismatch in sizes of cropped pattern and mask" << std::endl;
+					return false;
+				} // if
+
+				// DO NOT REDISTRIBUTE, JUST COMPUTE ON WHAT YOU ALREADY HAVE:
+				int skip_rows = local_rows_ - local_tile_rows_;
+				int skip_cols = (size_ - tile_size_) >> 1;
+				for(int i = 0; i < local_tile_rows_; ++ i) {
+					for(int j = 0; j < local_tile_cols_; ++ j) {
+						cropped_pattern_(i, j) = in_pattern_(skip_rows + i, skip_cols + j);
+						cropped_mask_mat_(i, j) = mask_mat_(skip_rows + i, skip_cols + j);
+					} // for
+				} // for
+
+				// TODO: REDISTRIBUTE THE TILE:
+				/*// compute communication sizes
+				int total_skip_rows = (rows_ - tile_size_) >> 1;
+				int pnum = multi_node_.size("real_world");
+				int prank = multi_node_.rank("real_world");
+				int send_rows[pnum], recv_rows[pnum];
+				// find the processor rank which contains the start row (total_skip_rows)
+				int proc_row_offsets[pnum];
+				multi_node_.allgather("real_world", &tile_offset_rows_, 1, proc_row_offsets, 1);
+				int p1 = 0; while(total_skip_rows >= proc_row_offsets[p1]) ++ p1;
+				-- p1;	// one above
+				for(int i = 0; i < p1; ++ i) recv_rows[i] = 0;	// nothing to receive from these
+				// find proc rank which contains the end row (total_skip_rows + tile_size)
+				int p2 = 0; while(total_skip_rows + tile_size_ >= proc_row_offsets[p2]) ++ p2;
+				-- p2;	// one above
+				// calculate number of rows this proc owns that are to be sent elsewhere
+				int rows_to_send = 0;
+				if(prank < p1 || prank > p2) rows_to_send = 0;
+				else if(p1 < prank && p2 > prank) rows_to_send = local_rows_;
+				else if(p1 == p2 && prank == p1) rows_to_send = tile_size_;
+				else if(p1 == prank) rows_to_send = proc_row_offsets[prank] + local_rows_ -
+													total_skip_rows;
+				else if(p2 == prank) rows_to_send = rows_ - total_skip_rows - tile_size_;
+				else {
+					std::cerr << "error: some impossible case?" << std::endl;
+					return false;
+				} // if-else
+				// calculate the number of rows this proc will receive from others
+				int rows_to_receive = local_tile_rows_;
+				// calculate the number of rows to be sent to each processor
+				int rows_to_send_procs[pnum];
+				// calculate the number of rows to be received from each processor
+				int rows_to_receive_procs[pnum];
+				// ... */
+
+			} // if-else
+		#else
+			if(size_ == tile_size_) {
+				cropped_pattern_ = in_pattern_;
+				cropped_mask_mat_ = mask_mat_;
+			} else {
+				// increase the size of the cropped pattern
+				if(cropped_pattern_.num_rows() + scale_factor == tile_size_) {
+					cropped_pattern_.incr_rows(scale_factor);
+					cropped_pattern_.incr_columns(scale_factor);
+				} // if
+				if(cropped_mask_mat_.num_rows() + scale_factor == tile_size_) {
+					cropped_mask_mat_.incr_rows(scale_factor);
+					cropped_mask_mat_.incr_columns(scale_factor);
+				} // if
+				// populate with the cropped data
+				int skip_rows = (size_ - tile_size_) >> 1;
+				int skip_cols = skip_rows;
+				for(int i = 0; i < tile_size_; ++ i) {
+					for(int j = 0; j < tile_size_; ++ j) {
+						cropped_pattern_(i, j) = in_pattern_(skip_rows + i, skip_cols + j);
+						cropped_mask_mat_(i, j) = mask_mat_(skip_rows + i, skip_cols + j);
+					} // for j
+				} // for i
+			} // if-else
+			real_t max_val = 0.0, min_val = 1e10;
 			for(int i = 0; i < tile_size_; ++ i) {
 				for(int j = 0; j < tile_size_; ++ j) {
-					cropped_pattern_(i, j) = in_pattern_(skip_rows + i, skip_cols + j);
-					cropped_mask_mat_(i, j) = mask_mat_(skip_rows + i, skip_cols + j);
+					real_t temp = cropped_pattern_(i, j);
+					min_val = (temp < min_val) ? temp : min_val;
+					max_val = (temp > max_val) ? temp : max_val;
 				} // for j
 			} // for i
-		} // if-else
-		real_t max_val = 0.0, min_val = 1e10;
-		for(int i = 0; i < tile_size_; ++ i) {
-			for(int j = 0; j < tile_size_; ++ j) {
-				real_t temp = cropped_pattern_(i, j);
-				min_val = (temp < min_val) ? temp : min_val;
-				max_val = (temp > max_val) ? temp : max_val;
-			} // for j
-		} // for i
-		// write them out (for verification)
-		cv::Mat img(tile_size_, tile_size_, 0);
-		for(unsigned int i = 0; i < tile_size_; ++ i) {
-			for(unsigned int j = 0; j < tile_size_; ++ j) {
-				real_t temp = (cropped_pattern_[tile_size_ * i + j] - min_val) / (max_val - min_val);
-				img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
+			// write them out (for verification)
+			cv::Mat img(tile_size_, tile_size_, 0);
+			for(unsigned int i = 0; i < tile_size_; ++ i) {
+				for(unsigned int j = 0; j < tile_size_; ++ j) {
+					real_t temp = (cropped_pattern_[tile_size_ * i + j] - min_val) / (max_val - min_val);
+					img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
+				} // for
 			} // for
-		} // for
-		cv::imwrite(HipRMCInput::instance().label() + "/cropped_pattern.tif", img);
-		for(unsigned int i = 0; i < tile_size_; ++ i) {
-			for(unsigned int j = 0; j < tile_size_; ++ j) {
-				unsigned int temp = cropped_mask_mat_[tile_size_ * i + j];
-				img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
+			cv::imwrite(HipRMCInput::instance().label() + "/cropped_pattern.tif", img);
+			for(unsigned int i = 0; i < tile_size_; ++ i) {
+				for(unsigned int j = 0; j < tile_size_; ++ j) {
+					unsigned int temp = cropped_mask_mat_[tile_size_ * i + j];
+					img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
+				} // for
 			} // for
-		} // for
-		cv::imwrite(HipRMCInput::instance().label() + "/cropped_mask.tif", img);
+			cv::imwrite(HipRMCInput::instance().label() + "/cropped_mask.tif", img);
+		#endif
 		return true;
 	} // RMC::crop_pattern_to_tile()
 
 
 	bool RMC::preprocess_pattern_and_mask(unsigned int scale_fac) {
-		double min_val, max_val;
-		//woo::matrix_min_max(scaled_pattern_, min_val, max_val);
-		woo::matrix_min_max(cropped_pattern_, min_val, max_val);
-		double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
-		//std::cout << "MIN: " << min_val << ", MAX: " << max_val
-		//			<< ", THRESH: " << threshold << std::endl;
-		// sanity check
-		//if(scaled_pattern_.num_rows() != tile_size_) {
-		if(cropped_pattern_.num_rows() != tile_size_) {
-			std::cerr << "error: you are now really in grave danger: "
-						<< cropped_pattern_.num_rows() << ", " << tile_size_ << std::endl;
-						//<< scaled_pattern_.num_rows() << ", " << tile_size_ << std::endl;
-			return false;
-		} else {
-			//std::cout << "be happiee: " << scaled_pattern_.num_rows() << ", " << tile_size_ << std::endl;
-			//std::cout << "be happiee: " << cropped_pattern_.num_rows() << ", " << tile_size_ << std::endl;
-		} // if-else
-		// apply threshold and
-		// scale pixel intensities to span all of 0 - 255
-		// and generate mask_mat_
-		//memset(mask_mat_, 0, tile_size_ * tile_size_ * sizeof(unsigned int));
-		/*if(mask_mat_.num_rows() + scale_fac == tile_size_) {
-			mask_mat_.incr_rows(scale_fac);
-			mask_mat_.incr_columns(scale_fac);
-		} else if(mask_mat_.num_rows() != tile_size_) {
-			std::cerr << "error: you have a wrong mask. "
-						<< mask_mat_.num_rows() << ", " << tile_size_ << std::endl;
-			return false;
-		} // if-else
-		mask_mat_.fill(1);
-		if(min_val < max_val) {
+		#ifdef USE_MPI
+			// nothing to do here ...
+		#else
+			double min_val, max_val;
+			//woo::matrix_min_max(scaled_pattern_, min_val, max_val);
+			woo::matrix_min_max(cropped_pattern_, min_val, max_val);
+			double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
+			//std::cout << "MIN: " << min_val << ", MAX: " << max_val
+			//			<< ", THRESH: " << threshold << std::endl;
+			// sanity check
+			//if(scaled_pattern_.num_rows() != tile_size_) {
+			if(cropped_pattern_.num_rows() != tile_size_) {
+				std::cerr << "error: you are now really in grave danger: "
+							<< cropped_pattern_.num_rows() << ", " << tile_size_ << std::endl;
+							//<< scaled_pattern_.num_rows() << ", " << tile_size_ << std::endl;
+				return false;
+			} else {
+				//std::cout << "be happiee: " << scaled_pattern_.num_rows() << ", " << tile_size_ << std::endl;
+				//std::cout << "be happiee: " << cropped_pattern_.num_rows() << ", " << tile_size_ << std::endl;
+			} // if-else
+			// apply threshold and
+			// scale pixel intensities to span all of 0 - 255
+			// and generate mask_mat_
+			//memset(mask_mat_, 0, tile_size_ * tile_size_ * sizeof(unsigned int));
+			/*if(mask_mat_.num_rows() + scale_fac == tile_size_) {
+				mask_mat_.incr_rows(scale_fac);
+				mask_mat_.incr_columns(scale_fac);
+			} else if(mask_mat_.num_rows() != tile_size_) {
+				std::cerr << "error: you have a wrong mask. "
+							<< mask_mat_.num_rows() << ", " << tile_size_ << std::endl;
+				return false;
+			} // if-else
+			mask_mat_.fill(1);
+			if(min_val < max_val) {
+				for(unsigned int i = 0; i < tile_size_; ++ i) {
+					for(unsigned int j = 0; j < tile_size_; ++ j) {
+						double temp;
+						//if(scaled_pattern_(i, j) > threshold) {
+						//	temp = 255 * (scaled_pattern_(i, j) - threshold) / (max_val - threshold);
+						if(cropped_pattern_(i, j) > threshold) {
+				//			temp = (cropped_pattern_(i, j) - threshold) / (max_val - threshold);
+						} else {
+				//			temp = 0.0;
+							mask_mat_(i, j) = 0;
+						} // if-else
+						//scaled_pattern_(i, j) = temp;
+				//		cropped_pattern_(i, j) = temp;
+					} // for
+				} // for
+			} // if*/
+
+			//normalize_cropped_pattern();
+
+			// normalize the cropped pattern
+			cv::Mat img(tile_size_, tile_size_, 0);
 			for(unsigned int i = 0; i < tile_size_; ++ i) {
 				for(unsigned int j = 0; j < tile_size_; ++ j) {
-					double temp;
-					//if(scaled_pattern_(i, j) > threshold) {
-					//	temp = 255 * (scaled_pattern_(i, j) - threshold) / (max_val - threshold);
-					if(cropped_pattern_(i, j) > threshold) {
-			//			temp = (cropped_pattern_(i, j) - threshold) / (max_val - threshold);
-					} else {
-			//			temp = 0.0;
-						mask_mat_(i, j) = 0;
-					} // if-else
-					//scaled_pattern_(i, j) = temp;
-			//		cropped_pattern_(i, j) = temp;
+					real_t temp = (cropped_pattern_[tile_size_ * i + j] - min_val) / (max_val - min_val);
+					img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
 				} // for
 			} // for
-		} // if*/
+			// write it out
+			cv::imwrite(HipRMCInput::instance().label() + "/normalized_pattern.tif", img);
 
-		//normalize_cropped_pattern();
-
-		// normalize the cropped pattern
-		cv::Mat img(tile_size_, tile_size_, 0);
-		for(unsigned int i = 0; i < tile_size_; ++ i) {
-			for(unsigned int j = 0; j < tile_size_; ++ j) {
-				real_t temp = (cropped_pattern_[tile_size_ * i + j] - min_val) / (max_val - min_val);
-				img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
-			} // for
-		} // for
-		// write it out
-		cv::imwrite(HipRMCInput::instance().label() + "/normalized_pattern.tif", img);
-
-		/*real_t * data = new (std::nothrow) real_t[tile_size_ * tile_size_];
-		for(int i = 0; i < tile_size_; ++ i) {
-			for(int j = 0; j < tile_size_; ++ j) {
-				int i_swap = i;//(i + (size_ >> 1)) % size_;
-				int j_swap = j;//(j + (size_ >> 1)) % size_;
-				data[tile_size_ * i + j] = 255 * cropped_pattern_(i_swap, j_swap);
-			} // for j
-		} // for i
-		wil::Image img2(tile_size_, tile_size_, 30, 30, 30);
-		img2.construct_image(data);
-		img2.save(HipRMCInput::instance().label() + "/my_normalized_pattern.tif");
-		delete[] data;*/
+			/*real_t * data = new (std::nothrow) real_t[tile_size_ * tile_size_];
+			for(int i = 0; i < tile_size_; ++ i) {
+				for(int j = 0; j < tile_size_; ++ j) {
+					int i_swap = i;//(i + (size_ >> 1)) % size_;
+					int j_swap = j;//(j + (size_ >> 1)) % size_;
+					data[tile_size_ * i + j] = 255 * cropped_pattern_(i_swap, j_swap);
+				} // for j
+			} // for i
+			wil::Image img2(tile_size_, tile_size_, 30, 30, 30);
+			img2.construct_image(data);
+			img2.save(HipRMCInput::instance().label() + "/my_normalized_pattern.tif");
+			delete[] data;*/
+		#endif // USE_MPI
 
 		return true;
 	} // RMC::preprocess_pattern_and_mask()
@@ -720,19 +821,30 @@ namespace hir {
 	bool RMC::compute_base_norm() {
 		// compute base norm
 		double base_norm = 0.0;				// why till size/2 only ??? and what is Y ???
-		unsigned int maxi = tile_size_;		// >> 1;
-		#pragma omp parallel shared(base_norm)
-		{
-			#pragma omp for collapse(2) reduction(+:base_norm)
-			for(unsigned int i = 0; i < maxi; ++ i) {
-				for(unsigned int j = 0; j < maxi; ++ j) {
-					//base_norm += cropped_pattern_(i, j);// * (j + 1);	// skipping creation of Y matrix
-					base_norm += cropped_pattern_(i, j) * cropped_mask_mat_(i, j);
-					//base_norm += scaled_pattern_(i, j); // * (j + 1);	// skipping creation of Y matrix
+		#ifdef USE_MPI
+			#pragma omp parallel shared(base_norm)
+			{
+				#pragma omp for collapse(2) reduction(+:base_norm)
+				for(unsigned int i = 0; i < cropped_pattern_.num_rows(); ++ i) {
+					for(unsigned int j = 0; j < cropped_pattern_.num_cols(); ++ j) {
+						base_norm += cropped_pattern_(i, j) * cropped_mask_mat_(i, j);
+					} // for
 				} // for
-			} // for
-		}
-		base_norm_ = base_norm;
+			}
+			multi_node_.allreduce_sum("real_world", base_norm, base_norm_);
+		#else
+			unsigned int maxi = tile_size_;		// >> 1;
+			#pragma omp parallel shared(base_norm)
+			{
+				#pragma omp for collapse(2) reduction(+:base_norm)
+				for(unsigned int i = 0; i < maxi; ++ i) {
+					for(unsigned int j = 0; j < maxi; ++ j) {
+						base_norm += cropped_pattern_(i, j) * cropped_mask_mat_(i, j);
+					} // for
+				} // for
+			}
+			base_norm_ = base_norm;
+		#endif // USE_MPI
 		//std::cout << "++          Base pattern norm value: " << base_norm_ << std::endl;
 		return true;
 	} // RMC::compute_base_norm();
@@ -788,16 +900,17 @@ namespace hir {
 		unsigned int curr_percent = 10;
 		std::cout << "++ Performing simulation on " << num_tiles_ << " tiles ... ";
 		#ifdef USE_MPI
-			std::cout << "[says process " << multi_node_.rank("real_world") << "]";
-			multi_node_.barrier("real_world");
+			std::cout << "[says process " << multi_node_.rank("world") << "]";
+			multi_node_.barrier("world");
 		#endif
 		std::cout << std::endl;
 		for(unsigned int step = 0; step < num_steps; ++ step) {
 			if((step + 1) % ten_percent == 0) {
 				#ifdef USE_MPI
-					if(multi_node_.is_master("real_world"))
+					if(multi_node_.is_master("world"))
 				#endif
-						std::cout << "    " << curr_percent << "\% done at step " << step + 1 << std::endl;
+						std::cout << "    " << curr_percent << "\% done at step " << step + 1
+									<< std::endl;
 				curr_percent += 10;
 			} // if
 			for(unsigned int i = 0; i < num_tiles_; ++ i) {
@@ -817,8 +930,8 @@ namespace hir {
 		} // for
 
 		#ifdef USE_MPI
-			multi_node_.barrier("real_world");
-			if(multi_node_.is_master("real_world"))
+			multi_node_.barrier("world");
+			if(multi_node_.is_master("world"))
 		#endif
 				std::cout << "++ Simulation done." << std::endl;
 
@@ -828,14 +941,14 @@ namespace hir {
 			tiles_[i].finalize_result(chi2, a);
 			std::cout << "++ ";
 			#ifdef USE_MPI
-				std::cout << "P" << multi_node_.rank("real_world");
+				std::cout << "P" << multi_node_.rank("world");
 			#else
 				std::cout << "  ";
 			#endif
 			std::cout << " Tile " << i << " final chi2-error value: " << chi2 << std::endl;
 			std::cout << "++ ";
 			#ifdef USE_MPI
-				std::cout << "  P" << multi_node_.rank("real_world");
+				std::cout << "  P" << multi_node_.rank("world");
 			#else
 				std::cout << "    ";
 			#endif
@@ -905,8 +1018,8 @@ namespace hir {
 
 	bool RMC::simulate_and_scale() {
 		#ifdef USE_MPI
-			if(multi_node_.is_idle("real_world")) return true;
-			if(multi_node_.is_master("real_world")) {
+			if(multi_node_.is_idle("world")) return true;
+			if(multi_node_.is_master("world")) {
 		#endif
 				std::cout << std::endl << "++ Performing scaled simulation ..."
 							<< std::endl << std::endl;
@@ -923,6 +1036,7 @@ namespace hir {
 		simulate(num_steps, rate, scale_factor);
 		for(unsigned int tsize = tile_size_, iter = 0; tsize < size_; tsize += curr_scale_fac, ++ iter) {
 			if(tile_size_ < size_) {
+				// loop over the local tiles
 				for(unsigned int i = 0; i < num_tiles_; ++ i) {
 					tiles_[i].update_model();
 					if(tile_size_ + scale_factor > size_) {
