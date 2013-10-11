@@ -3,7 +3,7 @@
   *
   *  File: multi_node_comm.hpp
   *  Created: Mar 18, 2013
-  *  Modified: Mon 23 Sep 2013 12:37:21 PM PDT
+  *  Modified: Fri 11 Oct 2013 04:36:45 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -124,8 +124,23 @@ namespace woo {
 				return true;
 			} // broadcast()
 
+			inline bool broadcast(int* data, int size) {
+				MPI_Bcast(&(*data), size, MPI_INT, master_rank_, world_);
+				return true;
+			} // broadcast()
+
 			inline bool broadcast(unsigned int* data, int size) {
 				MPI_Bcast(&(*data), size, MPI_UNSIGNED, master_rank_, world_);
+				return true;
+			} // broadcast()
+
+			inline bool broadcast(std::complex<float>* data, int size, int source) {
+				MPI_Bcast(&(*data), size, MPI_COMPLEX, source, world_);
+				return true;
+			} // broadcast()
+
+			inline bool broadcast(std::complex<double>* data, int size, int source) {
+				MPI_Bcast(&(*data), size, MPI_DOUBLE_COMPLEX, source, world_);
 				return true;
 			} // broadcast()
 
@@ -155,6 +170,11 @@ namespace woo {
 				return true;
 			} // allgather()
 
+			inline bool allgather(unsigned int* sbuf, int scount, unsigned int* rbuf, int rcount) {
+				MPI_Allgather(sbuf, scount, MPI_UNSIGNED, rbuf, rcount, MPI_UNSIGNED, world_);
+				return true;
+			} // allgather()
+
 			inline bool gatherv(float* sbuf, int scount, float* rbuf, int* rcount, int* displs) {
 				MPI_Gatherv(sbuf, scount, MPI_FLOAT, rbuf, rcount, displs, MPI_FLOAT,
 							master_rank_, world_);
@@ -180,6 +200,35 @@ namespace woo {
 								rbuf, rcount, displs, MPI_DOUBLE_COMPLEX, master_rank_, world_);
 				return true;
 			} // gatherv()
+
+			inline bool scatterv(unsigned int* sbuf, int* scount, int* displs, unsigned int* rbuf,
+									int rcount) {
+				MPI_Scatterv(sbuf, scount, displs, MPI_UNSIGNED,
+								rbuf, rcount, MPI_UNSIGNED, master_rank_, world_);
+				return true;
+			} // scatterv()
+
+			inline bool scatterv(float* sbuf, int* scount, int* displs, float* rbuf, int rcount) {
+				MPI_Scatterv(sbuf, scount, displs, MPI_FLOAT,
+								rbuf, rcount, MPI_FLOAT, master_rank_, world_);
+				return true;
+			} // scatterv()
+
+			inline bool scatterv(double* sbuf, int* scount, int* displs, double* rbuf, int rcount) {
+				MPI_Scatterv(sbuf, scount, displs, MPI_DOUBLE,
+								rbuf, rcount, MPI_DOUBLE, master_rank_, world_);
+				return true;
+			} // scatterv()
+
+			inline bool allreduce_sum(float in, float& out) {
+				MPI_Allreduce(&in, &out, 1, MPI_FLOAT, MPI_SUM, world_);
+				return true;
+			} // allreduce_sum()
+
+			inline bool allreduce_sum(double in, double& out) {
+				MPI_Allreduce(&in, &out, 1, MPI_DOUBLE, MPI_SUM, world_);
+				return true;
+			} // allreduce_sum()
 
 			inline bool barrier() {
 				MPI_Barrier(world_);
@@ -274,8 +323,20 @@ namespace woo {
 				return comms_[key].broadcast(data, size);
 			} // send_broadcast()
 
+			bool broadcast(const char* key, int* data, int size) {
+				return comms_[key].broadcast(data, size);
+			} // send_broadcast()
+
 			bool broadcast(const char* key, unsigned int* data, int size) {
 				return comms_[key].broadcast(data, size);
+			} // send_broadcast()
+
+			bool broadcast(const char* key, std::complex<float>* data, int size, int source) {
+				return comms_[key].broadcast(data, size, source);
+			} // send_broadcast()
+
+			bool broadcast(const char* key, std::complex<double>* data, int size, int source) {
+				return comms_[key].broadcast(data, size, source);
 			} // send_broadcast()
 
 			/**
@@ -287,10 +348,14 @@ namespace woo {
 			} // scan_sum()
 
 			/**
-			 * Gathers
+			 * Gatherers
 			 */
 
 			bool allgather(const char* key, int* sbuf, int scount, int* rbuf, int rcount) {
+				return comms_[key].allgather(sbuf, scount, rbuf, rcount);
+			} // allgather()
+
+			bool allgather(const char* key, unsigned int* sbuf, int scount, unsigned int* rbuf, int rcount) {
 				return comms_[key].allgather(sbuf, scount, rbuf, rcount);
 			} // allgather()
 
@@ -327,7 +392,38 @@ namespace woo {
 			} // gatherv()
 
 			/**
-			 * Barrier
+			 * Reducers
+			 */
+
+			inline bool allreduce_sum(const char* key, float in, float& out) {
+				return comms_[key].allreduce_sum(in, out);
+			} // allreduce_sum()
+
+			inline bool allreduce_sum(const char* key, double in, double& out) {
+				return comms_[key].allreduce_sum(in, out);
+			} // allreduce_sum()
+
+			/**
+			 * Scatterers
+			 */
+
+			inline bool scatterv(const char* key, unsigned int* sbuf, int* scount, int* displs,
+									unsigned int* rbuf, int rcount) {
+				return comms_[key].scatterv(sbuf, scount, displs, rbuf, rcount);
+			} // scatterv()
+
+			inline bool scatterv(const char* key, float* sbuf, int* scount, int* displs,
+									float* rbuf, int rcount) {
+				return comms_[key].scatterv(sbuf, scount, displs, rbuf, rcount);
+			} // scatterv()
+
+			inline bool scatterv(const char* key, double* sbuf, int* scount, int* displs,
+									double* rbuf, int rcount) {
+				return comms_[key].scatterv(sbuf, scount, displs, rbuf, rcount);
+			} // scatterv()
+
+			/**
+			 * Barriers
 			 */
 
 			bool barrier() {
