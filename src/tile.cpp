@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 12 Oct 2013 11:31:49 AM PDT
+  *  Modified: Sat 12 Oct 2013 03:51:12 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -44,6 +44,9 @@ namespace hir {
 		size_ = std::max(rows, cols);
 		final_size_ = final_size;
 
+		// FIXME: fix the rows_ and cols_
+		rows_ = cols_= size_;
+
 		tstar_ = 1.0;
 		cooling_factor_ = 0.0;
 		tstar_set_ = false;
@@ -76,15 +79,19 @@ namespace hir {
 	// copy constructor
 	Tile::Tile(const Tile& tile):
 		size_(tile.size_),
+		rows_(tile.rows_),
+		cols_(tile.cols_),
 		final_size_(tile.final_size_),
 		a_mat_(tile.a_mat_),
+		min_row_index_(tile.min_row_index_),
+		max_row_index_(tile.max_row_index_),
+		f_mat_(tile.f_mat_),
+		mod_f_mat_(tile.mod_f_mat_),
+		indices_(tile.indices_),
 		#ifndef USE_DFT
 			virtual_a_mat_(tile.virtual_a_mat_),
 		#endif
 		diff_mat_(tile.diff_mat_),
-		f_mat_(tile.f_mat_),
-		mod_f_mat_(tile.mod_f_mat_),
-		indices_(tile.indices_),
 		f_mat_i_(tile.f_mat_i_),
 		mod_f_mat_i_(tile.mod_f_mat_i_),
 		loading_factor_(tile.loading_factor_),
@@ -797,7 +804,7 @@ namespace hir {
 				} // for
 			} // for
 		#endif // USE_GPU
-		real_t total_chi2 = 0.0;
+		real_t total_chi2 = chi2;
 		#ifdef USE_MPI
 			multi_node.allreduce_sum("real_world", chi2, total_chi2);
 		#endif

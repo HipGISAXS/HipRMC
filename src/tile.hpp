@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 12 Oct 2013 09:56:52 AM PDT
+  *  Modified: Sat 12 Oct 2013 12:42:28 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -52,7 +52,10 @@ namespace hir {
 			unsigned int min_row_index_;			// global index of first local row
 			unsigned int max_row_index_;			// global index of last local row
 													// == min_row_index_ + a_mat_.num_rows() - 1
-			unsigned int row_offsets_[MAX_NUM_PROCS];
+			#ifdef USE_MPI
+				//unsigned int row_offsets_[MAX_NUM_PROCS];
+				unsigned int row_offsets_[2];
+			#endif
 
 			// buffers used only for cpu version
 			std::vector<mat_complex_t> f_mat_;		// F buffers

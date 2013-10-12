@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 12 Oct 2013 11:48:32 AM PDT
+  *  Modified: Sat 12 Oct 2013 12:13:45 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -393,6 +393,8 @@ namespace hir {
 			matrix_offset_ = 0;
 			tile_offset_rows_ = 0;
 			tile_offset_cols_ = 0;
+			local_tile_rows_ = tile_size_;
+			local_tile_cols_ = tile_size_;
 		#endif // USE_MPI
 
 		// FIXME: for now assuming there is NO SCALING
@@ -441,11 +443,9 @@ namespace hir {
 	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading, unsigned int max_dist) {
 		std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
 		// initialize tiles
-		vec_uint_t hehe; //hehe.push_back(19); hehe.push_back(11);
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			std::cout << "HMMMMM" << std::endl;
-			//tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_));
-			tiles_.push_back(Tile(0, 0, hehe, 0));
+			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_));
 		} // for
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			// construct prefix
