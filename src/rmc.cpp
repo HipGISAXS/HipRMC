@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 11 Oct 2013 04:57:32 PM PDT
+  *  Modified: Sat 12 Oct 2013 11:01:22 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -312,80 +312,87 @@ namespace hir {
 
 		#ifdef USE_MPI
 		} // if
+		#endif
 
-		multi_node_.broadcast("real_world_masters", img_data, rows_ * cols_);
-		multi_node_.broadcast("real_world_masters", mask_data, rows_ * cols_);
-
-		std::cout << "++      Processor " << multi_node_.rank("real_world")
-					<< " number of tiles: " << num_tiles_ << std::endl;
-
-		// is a real_world master, distribute the matrices among all processors in real_world
-		// we can either do a 1D partition, or a 2D partition. their disadvantages are:
-		// 1D: less amount of parallelism, skinny matrices
-		// 2D: some processors may be idle!
-		// let us do 1D partitioning along rows for now.
-		int real_world_size = multi_node_.size("real_world");
-		int real_world_rank = multi_node_.rank("real_world");
-		local_rows_ = rows_;
-		local_cols_ = floor(cols_ / real_world_size) + (real_world_rank < cols_ % real_world_size);
 		real_t *local_img_data = NULL;
 		unsigned int *local_mask_data = NULL;
-		// the masters will scatter the matrices among others in the real world
-		// calculate sizes to send to all
-		if(real_world_size > 1) {
-			int *num_elements = NULL, *msg_sizes = NULL, *msg_displacements = NULL;
-			if(multi_node_.is_master("real_world")) {
-				num_elements = new (std::nothrow) int[real_world_size];
-				msg_sizes = new (std::nothrow) int[real_world_size];
-				msg_displacements = new (std::nothrow) int[real_world_size];
-			} // if
-			int local_elements = local_rows_ * local_cols_;		// number of elements
-			multi_node_.gather("real_world", &local_elements, 1, num_elements, 1);
-			if(multi_node_.is_master("real_world")) {
-				msg_displacements[0] = 0;
-				for(int i = 1; i < real_world_size; ++ i)
-					msg_displacements[i] = msg_displacements[i - 1] + num_elements[i - 1];
-			} // if
-			local_img_data = new (std::nothrow) real_t[local_elements];
-			local_mask_data = new (std::nothrow) unsigned int[local_elements];
-			multi_node_.scatterv("real_world", img_data, num_elements, msg_displacements,
-									local_img_data, local_elements);
-			multi_node_.scatterv("real_world", mask_data, num_elements, msg_displacements,
-									local_mask_data, local_elements);
-			if(multi_node_.is_master("real_world")) {
-				delete[] msg_displacements;
-				delete[] num_elements;
-				delete[] mask_data;
-				delete[] img_data;
-			} // if
 
-			// compute offsets
-			unsigned int local_size = local_rows_ * local_cols_;
-			multi_node_.scan_sum("real_world", local_size, matrix_offset_);
-			matrix_offset_ -= local_rows_ * local_cols_;
-			unsigned int local_rows = local_rows_;
-			multi_node_.scan_sum("real_world", local_rows, tile_offset_rows_);
-			tile_offset_rows_ -= local_rows;
-			tile_offset_cols_ = 0;
+		#ifdef USE_MPI
+			multi_node_.broadcast("real_world_masters", img_data, rows_ * cols_);
+			multi_node_.broadcast("real_world_masters", mask_data, rows_ * cols_);
 
-		} else {
+			std::cout << "++      Processor " << multi_node_.rank("real_world")
+						<< " number of tiles: " << num_tiles_ << std::endl;
+
+			// is a real_world master, distribute the matrices among all processors in real_world
+			// we can either do a 1D partition, or a 2D partition. their disadvantages are:
+			// 1D: less amount of parallelism, skinny matrices
+			// 2D: some processors may be idle!
+			// let us do 1D partitioning along rows for now.
+			int real_world_size = multi_node_.size("real_world");
+			int real_world_rank = multi_node_.rank("real_world");
+			local_cols_ = cols_;
+			local_rows_ = floor(rows_ / real_world_size) + (real_world_rank < rows_ % real_world_size);
+			// the masters will scatter the matrices among others in the real world
+			// calculate sizes to send to all
+			if(real_world_size > 1) {
+				int *num_elements = NULL, *msg_sizes = NULL, *msg_displacements = NULL;
+				if(multi_node_.is_master("real_world")) {
+					num_elements = new (std::nothrow) int[real_world_size];
+					msg_sizes = new (std::nothrow) int[real_world_size];
+					msg_displacements = new (std::nothrow) int[real_world_size];
+				} // if
+				int local_elements = local_rows_ * local_cols_;		// number of elements
+				multi_node_.gather("real_world", &local_elements, 1, num_elements, 1);
+				if(multi_node_.is_master("real_world")) {
+					msg_displacements[0] = 0;
+					for(int i = 1; i < real_world_size; ++ i)
+						msg_displacements[i] = msg_displacements[i - 1] + num_elements[i - 1];
+				} // if
+				local_img_data = new (std::nothrow) real_t[local_elements];
+				local_mask_data = new (std::nothrow) unsigned int[local_elements];
+				multi_node_.scatterv("real_world", img_data, num_elements, msg_displacements,
+										local_img_data, local_elements);
+				multi_node_.scatterv("real_world", mask_data, num_elements, msg_displacements,
+										local_mask_data, local_elements);
+				if(multi_node_.is_master("real_world")) {
+					delete[] msg_displacements;
+					delete[] num_elements;
+					delete[] mask_data;
+					delete[] img_data;
+				} // if
+
+				// compute offsets
+				unsigned int local_size = local_rows_ * local_cols_;
+				multi_node_.scan_sum("real_world", local_size, matrix_offset_);
+				matrix_offset_ -= local_rows_ * local_cols_;
+				unsigned int local_rows = local_rows_;
+				multi_node_.scan_sum("real_world", local_rows, tile_offset_rows_);
+				tile_offset_rows_ -= local_rows;
+				tile_offset_cols_ = 0;
+
+				// compute the local_tile_rows_ and local_tile_cols_
+				// TODO ...
+
+			} else {
+				local_img_data = img_data;
+				local_mask_data = mask_data;
+				matrix_offset_ = 0;
+				tile_offset_rows_ = 0;
+				tile_offset_cols_ = 0;
+				local_tile_rows_ = tile_size_;
+				local_tile_cols_ = tile_size_;
+			} // if-else
+
+			std::cout << "====== " << real_world_size << "\t" << local_rows_ << "\t" << local_cols_ << std::endl;
+		#else
+			int local_rows_ = rows_;
+			int local_cols_ = cols_;
 			local_img_data = img_data;
 			local_mask_data = mask_data;
 			matrix_offset_ = 0;
 			tile_offset_rows_ = 0;
 			tile_offset_cols_ = 0;
-		} // if-else
-
-		#else
-
-		int local_rows_ = rows_;
-		int local_cols_ = cols_;
-		local_img_data = img_data;
-		local_mask_data = mask_data;
-		matrix_offset_ = 0;
-		tile_offset_rows_ = 0;
-		tile_offset_cols_ = 0;
-
 		#endif // USE_MPI
 
 		// FIXME: for now assuming there is NO SCALING
@@ -432,10 +439,14 @@ namespace hir {
 
 	// called once at RMC initialization
 	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading, unsigned int max_dist) {
-		//std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
+		std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
 		// initialize tiles
-		for(unsigned int i = 0; i < num_tiles_; ++ i)
-			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_));
+		vec_uint_t hehe; //hehe.push_back(19); hehe.push_back(11);
+		for(unsigned int i = 0; i < num_tiles_; ++ i) {
+			std::cout << "HMMMMM" << std::endl;
+			//tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_));
+			tiles_.push_back(Tile(0, 0, hehe, 0));
+		} // for
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			// construct prefix
 			std::stringstream temp;
@@ -448,7 +459,11 @@ namespace hir {
 			char prefix[10];
 			temp >> prefix;
 			int num_particles = loading[i] * tile_size_ * tile_size_;
-			tiles_[i].init(loading[i], max_dist, prefix, num_particles, multi_node_);
+			tiles_[i].init(loading[i], max_dist, prefix, num_particles
+					#ifdef USE_MPI
+						, multi_node_
+					#endif
+					);
 		} // for
 		return true;
 	} // RMC::initialize_tiles()
@@ -473,7 +488,11 @@ namespace hir {
 	bool RMC::initialize_simulation_tiles(int num_steps) {
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			tiles_[i].init_scale(base_norm_, cropped_pattern_, vandermonde_mat_,
-									cropped_mask_mat_, num_steps, multi_node_);
+									cropped_mask_mat_, num_steps
+									#ifdef USE_MPI
+										, multi_node_
+									#endif
+									);
 		} // for
 		return true;
 	} // RMC::initialize_simulation_tiles()
@@ -883,11 +902,15 @@ namespace hir {
 	// simulate RMC
 	bool RMC::simulate(int num_steps, unsigned int rate, unsigned int scale_factor = 1) {
 
-		if(multi_node_.is_idle("real_world")) return true;
-		if(multi_node_.is_master("real_world")) {
+		#ifdef USE_MPI
+			if(multi_node_.is_idle("real_world")) return true;
+			if(multi_node_.is_master("real_world")) {
+		#endif
 			std::cout << std::endl << "++                Current tile size: "
 						<< tile_size_ << " x " << tile_size_ << std::endl;
-		} // if
+		#ifdef USE_MPI
+			} // if
+		#endif
 
 		if(!initialize_simulation(scale_factor)) {
 			std::cerr << "error: failed to initialize simulation set" << std::endl;
@@ -927,8 +950,16 @@ namespace hir {
 			for(unsigned int i = 0; i < num_tiles_; ++ i) {
 				//tiles_[i].simulate_step(scaled_pattern_, vandermonde_mat_, mask_mat_, base_norm_);
 				tiles_[i].simulate_step(cropped_pattern_, vandermonde_mat_, cropped_mask_mat_,
-										base_norm_, step, multi_node_);
-				if((step + 1) % rate == 0) tiles_[i].update_model(multi_node_);
+										base_norm_, step
+										#ifdef USE_MPI
+											, multi_node_
+										#endif
+										);
+				if((step + 1) % rate == 0) tiles_[i].update_model(
+										#ifdef USE_MPI
+											multi_node_
+										#endif
+										);
 				/*if(step % 100 == 0) {
 					tiles_[i].update_model();
 					#ifdef USE_GPU
@@ -949,7 +980,11 @@ namespace hir {
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			double chi2 = 0.0;
 			mat_real_t a(tile_size_, tile_size_);
-			tiles_[i].finalize_result(chi2, a, multi_node_);
+			tiles_[i].finalize_result(chi2, a
+									#ifdef USE_MPI
+										, multi_node_
+									#endif
+									);
 			std::cout << "++ ";
 			#ifdef USE_MPI
 				std::cout << "P" << multi_node_.rank("world");
@@ -1049,7 +1084,11 @@ namespace hir {
 			if(tile_size_ < size_) {
 				// loop over the local tiles
 				for(unsigned int i = 0; i < num_tiles_; ++ i) {
-					tiles_[i].update_model(multi_node_);
+					tiles_[i].update_model(
+										#ifdef USE_MPI
+											multi_node_
+										#endif
+										);
 					if(tile_size_ + scale_factor > size_) {
 						curr_scale_fac = size_ - tile_size_;
 					} // if
@@ -1082,7 +1121,11 @@ namespace hir {
 		unsigned int num_steps = final_size - size_;
 		for(unsigned int i = 0; i < num_steps; ++ i) {
 			// make sure all indices info is in a_mat_
-			tiles_[0].update_model(multi_node_);
+			tiles_[0].update_model(
+								#ifdef USE_MPI
+									multi_node_
+								#endif
+								);
 			tiles_[0].scale_step();
 			//tiles_[0].save_mat_image_direct(i);
 			// update indices_ and other stuff using the new model

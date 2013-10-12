@@ -3,7 +3,7 @@
  *
  *  File: tile_autotuner.hpp
  *  Created: Sep 05, 2013
- *  Modified: Fri 11 Oct 2013 04:51:18 PM PDT
+ *  Modified: Sat 12 Oct 2013 09:50:22 AM PDT
  *
  *  Author: Abhinav Sarje <asarje@lbl.gov>
  */
@@ -35,7 +35,11 @@ namespace hir {
 
 			unsigned int accepted_moves_;		// number of accepted moves
 
-			bool init(const vec_uint_t&, unsigned int, real_t, woo::MultiNode&);
+			bool init(const vec_uint_t&, unsigned int, real_t
+				#ifdef USE_MPI
+					, woo::MultiNode&
+				#endif
+				);
 			bool update_a_mat();
 			bool scale_step();
 
