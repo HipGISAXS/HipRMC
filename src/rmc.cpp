@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 12 Oct 2013 11:01:22 AM PDT
+  *  Modified: Sat 12 Oct 2013 11:46:26 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -312,6 +312,7 @@ namespace hir {
 
 		#ifdef USE_MPI
 		} // if
+<<<<<<< Updated upstream
 		#endif
 
 		real_t *local_img_data = NULL;
