@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 12 Oct 2013 03:51:12 PM PDT
+  *  Modified: Sat 12 Oct 2013 06:12:44 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -200,10 +200,23 @@ namespace hir {
 			fft_plan_ = fftw_plan_dft_2d(size_, size_, fft_in_, fft_out_, FFTW_FORWARD, FFTW_ESTIMATE);
 		#endif // USE_GPU
 
+		// compute row offsets
+		row_offsets_[0] = 0;
+		#ifdef USE_MPI
+			int local_rows = rows_;
+			int prefix_sums = 0;
+			multi_node.scan_sum("real_world", local_rows, prefix_sums);
+			std::cout << "PREEEEEFIX SUM " << prefix_sums << std::endl;
+			prefix_sums -= rows_;
+			multi_node.allgather("real_world", &prefix_sums, 1, row_offsets_, 1);
+		#endif // USE_MPI
+
 		// autotune temperature (tstar)
 		#ifdef USE_MPI
 			if(multi_node.is_master("real_world")) {
 		#endif
+				std::cout << "MMMMMMMMultinode: " << multi_node.size() << std::endl;
+
 				mytimer.start();
 				if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps
 						#ifdef USE_MPI
@@ -922,7 +935,7 @@ namespace hir {
 
 		#ifdef USE_MPI
 			int proc_id = 0;
-			while(row_offsets_[proc_id] >= old_row) ++ proc_id;
+			while(row_offsets_[proc_id] + rows_ < old_row) ++ proc_id;
 			if(multi_node.rank("real_world") == proc_id) {
 		#endif
 				// construct send buffer
@@ -936,7 +949,7 @@ namespace hir {
 			} // if
 			multi_node.broadcast("real_world", old_row_data, cols_, proc_id);
 			proc_id = 0;
-			while(row_offsets_[proc_id] >= new_row) ++ proc_id;
+			while(row_offsets_[proc_id] + rows_ < new_row) ++ proc_id;
 			if(multi_node.rank("real_world") == proc_id) {
 		#endif
 				// construct send buffer

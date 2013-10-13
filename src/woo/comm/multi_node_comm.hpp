@@ -3,7 +3,7 @@
   *
   *  File: multi_node_comm.hpp
   *  Created: Mar 18, 2013
-  *  Modified: Fri 11 Oct 2013 04:36:45 PM PDT
+  *  Modified: Sat 12 Oct 2013 06:06:53 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -53,7 +53,7 @@ namespace woo {
 			inline bool is_idle() const { return idle_; }
 			inline bool is_valid() const { return valid_; }
 			inline int master() const { return master_rank_; }
-			inline int is_master() const { return (master_rank_ == rank_); }
+			inline bool is_master() const { return (master_rank_ == rank_); }
 
 			MultiNodeComm& operator=(const MPI_Comm& comm) {
 				if(valid_) {
@@ -114,123 +114,129 @@ namespace woo {
 				return new_mncomm;
 			} // dup()*/
 
-			inline bool broadcast(float* data, int size) {
+			inline bool broadcast(float* data, int size) const {
 				MPI_Bcast(&(*data), size, MPI_FLOAT, master_rank_, world_);
 				return true;
 			} // broadcast()
 
-			inline bool broadcast(double* data, int size) {
+			inline bool broadcast(double* data, int size) const {
 				MPI_Bcast(&(*data), size, MPI_DOUBLE, master_rank_, world_);
 				return true;
 			} // broadcast()
 
-			inline bool broadcast(int* data, int size) {
+			inline bool broadcast(int* data, int size) const {
 				MPI_Bcast(&(*data), size, MPI_INT, master_rank_, world_);
 				return true;
 			} // broadcast()
 
-			inline bool broadcast(unsigned int* data, int size) {
+			inline bool broadcast(unsigned int* data, int size) const {
 				MPI_Bcast(&(*data), size, MPI_UNSIGNED, master_rank_, world_);
 				return true;
 			} // broadcast()
 
-			inline bool broadcast(std::complex<float>* data, int size, int source) {
+			inline bool broadcast(std::complex<float>* data, int size, int source) const {
 				MPI_Bcast(&(*data), size, MPI_COMPLEX, source, world_);
 				return true;
 			} // broadcast()
 
-			inline bool broadcast(std::complex<double>* data, int size, int source) {
+			inline bool broadcast(std::complex<double>* data, int size, int source) const {
 				MPI_Bcast(&(*data), size, MPI_DOUBLE_COMPLEX, source, world_);
 				return true;
 			} // broadcast()
 
-			inline bool scan_sum(unsigned int in, unsigned int& out) {
+			inline bool scan_sum(int in, int& out) const {
+				if(MPI_Scan(&in, &out, 1, MPI_INT, MPI_SUM, world_) != MPI_SUCCESS)
+					return false;
+				return true;
+			} // scan_sum()
+
+			inline bool scan_sum(unsigned int in, unsigned int& out) const {
 				if(MPI_Scan(&in, &out, 1, MPI_UNSIGNED, MPI_SUM, world_) != MPI_SUCCESS)
 					return false;
 				return true;
 			} // scan_sum()
 
-			inline bool gather(int* sbuf, int scount, int* rbuf, int rcount) {
+			inline bool gather(int* sbuf, int scount, int* rbuf, int rcount) const {
 				MPI_Gather(sbuf, scount, MPI_INT, rbuf, rcount, MPI_INT, master_rank_, world_);
 				return true;
 			} // gather()
 
-			inline bool gather(float* sbuf, int scount, float* rbuf, int rcount) {
+			inline bool gather(float* sbuf, int scount, float* rbuf, int rcount) const {
 				MPI_Gather(sbuf, scount, MPI_FLOAT, rbuf, rcount, MPI_FLOAT, master_rank_, world_);
 				return true;
 			} // gather()
 
-			inline bool gather(double* sbuf, int scount, double* rbuf, int rcount) {
+			inline bool gather(double* sbuf, int scount, double* rbuf, int rcount) const {
 				MPI_Gather(sbuf, scount, MPI_DOUBLE, rbuf, rcount, MPI_DOUBLE, master_rank_, world_);
 				return true;
 			} // gather()
 
-			inline bool allgather(int* sbuf, int scount, int* rbuf, int rcount) {
+			inline bool allgather(int* sbuf, int scount, int* rbuf, int rcount) const {
 				MPI_Allgather(sbuf, scount, MPI_INT, rbuf, rcount, MPI_INT, world_);
 				return true;
 			} // allgather()
 
-			inline bool allgather(unsigned int* sbuf, int scount, unsigned int* rbuf, int rcount) {
+			inline bool allgather(unsigned int* sbuf, int scount, unsigned int* rbuf, int rcount) const {
 				MPI_Allgather(sbuf, scount, MPI_UNSIGNED, rbuf, rcount, MPI_UNSIGNED, world_);
 				return true;
 			} // allgather()
 
-			inline bool gatherv(float* sbuf, int scount, float* rbuf, int* rcount, int* displs) {
+			inline bool gatherv(float* sbuf, int scount, float* rbuf, int* rcount, int* displs) const {
 				MPI_Gatherv(sbuf, scount, MPI_FLOAT, rbuf, rcount, displs, MPI_FLOAT,
 							master_rank_, world_);
 				return true;
 			} // gatherv()
 
-			inline bool gatherv(double* sbuf, int scount, double* rbuf, int* rcount, int* displs) {
+			inline bool gatherv(double* sbuf, int scount, double* rbuf, int* rcount, int* displs) const {
 				MPI_Gatherv(sbuf, scount, MPI_DOUBLE, rbuf, rcount, displs, MPI_DOUBLE,
 							master_rank_, world_);
 				return true;
 			} // gatherv()
 
 			inline bool gatherv(std::complex<float>* sbuf, int scount,
-									std::complex<float>* rbuf, int* rcount, int* displs) {
+									std::complex<float>* rbuf, int* rcount, int* displs) const {
 				MPI_Gatherv(sbuf, scount, MPI_COMPLEX, rbuf, rcount, displs, MPI_COMPLEX,
 							master_rank_, world_);
 				return true;
 			} // gatherv()
 
 			inline bool gatherv(std::complex<double>* sbuf, int scount,
-									std::complex<double>* rbuf, int* rcount, int* displs) {
+									std::complex<double>* rbuf, int* rcount, int* displs) const {
 				MPI_Gatherv(sbuf, scount, MPI_DOUBLE_COMPLEX,
 								rbuf, rcount, displs, MPI_DOUBLE_COMPLEX, master_rank_, world_);
 				return true;
 			} // gatherv()
 
 			inline bool scatterv(unsigned int* sbuf, int* scount, int* displs, unsigned int* rbuf,
-									int rcount) {
+									int rcount) const {
 				MPI_Scatterv(sbuf, scount, displs, MPI_UNSIGNED,
 								rbuf, rcount, MPI_UNSIGNED, master_rank_, world_);
 				return true;
 			} // scatterv()
 
-			inline bool scatterv(float* sbuf, int* scount, int* displs, float* rbuf, int rcount) {
+			inline bool scatterv(float* sbuf, int* scount, int* displs, float* rbuf, int rcount) const {
 				MPI_Scatterv(sbuf, scount, displs, MPI_FLOAT,
 								rbuf, rcount, MPI_FLOAT, master_rank_, world_);
 				return true;
 			} // scatterv()
 
-			inline bool scatterv(double* sbuf, int* scount, int* displs, double* rbuf, int rcount) {
+			inline bool scatterv(double* sbuf, int* scount, int* displs, double* rbuf, int rcount) const {
 				MPI_Scatterv(sbuf, scount, displs, MPI_DOUBLE,
 								rbuf, rcount, MPI_DOUBLE, master_rank_, world_);
 				return true;
 			} // scatterv()
 
-			inline bool allreduce_sum(float in, float& out) {
+			inline bool allreduce_sum(float in, float& out) const {
 				MPI_Allreduce(&in, &out, 1, MPI_FLOAT, MPI_SUM, world_);
 				return true;
 			} // allreduce_sum()
 
-			inline bool allreduce_sum(double in, double& out) {
+			inline bool allreduce_sum(double in, double& out) const {
 				MPI_Allreduce(&in, &out, 1, MPI_DOUBLE, MPI_SUM, world_);
 				return true;
 			} // allreduce_sum()
 
-			inline bool barrier() {
+			inline bool barrier() const {
 				MPI_Barrier(world_);
 				return true;
 			} // barrier()
@@ -248,7 +254,7 @@ namespace woo {
 	}; // class MultiNodeComm
 
 
-	typedef std::map <const char*, MultiNodeComm> multi_node_comm_map_t;
+	typedef std::map <const std::string, MultiNodeComm> multi_node_comm_map_t;
 
 	/**
 	 * For communication - TODO: make it singleton
@@ -274,19 +280,19 @@ namespace woo {
 			} // init()
 
 			// number of procs in the world
-			inline int size() { return comms_["world"].size(); }
-			inline int rank() { return comms_["world"].rank(); }
-			inline bool is_master() { return (comms_["world"].rank() == comms_["world"].master()); }
-			inline bool is_idle() { return comms_["world"].is_idle(); }
-			inline int master() { return comms_["world"].master(); }
+			inline int size() const { return comms_.at("world").size(); }
+			inline int rank() const { return comms_.at("world").rank(); }
+			inline bool is_master() const { return (comms_.at("world").rank() == comms_.at("world").master()); }
+			inline bool is_idle() const { return comms_.at("world").is_idle(); }
+			inline int master() const { return comms_.at("world").master(); }
 
-			inline int size(const char* key) { return comms_[key].size(); }
-			inline int rank(const char* key) { return comms_[key].rank(); }
-			inline bool is_master(const char* key) { return comms_[key].is_master(); }
-			inline bool is_idle(const char* key) { return comms_[key].is_idle(); }
-			inline int master(const char* key) { return comms_[key].master(); }
+			inline int size(const std::string key) const { return comms_.at(key).size(); }
+			inline int rank(const std::string key) const { return comms_.at(key).rank(); }
+			inline bool is_master(const std::string key) const { return comms_.at(key).is_master(); }
+			inline bool is_idle(const std::string key) const { return comms_.at(key).is_idle(); }
+			inline int master(const std::string key) const { return comms_.at(key).master(); }
 
-			inline void set_idle(const char* key) { comms_[key].set_idle(); }
+			inline void set_idle(const std::string key) { comms_.at(key).set_idle(); }
 
 			// number of communicators including the world
 			inline int num_comms() const { return comms_.size(); }
@@ -295,18 +301,18 @@ namespace woo {
 			 * Create new communicators
 			 */
 
-			bool split(const char* new_key, const char* key, int color) {
-				comms_[new_key] = comms_[key].split(color);
+			bool split(const std::string new_key, const std::string key, int color) {
+				comms_[new_key] = comms_.at(key).split(color);
 				return true;
 			} // split()
 
-			bool dup(const char* new_key, const char* key) {
-				comms_[new_key] = comms_[key].dup();
+			bool dup(const std::string new_key, const std::string key) {
+				comms_[new_key] = comms_.at(key).dup();
 				return true;
 			} // dup()
 
-			bool free(const char* key) {
-				comms_[key].free();
+			bool free(const std::string key) {
+				comms_.at(key).free();
 				comms_.erase(key);
 				return true;
 			} // free
@@ -315,123 +321,127 @@ namespace woo {
 			 * Broadcasts
 			 */
 
-			bool broadcast(const char* key, float* data, int size) {
-				return comms_[key].broadcast(data, size);
+			bool broadcast(const std::string key, float* data, int size) const {
+				return comms_.at(key).broadcast(data, size);
 			} // send_broadcast()
 
-			bool broadcast(const char* key, double* data, int size) {
-				return comms_[key].broadcast(data, size);
+			bool broadcast(const std::string key, double* data, int size) const {
+				return comms_.at(key).broadcast(data, size);
 			} // send_broadcast()
 
-			bool broadcast(const char* key, int* data, int size) {
-				return comms_[key].broadcast(data, size);
+			bool broadcast(const std::string key, int* data, int size) const {
+				return comms_.at(key).broadcast(data, size);
 			} // send_broadcast()
 
-			bool broadcast(const char* key, unsigned int* data, int size) {
-				return comms_[key].broadcast(data, size);
+			bool broadcast(const std::string key, unsigned int* data, int size) const {
+				return comms_.at(key).broadcast(data, size);
 			} // send_broadcast()
 
-			bool broadcast(const char* key, std::complex<float>* data, int size, int source) {
-				return comms_[key].broadcast(data, size, source);
+			bool broadcast(const std::string key, std::complex<float>* data, int size, int source) const {
+				return comms_.at(key).broadcast(data, size, source);
 			} // send_broadcast()
 
-			bool broadcast(const char* key, std::complex<double>* data, int size, int source) {
-				return comms_[key].broadcast(data, size, source);
+			bool broadcast(const std::string key, std::complex<double>* data, int size, int source) const {
+				return comms_.at(key).broadcast(data, size, source);
 			} // send_broadcast()
 
 			/**
 			 * Scans
 			 */
 
-			bool scan_sum(const char* key, unsigned int in, unsigned int& out) {
-				return comms_[key].scan_sum(in, out);
+			bool scan_sum(const std::string key, int in, int& out) const {
+				return comms_.at(key).scan_sum(in, out);
+			} // scan_sum()
+
+			bool scan_sum(const std::string key, unsigned int in, unsigned int& out) const {
+				return comms_.at(key).scan_sum(in, out);
 			} // scan_sum()
 
 			/**
 			 * Gatherers
 			 */
 
-			bool allgather(const char* key, int* sbuf, int scount, int* rbuf, int rcount) {
-				return comms_[key].allgather(sbuf, scount, rbuf, rcount);
+			bool allgather(const std::string key, int* sbuf, int scount, int* rbuf, int rcount) const {
+				return comms_.at(key).allgather(sbuf, scount, rbuf, rcount);
 			} // allgather()
 
-			bool allgather(const char* key, unsigned int* sbuf, int scount, unsigned int* rbuf, int rcount) {
-				return comms_[key].allgather(sbuf, scount, rbuf, rcount);
+			bool allgather(const std::string key, unsigned int* sbuf, int scount, unsigned int* rbuf, int rcount) const {
+				return comms_.at(key).allgather(sbuf, scount, rbuf, rcount);
 			} // allgather()
 
-			inline bool gather(const char* key, int* sbuf, int scount, int* rbuf, int rcount) {
-				return comms_[key].gather(sbuf, scount, rbuf, rcount);
+			inline bool gather(const std::string key, int* sbuf, int scount, int* rbuf, int rcount) const {
+				return comms_.at(key).gather(sbuf, scount, rbuf, rcount);
 			} // gather()
 
-			inline bool gather(const char* key, float* sbuf, int scount, float* rbuf, int rcount) {
-				return comms_[key].gather(sbuf, scount, rbuf, rcount);
+			inline bool gather(const std::string key, float* sbuf, int scount, float* rbuf, int rcount) const {
+				return comms_.at(key).gather(sbuf, scount, rbuf, rcount);
 			} // gather()
 
-			inline bool gather(const char* key, double* sbuf, int scount, double* rbuf, int rcount) {
-				return comms_[key].gather(sbuf, scount, rbuf, rcount);
+			inline bool gather(const std::string key, double* sbuf, int scount, double* rbuf, int rcount) const {
+				return comms_.at(key).gather(sbuf, scount, rbuf, rcount);
 			} // gather()
 
-			inline bool gatherv(const char* key, float* sbuf, int scount,
-									float* rbuf, int* rcount, int* displs) {
-				return comms_[key].gatherv(sbuf, scount, rbuf, rcount, displs);
+			inline bool gatherv(const std::string key, float* sbuf, int scount,
+									float* rbuf, int* rcount, int* displs) const {
+				return comms_.at(key).gatherv(sbuf, scount, rbuf, rcount, displs);
 			} // gatherv()
 
-			inline bool gatherv(const char* key, double* sbuf, int scount,
-									double* rbuf, int* rcount, int* displs) {
-				return comms_[key].gatherv(sbuf, scount, rbuf, rcount, displs);
+			inline bool gatherv(const std::string key, double* sbuf, int scount,
+									double* rbuf, int* rcount, int* displs) const {
+				return comms_.at(key).gatherv(sbuf, scount, rbuf, rcount, displs);
 			} // gatherv()
 
-			inline bool gatherv(const char* key, std::complex<float>* sbuf, int scount,
-									std::complex<float>* rbuf, int* rcount, int* displs) {
-				return comms_[key].gatherv(sbuf, scount, rbuf, rcount, displs);
+			inline bool gatherv(const std::string key, std::complex<float>* sbuf, int scount,
+									std::complex<float>* rbuf, int* rcount, int* displs) const {
+				return comms_.at(key).gatherv(sbuf, scount, rbuf, rcount, displs);
 			} // gatherv()
 
-			inline bool gatherv(const char* key, std::complex<double>* sbuf, int scount,
-									std::complex<double>* rbuf, int* rcount, int* displs) {
-				return comms_[key].gatherv(sbuf, scount, rbuf, rcount, displs);
+			inline bool gatherv(const std::string key, std::complex<double>* sbuf, int scount,
+									std::complex<double>* rbuf, int* rcount, int* displs) const {
+				return comms_.at(key).gatherv(sbuf, scount, rbuf, rcount, displs);
 			} // gatherv()
 
 			/**
 			 * Reducers
 			 */
 
-			inline bool allreduce_sum(const char* key, float in, float& out) {
-				return comms_[key].allreduce_sum(in, out);
+			inline bool allreduce_sum(const std::string key, float in, float& out) const {
+				return comms_.at(key).allreduce_sum(in, out);
 			} // allreduce_sum()
 
-			inline bool allreduce_sum(const char* key, double in, double& out) {
-				return comms_[key].allreduce_sum(in, out);
+			inline bool allreduce_sum(const std::string key, double in, double& out) const {
+				return comms_.at(key).allreduce_sum(in, out);
 			} // allreduce_sum()
 
 			/**
 			 * Scatterers
 			 */
 
-			inline bool scatterv(const char* key, unsigned int* sbuf, int* scount, int* displs,
-									unsigned int* rbuf, int rcount) {
-				return comms_[key].scatterv(sbuf, scount, displs, rbuf, rcount);
+			inline bool scatterv(const std::string key, unsigned int* sbuf, int* scount, int* displs,
+									unsigned int* rbuf, int rcount) const {
+				return comms_.at(key).scatterv(sbuf, scount, displs, rbuf, rcount);
 			} // scatterv()
 
-			inline bool scatterv(const char* key, float* sbuf, int* scount, int* displs,
-									float* rbuf, int rcount) {
-				return comms_[key].scatterv(sbuf, scount, displs, rbuf, rcount);
+			inline bool scatterv(const std::string key, float* sbuf, int* scount, int* displs,
+									float* rbuf, int rcount) const {
+				return comms_.at(key).scatterv(sbuf, scount, displs, rbuf, rcount);
 			} // scatterv()
 
-			inline bool scatterv(const char* key, double* sbuf, int* scount, int* displs,
-									double* rbuf, int rcount) {
-				return comms_[key].scatterv(sbuf, scount, displs, rbuf, rcount);
+			inline bool scatterv(const std::string key, double* sbuf, int* scount, int* displs,
+									double* rbuf, int rcount) const {
+				return comms_.at(key).scatterv(sbuf, scount, displs, rbuf, rcount);
 			} // scatterv()
 
 			/**
 			 * Barriers
 			 */
 
-			bool barrier() {
-				return comms_["world"].barrier();
+			bool barrier() const {
+				return comms_.at("world").barrier();
 			} // barrier()
 
-			bool barrier(const char* key) {
-				return comms_[key].barrier();
+			bool barrier(const std::string key) const {
+				return comms_.at(key).barrier();
 			} // barrier()
 
 		private:

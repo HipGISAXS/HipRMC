@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 12 Oct 2013 12:42:28 PM PDT
+  *  Modified: Sat 12 Oct 2013 06:08:50 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -54,7 +54,7 @@ namespace hir {
 													// == min_row_index_ + a_mat_.num_rows() - 1
 			#ifdef USE_MPI
 				//unsigned int row_offsets_[MAX_NUM_PROCS];
-				unsigned int row_offsets_[2];
+				int row_offsets_[2];
 			#endif
 
 			// buffers used only for cpu version
