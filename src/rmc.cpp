@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 12 Oct 2013 12:13:45 PM PDT
+  *  Modified: Sat 12 Oct 2013 09:00:53 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -117,25 +117,25 @@ namespace hir {
 			} // if
 		#ifdef USE_MPI
 		} // if
-		if(global_num_tiles_ < multi_node_.size()) {
+		if(multi_node_.size() == 1) {	// all tiles to one proc
+			multi_node_.dup("real_world", "world");
+			num_tiles_ = global_num_tiles_;
+		} else if(multi_node_.size() == global_num_tiles_) {	// each proc has exactly 1 tile
+			multi_node_.split("real_world", "world", multi_node_.rank());
+			num_tiles_ = 1;
+		} else if(global_num_tiles_ < multi_node_.size()) {
 			// multiple processors are responsible for each tile
-			//int idle = (multi_node_.rank() < global_num_tiles_) ? 0 : 1;
-			//multi_node_.split("real_world", "world", idle);
-			//if(idle) multi_node_.set_idle("real_world");
-			//num_tiles_ = 1 - idle;
-
 			// tile number this processor is responsible for (round robin distribution)
 			int tile_num = multi_node_.rank("world") % global_num_tiles_;
 			// create new communicator
 			multi_node_.split("real_world", "world", tile_num);
 			num_tiles_ = 1;
-
-		} else {	// global_num_tiles >= num procs
+		} else if(multi_node_.size() < global_num_tiles_) {	// each proc has multiple tiles
 			// multiple tiles are assigned to each processor
-			multi_node_.dup("real_world", "world");
-			num_tiles_ = (global_num_tiles_ / multi_node_.size("real_world")) +
-				(multi_node_.rank("real_world") < global_num_tiles_ % multi_node_.size("real_world"));
-
+			// each proc is in its own world
+			multi_node_.split("real_world", "world", multi_node_.rank());
+			num_tiles_ = (global_num_tiles_ / multi_node_.size("world")) +
+							(multi_node_.rank("world") < global_num_tiles_ % multi_node_.size("world"));
 		} // if-else
 
 		// construct a communicator in world for all masters in real_world
