@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 13 Oct 2013 07:27:08 PM PDT
+  *  Modified: Mon 14 Oct 2013 09:56:56 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -22,8 +22,8 @@
 #include <fftw3.h>
 #endif
 
-#include <woo/timer/woo_boostchronotimers.hpp>
-#include <woo/random/woo_mtrandom.hpp>
+#include "woo/timer/woo_boostchronotimers.hpp"
+#include "woo/random/woo_mtrandom.hpp"
 
 #include "wil/image.hpp"
 #include "woo/comm/multi_node_comm.hpp"

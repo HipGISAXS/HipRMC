@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Sat 05 Oct 2013 08:19:27 PM PDT
+  *  Modified: Mon 14 Oct 2013 09:58:44 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -11,7 +11,7 @@
 #include <iostream>
 //#include <thrust/reduce.h>
 
-#include <woo/reduce/reduce.cuh>
+#include "woo/reduce/reduce.cuh"
 
 #include <nvToolsExt.h>
 #include <cuda_profiler_api.h>

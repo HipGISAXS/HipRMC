@@ -3,7 +3,7 @@
   *
   *  File: tile_scale.cpp
   *  Created: Mar 04, 2013
-  *  Modified: Wed 11 Sep 2013 05:26:13 PM PDT
+  *  Modified: Mon 14 Oct 2013 09:58:23 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -11,7 +11,7 @@
 #ifdef _OPENMP
 #include <omp.h>
 #endif
-#include <woo/timer/woo_boostchronotimers.hpp>
+#include "woo/timer/woo_boostchronotimers.hpp"
 
 #include "tile.hpp"
 #include "constants.hpp"
