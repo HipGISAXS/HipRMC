@@ -3,7 +3,7 @@
   *
   *  File: tile.cuh
   *  Created: Feb 02, 2013
-  *  Modified: Fri 23 Aug 2013 11:08:16 AM PDT
+  *  Modified: Mon 14 Oct 2013 03:21:54 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -49,8 +49,7 @@ namespace hir {
 			__host__ GTile();
 			__host__ ~GTile();
 
-			__host__ bool init(real_t*, cucomplex_t*, real_t*, const unsigned int*,
-								unsigned int, unsigned int, unsigned int, unsigned int);
+			__host__ bool init(real_t*, unsigned int, unsigned int, unsigned int, unsigned int);
 			__host__ bool init_scale(real_t*, cucomplex_t*, real_t*, const unsigned int* mask,
 									unsigned int, unsigned int, unsigned int);
 			__host__ bool destroy_scale();

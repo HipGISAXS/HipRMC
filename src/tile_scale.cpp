@@ -3,7 +3,7 @@
   *
   *  File: tile_scale.cpp
   *  Created: Mar 04, 2013
-  *  Modified: Mon 14 Oct 2013 09:58:23 AM PDT
+  *  Modified: Mon 14 Oct 2013 03:23:54 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -174,8 +174,10 @@ namespace hir {
 		#endif
 		diff_mat_.incr_rows(1); diff_mat_.incr_columns(1);
 
-		// update the autotuner as well
-		autotuner_.scale_step();
+		#ifndef USE_GPU
+			// update the autotuner as well
+			autotuner_.scale_step();
+		#endif
 
 		// clear chi2 list
 		chi2_list_.clear();

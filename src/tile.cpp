@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 14 Oct 2013 09:58:14 AM PDT
+  *  Modified: Mon 14 Oct 2013 03:28:52 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -36,8 +36,11 @@ namespace hir {
 		mod_f_mat_i_(0),
 		indices_(indices),
 		dft_mat_(rows, cols),
-		mt_rand_gen_(time(NULL)),
-		autotuner_(rows, cols, indices) {
+		mt_rand_gen_(time(NULL))
+		#ifndef USE_GPU
+			, autotuner_(rows, cols, indices)
+		#endif
+		{
 
 		woo::BoostChronoTimer mytimer;
 
@@ -109,8 +112,11 @@ namespace hir {
 		new_pos_(tile.new_pos_),
 		old_index_(tile.old_index_),
 		new_index_(tile.new_index_),
-		mt_rand_gen_(time(NULL)),
-		autotuner_(tile.autotuner_) {
+		mt_rand_gen_(time(NULL))
+		#ifndef USE_GPU
+			, autotuner_(tile.autotuner_)
+		#endif
+		{
 		#ifdef USE_GPU
 			unsigned int size2 = final_size_ * final_size_;
 			cucomplex_buff_ = new (std::nothrow) cucomplex_t[size2];
@@ -216,23 +222,25 @@ namespace hir {
 
 		// autotune temperature (tstar)
 		std::cout << "MMMMMMMMultinode: " << multi_node.size("real_world") << std::endl;
-		mytimer.start();
-/*		if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps
-				#ifdef USE_MPI
-					, multi_node
-				#endif
-				)) {
-			std::cerr << "error: failed to autotune temperature" << std::endl;
-			return false;
-		} // if
-*/		mytimer.stop();
-		tstar_ = 1.0;
-		cooling_factor_ = 0.01;
-		std::cout << "TEMPERATURE = " << tstar_ << std::endl;
-		std::cout << "COOLING = " << cooling_factor_ << std::endl;
-		std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
-					<< " ms." << std::endl;
-		tstar_set_ = true;
+		#ifndef USE_GPU		// currently gpu version does not have autotuning
+			mytimer.start();
+/*			if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps
+					#ifdef USE_MPI
+						, multi_node
+					#endif
+					)) {
+				std::cerr << "error: failed to autotune temperature" << std::endl;
+				return false;
+			} // if
+*/			mytimer.stop();
+			tstar_ = 1.0;
+			cooling_factor_ = 0.01;
+			std::cout << "TEMPERATURE = " << tstar_ << std::endl;
+			std::cout << "COOLING = " << cooling_factor_ << std::endl;
+			std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
+						<< " ms." << std::endl;
+			tstar_set_ = true;
+		#endif // USE_GPU
 
 		#ifdef USE_MPI
 			compute_fft_mat(multi_node);
@@ -643,16 +651,20 @@ namespace hir {
 
 	#else // USE_GPU
 
-	bool Tile::compute_fft_mat() {
+	bool Tile::compute_fft_mat(
+			#ifdef USE_MPI
+				woo::MultiNode& multi_node
+			#endif
+			) {
 		gtile_.compute_fft_mat(f_mat_i_);
 		return true;
 	} // Tile::compute_fft_mat()
 
 
-	bool Tile::compute_fft(const mat_real_t& src, mat_complex_t& dst) {
-		gtile_.compute_fft(src, dst);
-		return true;
-	} // Tile::compute_fft()
+	//bool Tile::compute_fft(const mat_real_t& src, mat_complex_t& dst) {
+	//	gtile_.compute_fft(src, dst);
+	//	return true;
+	//} // Tile::compute_fft()
 
 
 	#ifndef USE_DFT
@@ -691,24 +703,21 @@ namespace hir {
 	} // Tile::compute_mod_mat()
 
 
+	#ifndef USE_GPU
 	bool Tile::compute_mod(const mat_complex_t& src, mat_real_t& dst) {
-		#ifdef USE_GPU
-			gtile_.compute_mod(src, dst);
-			gtile_.normalize(dst);
-		#else // USE CPU
-			#pragma omp parallel for collapse(2)
-			for(unsigned int i = 0; i < src.num_rows(); ++ i) {
-				for(unsigned int j = 0; j < src.num_cols(); ++ j) {
-					complex_t temp_f = src(i, j);
-					real_t temp = temp_f.real() * temp_f.real() + temp_f.imag() * temp_f.imag();
-					dst(i, j) = temp;
-				} // for
+		#pragma omp parallel for collapse(2)
+		for(unsigned int i = 0; i < src.num_rows(); ++ i) {
+			for(unsigned int j = 0; j < src.num_cols(); ++ j) {
+				complex_t temp_f = src(i, j);
+				real_t temp = temp_f.real() * temp_f.real() + temp_f.imag() * temp_f.imag();
+				dst(i, j) = temp;
 			} // for
-			normalize(dst);
-		#endif // USE_GPU
+		} // for
+		normalize(dst);
 
 		return true;
 	} // Tile::compute_mod()
+	#endif
 
 
 	/*bool Tile::normalize_mod(unsigned int mat_i) {
@@ -754,6 +763,7 @@ namespace hir {
 	} // Tile::normalize_mod_mat()*/
 
 
+	#ifndef USE_GPU
 	bool Tile::normalize(mat_real_t& mat) {
 		real_t min_val, max_val;
 		woo::matrix_min_max(mat, min_val, max_val);
@@ -766,6 +776,7 @@ namespace hir {
 		} // for
 		return true;
 	} // Tile::normalize()
+	#endif
 
 
 	/*bool Tile::compute_model_norm(unsigned int buff_i, const mat_uint_t& mask) {
@@ -840,7 +851,7 @@ namespace hir {
 								) {
 		real_t chi2 = 0.0;
 		#ifdef USE_GPU
-			chi2 = gtile_.compute_chi2(a, b);
+			chi2 = gtile_.compute_chi2(mod_f_mat_i_, 0.0, base_norm);
 		#else
 			#pragma omp parallel for collapse(2) reduction(+:chi2)
 			for(unsigned int i = 0; i < a.num_rows(); ++ i) {
@@ -1015,7 +1026,7 @@ namespace hir {
 			multi_node.broadcast("real_world", new_row_data, cols_, proc_id);
 		#endif
 		#ifdef USE_GPU
-			gtile_.compute_dft2(old_row, old_col, new_row, new_col, num_particles_, dft_mat);
+			gtile_.compute_dft2(old_row, old_col, new_row, new_col, num_particles_, f_mat_i_, f_mat_i_);
 		#else
 			//typename mat_complex_t::row_iterator old_row_iter = vandermonde_mat.row(old_row);
 			typename mat_complex_t::col_iterator old_col_iter = vandermonde_mat.column(old_col);

@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 14 Oct 2013 09:56:56 AM PDT
+  *  Modified: Mon 14 Oct 2013 03:21:51 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -72,7 +72,9 @@ namespace hir {
 			unsigned int num_particles_;					// number of particles (duh!)
 			unsigned int max_move_distance_;				// limit on particle movement
 
-			TileAutotuner autotuner_;						// autotuner
+			#ifndef USE_GPU
+				TileAutotuner autotuner_;					// autotuner
+			#endif
 
 			#ifdef USE_GPU
 				cucomplex_t* cucomplex_buff_;
@@ -159,9 +161,11 @@ namespace hir {
 			bool autotune_move_random_particle_restricted(unsigned int, unsigned int&, unsigned int&,
 									unsigned int&, unsigned int&, unsigned int&, unsigned int&,
 									unsigned int&, unsigned int&);
-			bool compute_fft(const mat_real_t&, mat_complex_t&);
-			bool compute_mod(const mat_complex_t&, mat_real_t&);
-			bool normalize(mat_real_t&);
+			#ifndef USE_GPU
+				bool compute_fft(const mat_real_t&, mat_complex_t&);
+				bool compute_mod(const mat_complex_t&, mat_real_t&);
+				bool normalize(mat_real_t&);
+			#endif
 			#ifdef USE_DFT
 				bool compute_dft2(mat_complex_t&, unsigned int, unsigned int,
 									unsigned int, unsigned int, mat_complex_t&
