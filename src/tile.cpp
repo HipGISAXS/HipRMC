@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 12 Oct 2013 06:12:44 PM PDT
+  *  Modified: Sun 13 Oct 2013 08:09:31 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -27,7 +27,7 @@ namespace hir {
 	// constructor
 	Tile::Tile(unsigned int rows, unsigned int cols, const std::vector<unsigned int>& indices,
 				unsigned int final_size) :
-		a_mat_(rows, cols),
+		a_mat_(std::max(rows, cols), std::max(rows, cols)),
 		#ifndef USE_DFT
 			virtual_a_mat_(rows, cols),
 		#endif
@@ -43,24 +43,25 @@ namespace hir {
 
 		size_ = std::max(rows, cols);
 		final_size_ = final_size;
-
-		// FIXME: fix the rows_ and cols_
-		rows_ = cols_= size_;
+		rows_ = rows;
+		cols_ = cols;
 
 		tstar_ = 1.0;
 		cooling_factor_ = 0.0;
 		tstar_set_ = false;
 
+		std::cout << "HOHOHOHOHOHOHOHO: " << rows_ << ", " << cols_ << std::endl;
+
 		// two buffers each
 		mytimer.start();
-		f_mat_.push_back(mat_complex_t(size_, size_));
-		f_mat_.push_back(mat_complex_t(size_, size_));
+		f_mat_.push_back(mat_complex_t(rows_, cols_));
+		f_mat_.push_back(mat_complex_t(rows_, cols_));
 		mytimer.stop();
 		//std::cout << "**   FFT matrix initialization time: " << mytimer.elapsed_msec() << " ms."
 		//			<< std::endl;
 		mytimer.start();
-		mod_f_mat_.push_back(mat_real_t(size_, size_));
-		mod_f_mat_.push_back(mat_real_t(size_, size_));
+		mod_f_mat_.push_back(mat_real_t(rows_, cols_));
+		mod_f_mat_.push_back(mat_real_t(rows_, cols_));
 		mytimer.stop();
 		//std::cout << "**      FFT mod initialization time: " << mytimer.elapsed_msec() << " ms."
 		//			<< std::endl;
@@ -118,6 +119,7 @@ namespace hir {
 
 
 	Tile::~Tile() {
+		std::cout << "destroying tileeeeeeeeeeeeeeeeeeeeee: " << f_mat_.size() << std::endl;
 		#ifdef USE_GPU
 			delete[] cucomplex_buff_;
 		#endif // USE_GPU
@@ -142,6 +144,7 @@ namespace hir {
 		prefix_ = std::string(prefix);
 
 		// fill a_mat_ with particles
+		std::cout << "UPDATING MODEL" << std::endl;
 		mytimer.start();
 		update_model(
 					#ifdef USE_MPI
@@ -149,9 +152,9 @@ namespace hir {
 					#endif
 					);
 		mytimer.stop();
-		//std::cout << "**  Initial model construction time: " << mytimer.elapsed_msec() << " ms."
-		//			<< std::endl;
-		//std::cout << "++              Number of particles: " << num_particles_ << std::endl;
+		std::cout << "**  Initial model construction time: " << mytimer.elapsed_msec() << " ms."
+					<< std::endl;
+		std::cout << "++              Number of particles: " << num_particles_ << std::endl;
 		#ifdef USE_GPU
 			unsigned int block_x = CUDA_BLOCK_SIZE_X_;
 			unsigned int block_y = CUDA_BLOCK_SIZE_Y_;
@@ -212,29 +215,23 @@ namespace hir {
 		#endif // USE_MPI
 
 		// autotune temperature (tstar)
-		#ifdef USE_MPI
-			if(multi_node.is_master("real_world")) {
-		#endif
-				std::cout << "MMMMMMMMultinode: " << multi_node.size() << std::endl;
-
-				mytimer.start();
-				if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps
-						#ifdef USE_MPI
-							, multi_node
-						#endif
-						)) {
-					std::cerr << "error: failed to autotune temperature" << std::endl;
-					return false;
-				} // if
-				mytimer.stop();
-				//std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
-				//			<< " ms." << std::endl;
-		#ifdef USE_MPI
-			} // if
-			// send to all
-			multi_node.broadcast("real_world", &tstar_, 1);
-			multi_node.broadcast("real_world", &cooling_factor_, 1);
-		#endif
+		std::cout << "MMMMMMMMultinode: " << multi_node.size("real_world") << std::endl;
+		mytimer.start();
+/*		if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps
+				#ifdef USE_MPI
+					, multi_node
+				#endif
+				)) {
+			std::cerr << "error: failed to autotune temperature" << std::endl;
+			return false;
+		} // if
+*/		mytimer.stop();
+		tstar_ = 1.0;
+		cooling_factor_ = 0.01;
+		std::cout << "TEMPERATURE = " << tstar_ << std::endl;
+		std::cout << "COOLING = " << cooling_factor_ << std::endl;
+		std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
+					<< " ms." << std::endl;
 		tstar_set_ = true;
 
 		#ifdef USE_MPI
@@ -258,12 +255,15 @@ namespace hir {
 
 
 	bool Tile::destroy_scale() {
+		std::cout << "****** destroying scale tiles" << std::endl;
 		#ifdef USE_GPU
 			gtile_.destroy_scale();
 		#else	// use CPU
 			fftw_destroy_plan(fft_plan_);
 			fftw_free(fft_out_);
+			fft_out_ = NULL;
 			fftw_free(fft_in_);
+			fft_in_ = NULL;
 		#endif
 		return true;
 	} // Tile::destroy_scale()
@@ -292,14 +292,21 @@ namespace hir {
 		unsigned int f_scratch_i = 1 - f_mat_i_;
 		unsigned int mod_f_scratch_i = 1 - mod_f_mat_i_;
 
+		//std::cout << "HAHAHAHAHAHAHA: " << multi_node.rank("real_world") << "\t" << indices_.size() << std::endl;
+
+		multi_node.barrier("real_world");
+
 		mytimer_.start();
-		//virtual_move_random_particle();
 		virtual_move_random_particle_restricted(max_move_distance_
 				#ifdef USE_MPI
 					, multi_node
 				#endif
 				);
 		mytimer_.stop(); vmove_time_ += mytimer_.elapsed_msec();
+
+		//std::cout << "HEHEHEHEHEHE: " << multi_node.rank("real_world") << std::endl;
+
+		multi_node.barrier("real_world");
 
 		mytimer_.start();
 		#ifdef USE_DFT
@@ -326,6 +333,9 @@ namespace hir {
 		#endif
 		mytimer_.stop(); dft2_time_ += mytimer_.elapsed_msec();
 
+		multi_node.barrier("real_world");
+		//std::cout << "HIHIHIHIHIHIHIHHI: " << multi_node.rank("real_world") << std::endl;
+
 		mytimer_.start();
 		#ifdef USE_MPI
 			compute_mod_mat(f_scratch_i, multi_node);
@@ -333,6 +343,10 @@ namespace hir {
 			compute_mod_mat(f_scratch_i);
 		#endif
 		mytimer_.stop(); mod_time_ += mytimer_.elapsed_msec();
+
+		//std::cout << "HOHOHOHOHOHOHO: " << multi_node.rank("real_world") << std::endl;
+
+		multi_node.barrier("real_world");
 
 		mytimer_.start();
 		//compute_model_norm(mod_f_scratch_i, mask);
@@ -347,6 +361,9 @@ namespace hir {
 									);
 		chi2_list_.push_back(new_chi2);		// save this chi2 value
 		mytimer_.stop(); chi2_time_ += mytimer_.elapsed_msec();
+
+		multi_node.barrier("real_world");
+		//std::cout << "HUHUHUHUHUHUHU: " << multi_node.rank("real_world") << std::endl;
 
 		mytimer_.start();
 		double diff_chi2 = prev_chi2_ - new_chi2;
@@ -366,6 +383,8 @@ namespace hir {
 			multi_node.broadcast("real_world", &accept, 1);
 		#endif
 
+		multi_node.barrier("real_world");
+
 		if(accept) {	// accept the move
 			// update to newly computed stuff
 			// make scratch as current
@@ -382,18 +401,25 @@ namespace hir {
 		if(iter % 1000 == 0) {
 			#ifdef USE_MPI
 				update_model(multi_node);
+				//std::cout << "SHITTY SHIT SHIT SHIT SHIT " << multi_node.rank("real_world") << std::endl;
+				if(multi_node.is_master("real_world")) create_image("model", iter / 1000, a_mat_, false);
+				//std::cout << "CRAPPY CRAP CRAP CRAP CRAP " << multi_node.rank("real_world") << std::endl;
 			#else
 				update_model();
+				create_image("model", iter / 1000, a_mat_, false);
 			#endif
-			create_image("model", iter / 1000, a_mat_, false);
 		} // if
+
+		multi_node.barrier("real_world");
+
+		//std::cout << "HERERERERERE: " << multi_node.rank("real_world") << std::endl;
 
 		return true;
 	} // Tile::simulate_step()
 
 
 	void Tile::create_image(std::string str, unsigned int iter, const mat_real_t &mat, bool swapped) {
-		std::stringstream num_iter;
+/*		std::stringstream num_iter;
 		num_iter << std::setfill('0') << std::setw(4) << iter;
 		char str0[5];
 		num_iter >> str0;
@@ -403,7 +429,7 @@ namespace hir {
 		num_size >> str1;
 		double min_val, max_val;
 		woo::matrix_min_max(mat, min_val, max_val);
-
+*/
 		/*cv::Mat img(size_, size_, 0);
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
@@ -419,23 +445,35 @@ namespace hir {
 		// write it out
 		cv::imwrite(HipRMCInput::instance().label() + "/" + std::string(str0) + "_" + str + ".tif", img);
 		*/
-		real_t * data = new (std::nothrow) real_t[size_ * size_];
-		for(int i = 0; i < size_; ++ i) {
-			for(int j = 0; j < size_; ++ j) {
-				int i_swap = i, j_swap = j;
-				if(swapped) {
-					i_swap = (i + (size_ >> 1)) % size_;
-					j_swap = (j + (size_ >> 1)) % size_;
-				} // if
-				data[size_ * i + j] = 255 * ((mat(i_swap, j_swap) - min_val) / (max_val - min_val));
-			} // for j
-		} // for i
-		wil::Image img(size_, size_, 30, 30, 30);
-		img.construct_image(data);
-		std::string filename = prefix_ + "_" + std::string(str1) + "_" + std::string(str0) +
-								"_" + str + ".tif";
-		img.save(HipRMCInput::instance().label() + "/" + filename);
-		delete[] data;
+		int rows = mat.num_rows();
+		int cols = mat.num_cols();
+		std::cout << "====================== SO I REACHED HERE: " << rows << ", " << cols << std::endl;
+//		real_t * data = new (std::nothrow) real_t[rows * cols];
+		//real_t * data = (real_t*) malloc(rows * cols * sizeof(real_t));
+		//real_t data[rows * cols];
+//		if(data == NULL) {
+//			std::cerr << "error: failed to allocate memory for image data" << std::endl;
+//			exit(1);
+//		} // if
+		std::cout << "SO I REACHED HERERE =====================" << std::endl;
+//		for(int i = 0; i < rows; ++ i) {
+//			for(int j = 0; j < cols; ++ j) {
+//				int i_swap = i, j_swap = j;
+				// FIXME do quadrant swap thingy
+				//if(swapped) {
+				//	i_swap = (i + (rows >> 1)) % rows;
+				//	j_swap = (j + (cols >> 1)) % cols;
+				//} // if
+//				data[cols * i + j] = 255 * ((mat(i_swap, j_swap) - min_val) / (max_val - min_val));
+//			} // for j
+//		} // for i
+//		wil::Image img(rows, cols, 30, 30, 30);
+//		img.construct_image(data);
+//		std::string filename = prefix_ + "_" + std::string(str1) + "_" + std::string(str0) +
+//								"_" + str + ".tif";
+//		img.save(HipRMCInput::instance().label() + "/" + filename);
+//		delete[] data;
+		//free(data);
 	} // Tile::create_image()
 
 
@@ -466,8 +504,7 @@ namespace hir {
 				woo::MultiNode& multi_node
 			#endif
 			) {
-		update_a_mat();
-		return true;
+		return update_a_mat();
 	} // Tile::update_model()
 
 
@@ -866,8 +903,8 @@ namespace hir {
 				, woo::MultiNode& multi_node
 			#endif
 			) {
-		int pos[4];
 		#ifdef USE_MPI
+			int pos[4];
 			if(multi_node.is_master("real_world")) {
 		#endif
 				while(1) {
@@ -875,28 +912,38 @@ namespace hir {
 					new_pos_ = floor(mt_rand_gen_.rand() *	(size_ * size_ - num_particles_)) +
 								num_particles_;
 					// FIXME: currently this assumes that all indices_ array is on all procs
-					old_index_ = indices_[old_pos_];
-					new_index_ = indices_[new_pos_];
+					if(old_pos_ < indices_.size()) old_index_ = indices_[old_pos_];
+					else {
+						std::cerr << "errrrrooorrrrrr: " << old_pos_ << std::endl;
+						return false;
+					} // if-else
+					if(new_pos_ < indices_.size()) new_index_ = indices_[new_pos_];
+					else {
+						std::cerr << "errrroorr: " << new_pos_ << std::endl;
+						return false;
+					} // if-else
 					int old_x = old_index_ / size_, old_y = old_index_ % size_;
 					int new_x = new_index_ / size_, new_y = new_index_ % size_;
 					if((fabs(new_x - old_x) < dist || (size_ - fabs(new_x - old_x)) < dist) &&
 							(fabs(new_y - old_y) < dist || (size_ - fabs(new_y - old_y)) < dist))
-						return true;
+						break;
 				} // while
+		#ifdef USE_MPI
 				pos[0] = old_pos_; pos[1] = new_pos_;
 				pos[2] = old_index_; pos[3] = new_index_;
-		#ifdef USE_MPI
 			} // if
-			multi_node.broadcast("real_world", pos, 2);
+			multi_node.broadcast("real_world", pos, 4);
 			if(!multi_node.is_master("real_world")) {
 				old_pos_ = pos[0]; new_pos_ = pos[1];
 				old_index_ = pos[2]; new_index_ = pos[3];
 			} // if
+			//std::cout << "P" << multi_node.rank("real_world") << ": " << old_pos_ << ", "
+			//			<< new_pos_ << ", " << old_index_ << ", " << new_index_ << std::endl;
 		#endif // USE_MPI
 
 		//std::cout << "++++ old_pos,new_pos: " << old_pos_ << "," << new_pos_
 		//			<< ", old_index,new_index: " << old_index_ << "," << new_index_ << std::endl;
-		return false;
+		return true;
 	} // Tile::virtual_move_random_particle()
 
 
@@ -935,7 +982,9 @@ namespace hir {
 
 		#ifdef USE_MPI
 			int proc_id = 0;
-			while(row_offsets_[proc_id] + rows_ < old_row) ++ proc_id;
+			while(row_offsets_[proc_id] <= old_row && proc_id < multi_node.size("real_world"))
+				++ proc_id;
+			-- proc_id;
 			if(multi_node.rank("real_world") == proc_id) {
 		#endif
 				// construct send buffer
@@ -949,7 +998,9 @@ namespace hir {
 			} // if
 			multi_node.broadcast("real_world", old_row_data, cols_, proc_id);
 			proc_id = 0;
-			while(row_offsets_[proc_id] + rows_ < new_row) ++ proc_id;
+			while(row_offsets_[proc_id] <= new_row && proc_id < multi_node.size("real_world"))
+				++ proc_id;
+			-- proc_id;
 			if(multi_node.rank("real_world") == proc_id) {
 		#endif
 				// construct send buffer
@@ -975,7 +1026,9 @@ namespace hir {
 				for(int col = 0; col < cols_; ++ col) {
 					complex_t new_temp = new_col_iter[row] * new_row_data[col];
 					complex_t old_temp = old_col_iter[row] * old_row_data[col];
-					dft_mat(col, row) = (new_temp - old_temp);
+					// FIXME: fix size of the dft_mat: it has to be transpose!!!!!!
+					//dft_mat(col, row) = (new_temp - old_temp);
+					dft_mat(row, col) = (new_temp - old_temp);
 				} // for
 			} // for
 		#endif // USE_GPU
@@ -993,8 +1046,8 @@ namespace hir {
 			// this has been merged into compute_dft2 for gpu
 		#else
 			#pragma omp parallel for collapse(2)
-			for(int i = 0; i < size_; ++ i) {
-				for(int j = 0; j < size_; ++ j) {
+			for(int i = 0; i < rows_; ++ i) {
+				for(int j = 0; j < cols_; ++ j) {
 					out_f_mat(i, j) = dft_mat(i, j) + in_f_mat(i, j);
 				} // for j
 			} // for i
@@ -1034,7 +1087,7 @@ namespace hir {
 	} // Tile::mask_mat()
 */
 
-	bool Tile::finalize_result(double& chi2, mat_real_t& a
+	bool Tile::finalize_result(double& chi2
 			#ifdef USE_MPI
 				, woo::MultiNode& multi_node
 			#endif
@@ -1049,7 +1102,6 @@ namespace hir {
 			// also copy f mat data to main memory from GPU
 			update_f_mats();
 		#endif
-		a = a_mat_;
 		chi2 = prev_chi2_;
 		return true;
 	} // Tile::finalize()
@@ -1064,6 +1116,7 @@ namespace hir {
 			unsigned int y = indices_[i] % size_;
 			a_mat_(x, y) = 1.0;
 		} // for
+
 		// also copy to GPU ... temporary?
 		#ifdef USE_GPU
 			gtile_.copy_model(a_mat_);

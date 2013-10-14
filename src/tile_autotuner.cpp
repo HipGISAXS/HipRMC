@@ -3,7 +3,7 @@
  *
  *  File: tile_autotuner.cpp
  *  Created: Sep 05, 2013
- *  Modified: Sat 12 Oct 2013 10:29:46 AM PDT
+ *  Modified: Sun 13 Oct 2013 09:52:21 AM PDT
  *
  *  Author: Abhinav Sarje <asarje@lbl.gov>
  */
@@ -17,15 +17,15 @@
 namespace hir {
 
 	TileAutotuner::TileAutotuner(unsigned int rows, unsigned int cols, const vec_uint_t& indices) :
-		a_mat_(rows, cols),
+		a_mat_(std::max(rows, cols), std::max(rows, cols)),
 		size_(std::max(rows, cols)),
 		indices_(indices),
 		num_particles_(0),
 		tstar_(0.0),
 		cooling_factor_(0.0),
-   		f_mat_(rows, cols),
-		mod_f_mat_(rows, cols),
-		dft_mat_(rows, cols),
+   		f_mat_(std::max(rows, cols), std::max(rows, cols)),
+		mod_f_mat_(std::max(rows, cols), std::max(rows, cols)),
+		dft_mat_(std::max(rows, cols), std::max(rows, cols)),
 		prev_chi2_(0.0),
 		accepted_moves_(0) {
 

@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 12 Oct 2013 06:08:50 PM PDT
+  *  Modified: Sun 13 Oct 2013 07:27:08 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -53,8 +53,7 @@ namespace hir {
 			unsigned int max_row_index_;			// global index of last local row
 													// == min_row_index_ + a_mat_.num_rows() - 1
 			#ifdef USE_MPI
-				//unsigned int row_offsets_[MAX_NUM_PROCS];
-				int row_offsets_[2];
+				int row_offsets_[MAX_NUM_PROCS];
 			#endif
 
 			// buffers used only for cpu version
@@ -222,7 +221,7 @@ namespace hir {
 			#endif
 			bool update_from_model();
 			bool print_times();
-			bool finalize_result(double&, mat_real_t&
+			bool finalize_result(double&
 									#ifdef USE_MPI
 										, woo::MultiNode&
 									#endif

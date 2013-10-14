@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 12 Oct 2013 09:00:53 PM PDT
+  *  Modified: Sun 13 Oct 2013 07:32:24 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -333,6 +333,10 @@ namespace hir {
 			int real_world_rank = multi_node_.rank("real_world");
 			local_cols_ = cols_;
 			local_rows_ = floor(rows_ / real_world_size) + (real_world_rank < rows_ % real_world_size);
+			int prefix_row_sum = 0;
+			multi_node_.scan_sum("real_world", local_rows_, prefix_row_sum);
+			prefix_row_sum -= local_rows_;
+			multi_node_.allgather("real_world", &prefix_row_sum, 1, row_offsets_, 1);
 			// the masters will scatter the matrices among others in the real world
 			// calculate sizes to send to all
 			if(real_world_size > 1) {
@@ -372,8 +376,30 @@ namespace hir {
 				tile_offset_cols_ = 0;
 
 				// compute the local_tile_rows_ and local_tile_cols_
-				// TODO ...
-
+				local_tile_cols_ = tile_size_;		// all cols when distribution is along rows only
+				// This is for the current case when current tile is not equally distributed
+				// basically, compute with what you have
+				int skip_rows = (rows_ - tile_size_) >> 1;
+				int start_proc = 0, end_proc = 0;
+				while(row_offsets_[start_proc] <= skip_rows && start_proc < real_world_size)
+					++ start_proc;
+				-- start_proc;		// the tile starts here
+				while(row_offsets_[end_proc] <= skip_rows + tile_size_ && end_proc < real_world_size)
+					++ end_proc;
+				-- end_proc;		// tile ends here
+				// all procs between start and end proc have tile rows same as local rows
+				int my_rank = multi_node_.rank("real_world");
+				std::cout << "START: " << start_proc << ", END: " << end_proc << std::endl;
+				if(my_rank < start_proc || my_rank > end_proc) local_tile_rows_ = 0;
+				else if(my_rank > start_proc && my_rank < end_proc) local_tile_rows_ = local_rows_;
+				else if(my_rank == start_proc) {
+					local_tile_rows_ = row_offsets_[start_proc] + local_rows_ - skip_rows;
+				} else if(my_rank == end_proc) {
+					local_tile_rows_ = rows_ - row_offsets_[end_proc] + - skip_rows;
+				} else {
+					std::cerr << "error: this is weird, an impossible case happened!" << std::endl;
+					return false;
+				} // if-else
 			} else {
 				local_img_data = img_data;
 				local_mask_data = mask_data;
@@ -384,6 +410,7 @@ namespace hir {
 				local_tile_cols_ = tile_size_;
 			} // if-else
 
+			std::cout << "RANK" << real_world_rank << ": " << local_tile_rows_ << ", " << local_tile_cols_ << std::endl;
 			std::cout << "====== " << real_world_size << "\t" << local_rows_ << "\t" << local_cols_ << std::endl;
 		#else
 			int local_rows_ = rows_;
@@ -419,6 +446,8 @@ namespace hir {
 		initialize_tiles(indices, &(HipRMCInput::instance().loading()[tile_num_offset]),
 							HipRMCInput::instance().max_move_distance());
 
+		std::cout << "DONE INIT!" << std::endl;
+
 		delete[] local_mask_data;
 		delete[] local_img_data;
 		return true;
@@ -444,7 +473,6 @@ namespace hir {
 		std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
 		// initialize tiles
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
-			std::cout << "HMMMMM" << std::endl;
 			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_));
 		} // for
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
@@ -458,6 +486,7 @@ namespace hir {
 			temp << "_" << std::setfill('0') << std::setw(4) << i;
 			char prefix[10];
 			temp >> prefix;
+			std::cout << "PREFIX: " << prefix << std::endl;
 			int num_particles = loading[i] * tile_size_ * tile_size_;
 			tiles_[i].init(loading[i], max_dist, prefix, num_particles
 					#ifdef USE_MPI
@@ -948,7 +977,6 @@ namespace hir {
 				curr_percent += 10;
 			} // if
 			for(unsigned int i = 0; i < num_tiles_; ++ i) {
-				//tiles_[i].simulate_step(scaled_pattern_, vandermonde_mat_, mask_mat_, base_norm_);
 				tiles_[i].simulate_step(cropped_pattern_, vandermonde_mat_, cropped_mask_mat_,
 										base_norm_, step
 										#ifdef USE_MPI
@@ -979,8 +1007,7 @@ namespace hir {
 
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			double chi2 = 0.0;
-			mat_real_t a(tile_size_, tile_size_);
-			tiles_[i].finalize_result(chi2, a
+			tiles_[i].finalize_result(chi2
 									#ifdef USE_MPI
 										, multi_node_
 									#endif
@@ -1018,13 +1045,18 @@ namespace hir {
 			#endif
 
 			//std::cout << "++ Saving model ... ";
-			tiles_[i].save_model();
+			#ifdef USE_MPI
+			if(multi_node_.is_master("real_world"))
+			#endif
+				tiles_[i].save_model();
 			tiles_[i].clear_chi2_list();
 			//std::cout << "done." << std::endl << std::endl;
 		} // for
 		//for(unsigned int i = 0; i < num_tiles_; ++ i) {
 		//	tiles_[i].print_times();
 		//} // for
+		multi_node_.barrier("world");
+		std::cout << "P" << multi_node_.rank() << ": SIM SIM SIM!!!!" << std::endl;
 		destroy_simulation_tiles();
 
 		return true;
@@ -1105,6 +1137,8 @@ namespace hir {
 			num_steps = num_steps_fac * tile_size_;
 			simulate(num_steps, rate, curr_scale_fac);
 		} // for
+		multi_node_.barrier("world");
+		std::cout << "P" << multi_node_.rank() << ": DONE DONE DONE!!!!" << std::endl;
 		sim_timer.stop();
 		#ifdef USE_MPI
 			if(multi_node_.is_master("real_world"))

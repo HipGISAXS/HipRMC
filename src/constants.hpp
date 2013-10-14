@@ -3,7 +3,7 @@
   *
   *  File: constants.hpp
   *  Created: Jan 28, 2013
-  *  Modified: Fri 11 Oct 2013 04:40:45 PM PDT
+  *  Modified: Sun 13 Oct 2013 01:00:07 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -16,7 +16,8 @@ namespace hir {
 	const double ZERO_LIMIT_ = 0.0000001;
 	const double PI_ = 3.14159265358979323846;
 
-	const unsigned int MAX_NUM_PROCS = 2097152;
+	//const unsigned int MAX_NUM_PROCS = 2097152;
+	const unsigned int MAX_NUM_PROCS = 512;
 
 	#ifdef USE_GPU
 		const unsigned int CUDA_BLOCK_SIZE_X_ = 16;

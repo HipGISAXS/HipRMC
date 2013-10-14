@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 11 Oct 2013 12:36:54 PM PDT
+  *  Modified: Sun 13 Oct 2013 12:59:36 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -17,6 +17,7 @@
 #include "woo/comm/multi_node_comm.hpp"
 #endif
 #include "typedefs.hpp"
+#include "constants.hpp"
 #include "tile.hpp"
 
 namespace hir {
@@ -31,6 +32,7 @@ namespace hir {
 			unsigned int local_rows_;			// local rows
 			unsigned int local_cols_;			// local cols
 			unsigned int matrix_offset_;		// offset into a matrix (num of elements)
+			int row_offsets_[MAX_NUM_PROCS];	// row number offsets
 
 			mat_real_t in_pattern_;				// local input pattern and related matrix info
 			mat_uint_t mask_mat_;				// local mask matrix of 1 and 0
