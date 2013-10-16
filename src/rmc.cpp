@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 16 Oct 2013 10:44:09 AM PDT
+  *  Modified: Wed 16 Oct 2013 11:40:19 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -17,6 +17,9 @@
 #include "hiprmc_input.hpp"
 #ifdef USE_GPU
 #include "init_gpu.cuh"
+#endif
+#ifdef _OPENMP
+#include <omp.h>
 #endif
 
 
@@ -142,9 +145,18 @@ namespace hir {
 		int color = multi_node_.is_master("real_world");
 		multi_node_.split("real_world_masters", "world", color);
 
-		if(multi_node_.is_master("real_world"))
+		if(multi_node_.is_master("real_world")) {
 			std::cout << "++     Number of MPI processes used: " << multi_node_.size("real_world")
 						<< std::endl;
+			#pragma omp parallel
+			{
+				#ifdef _OPENMP
+					if(omp_get_thread_num() == 0)
+						std::cout << "++         Number of OpenMP threads: " << omp_get_num_threads()
+									<< std::endl;
+				#endif
+			} // pragma omp parallel
+		} // if
 		#endif // USE_MPI
 
 		real_t *img_data = new (std::nothrow) real_t[rows_ * cols_];
@@ -1007,6 +1019,8 @@ namespace hir {
 			multi_node_.barrier("world");
 		#endif
 		std::cout << std::endl;
+		woo::BoostChronoTimer sim_timer;
+		sim_timer.start();
 		for(unsigned int step = 0; step < num_steps; ++ step) {
 			if((step + 1) % ten_percent == 0) {
 				#ifdef USE_MPI
@@ -1038,12 +1052,12 @@ namespace hir {
 				} // if*/
 			} // for
 		} // for
-
+		sim_timer.stop();
 		#ifdef USE_MPI
 			multi_node_.barrier("world");
 			if(multi_node_.is_master("world"))
 		#endif
-				std::cout << "++ Simulation done." << std::endl;
+				std::cout << "++ Simulation done [" << sim_timer.elapsed_msec() << " ms]" << std::endl;
 
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			double chi2 = 0.0;
@@ -1178,7 +1192,6 @@ namespace hir {
 			simulate(num_steps, rate, curr_scale_fac);
 		} // for
 		multi_node_.barrier("world");
-		std::cout << "P" << multi_node_.rank() << ": DONE DONE DONE!!!!" << std::endl;
 		sim_timer.stop();
 		#ifdef USE_MPI
 			if(multi_node_.is_master("real_world"))
