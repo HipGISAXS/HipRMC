@@ -3,7 +3,7 @@
   *
   *  File: utilities.hpp
   *  Created: Jun 25, 2012
-  *  Modified: Sun 25 Aug 2013 09:23:45 AM PDT
+  *  Modified: Wed 16 Oct 2013 01:08:59 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -90,7 +90,7 @@ namespace wil {
 	 */
 
 //	extern complex_t operator*(float2 c, float2 s);
-	extern complex_t operator*(complex_t c, complex_t s);
+//	extern complex_t operator*(complex_t c, complex_t s);
 	extern complex_t operator*(complex_t c, real_t s);
 	extern complex_t operator*(real_t s, complex_t c);
 #ifdef USE_GPU
