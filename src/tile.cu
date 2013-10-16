@@ -3,13 +3,14 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Mon 14 Oct 2013 02:56:11 PM PDT
+  *  Modified: Wed 16 Oct 2013 04:23:58 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
 #include <iostream>
 //#include <thrust/reduce.h>
+//#include <thrust/device_ptr.h>
 
 #include "woo/reduce/reduce.cuh"
 
@@ -327,10 +328,10 @@ namespace hir {
 		compute_chi2_kernel <<< grid_dims_, block_dims_ >>> (pattern_, mod_f_mat_[buff_i], tile_size_,
 															c_factor, real_buff_d_);
 		cudaThreadSynchronize();
-		/*thrust::device_ptr<real_t> buff_p(real_buff_d_);
-		thrust::plus<real_t> plus;
-		chi2 = thrust::reduce(buff_p, buff_p + (tile_size_ * tile_size_), 0.0, plus);
-		*/
+		//thrust::device_ptr<real_t> buff_p(real_buff_d_);
+		//thrust::plus<real_t> plus;
+		//chi2 = thrust::reduce(buff_p, buff_p + (tile_size_ * tile_size_), 0.0, plus);
+		
 		plus_t plus_op;
 		//chi2 = woo::cuda::reduce_multiple<real_t*, real_t, plus_t>(real_buff_d_,
 		//													real_buff_d_ + (tile_size_ * tile_size_),

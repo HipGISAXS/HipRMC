@@ -3,12 +3,12 @@
   *
   *  File: reduce.cuh
   *  Created: Feb 12, 2013
-  *  Modified: Sun 25 Aug 2013 09:12:11 AM PDT
+  *  Modified: Fri 11 Oct 2013 08:42:27 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
-//#include <nvToolsExt.h>
+#include <nvToolsExt.h>
 
 namespace woo {
 namespace cuda {
@@ -136,7 +136,7 @@ namespace cuda {
 		//nvtxRangeEnd(nvtx2);
 
 		return result;
-	} // reduce()
+	} // reduce_rev()
 
 
 	/* the original reduce - performs better than thrust on double, worse on single *
@@ -234,7 +234,7 @@ namespace cuda {
 		cudaFree(output);
 
 		return result;
-	} // reduce()
+	} // reduce_multiple()
 
 
 	// another reduce: dont do multiple grids - performs comparable to above in double *
@@ -247,43 +247,133 @@ namespace cuda {
 						const data_t init, functor_t op,
 						data_t* output, const unsigned int num_subtiles) {
 		unsigned int th_output_i = blockIdx.x;
-		unsigned int th_input_i = num_subtiles * blockDim.x * blockIdx.x + threadIdx.x;
+		unsigned int th_xdim = blockDim.x;
+		unsigned int th_xidx = threadIdx.x;
+		unsigned int th_input_i = num_subtiles * th_xdim * blockIdx.x + th_xidx;
 
 		// start with init
 		data_t sum = init;
+		data_t sum1 = init, sum2 = init, sum3 = init, sum4 = init;
 
 		// reduce the grids and subtiles into single set (one sum for each thread)
 		// this is the sequential component
-		unsigned int grid_size = gridDim.x * blockDim.x * num_subtiles;
-		unsigned int input_i = th_input_i;
-		for(unsigned int grid_base_i = 0; grid_base_i < n; grid_base_i += grid_size) {
+		unsigned int grid_size = gridDim.x * th_xdim * num_subtiles;
+		unsigned int input_i;
+		for(int grid_base_i = 0; grid_base_i < n; grid_base_i += grid_size) {
 			input_i = grid_base_i + th_input_i;
-			for(unsigned int i = 0; i < num_subtiles && input_i < n; ++ i, input_i += blockDim.x) {
-				sum = op(sum, input[input_i]);
-			} // for
+			//for(int i = 0; i < num_subtiles && input_i < n; ++ i, input_i += blockDim.x) {
+			//	sum = op(sum, input[input_i]);
+			//} // for
+			/*if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]);*/
+			if(input_i < n) sum1 = op(sum1, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum2 = op(sum2, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum3 = op(sum3, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum4 = op(sum4, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum1 = op(sum1, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum2 = op(sum2, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum3 = op(sum3, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum4 = op(sum4, input[input_i]);
 		} // while
+
+		sum1 = op(sum1, sum2); sum3 = op(sum3, sum4);
+		sum = op(sum1, sum3);
 
 		// latter half threads store their data to shared memory
 		// first half reduce those to their registers
 		// reduce in log_2(blockDim.x) steps
-		//data_t *data_sh = (data_t*) d_data_sh;
-		//unsigned int len = blockDim.x >> 1;
-		//while(len > 0) {
-		//	if(threadIdx.x >= len && threadIdx.x < len << 1) data_sh[threadIdx.x] = sum;
-		//	__syncthreads();
-		//	if(threadIdx.x < len) sum = op(sum, data_sh[len + threadIdx.x]);
-		//	len = len >> 1;
-		//} // while
 		data_t *data_sh = (data_t*) d_data_sh;
-		for(unsigned int len = blockDim.x, len2 = blockDim.x >> 1; len2 > 0; len = len2, len2 = len >> 1) {
-			if(threadIdx.x >= len2 && threadIdx.x < len) data_sh[threadIdx.x] = sum;
+		for(int len = th_xdim, len2 = th_xdim >> 1; len2 > 0; len = len2, len2 = len >> 1) {
+			if(th_xidx >= len2 && th_xidx < len) data_sh[th_xidx] = sum;
 			__syncthreads();
-			if(threadIdx.x < len2) sum = op(sum, data_sh[len2 + threadIdx.x]);
+			if(th_xidx < len2) sum = op(sum, data_sh[len2 + th_xidx]);
 		} // while
 
 		// write reduced output to global memory
-		if(threadIdx.x == 0) output[th_output_i] = sum;
-	} // reduce_block()
+		if(th_xidx == 0) output[th_output_i] = sum;
+	} // reduce_block_single()
+
+
+	// same as above: dont do multiple grids
+	// and in addition try out the new warp shuffle for reduction within a warp before
+	// reducing within a whole block using shared memory
+	// NOTE: ONLT FOR float DATA (4 bytes)
+	// DOES NOT HAVE ANY PERFORMANCE IMPROVEMENT
+	template <typename data_t, typename functor_t>
+	__global__
+	void reduce_block_single_warp_shfl(const data_t* __restrict__ input, const unsigned int n,
+						const data_t init, functor_t op,
+						data_t* output, const unsigned int num_subtiles) {
+		unsigned int th_output_i = blockIdx.x;
+		unsigned int th_xdim = blockDim.x;
+		unsigned int th_xidx = threadIdx.x;
+		unsigned int th_input_i = num_subtiles * th_xdim * blockIdx.x + th_xidx;
+
+		// start with init
+		data_t sum = init;
+		data_t sum1 = init, sum2 = init, sum3 = init, sum4 = init;
+
+		// reduce the grids and subtiles into single set (one sum for each thread)
+		// this is the sequential component
+		unsigned int grid_size = gridDim.x * th_xdim * num_subtiles;
+		unsigned int input_i;
+		for(int grid_base_i = 0; grid_base_i < n; grid_base_i += grid_size) {
+			input_i = grid_base_i + th_input_i;
+			//for(int i = 0; i < num_subtiles && input_i < n; ++ i, input_i += blockDim.x) {
+			//	sum = op(sum, input[input_i]);
+			//} // for
+			/*if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]); input_i += blockDim.x;
+			if(input_i < n) sum = op(sum, input[input_i]);*/
+			if(input_i < n) sum1 = op(sum1, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum2 = op(sum2, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum3 = op(sum3, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum4 = op(sum4, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum1 = op(sum1, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum2 = op(sum2, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum3 = op(sum3, input[input_i]); input_i += th_xdim;
+			if(input_i < n) sum4 = op(sum4, input[input_i]);
+		} // while
+
+		sum1 = op(sum1, sum2); sum3 = op(sum3, sum4);
+		sum = op(sum1, sum3);
+
+		// all warps reduce among themselves using warp shuffle
+		sum += __shfl_xor(sum, 16);
+		sum += __shfl_xor(sum, 8);
+		sum += __shfl_xor(sum, 4);
+		sum += __shfl_xor(sum, 2);
+		sum += __shfl_xor(sum, 1);
+		int lane_id = threadIdx.x & 0x1f;
+		int num_warps = th_xdim >> 5;
+		int warp_id = threadIdx.x >> 5;
+
+		// thread 0 (lane_id == 0) from latter half warps store their data to shared memory
+		// thread 0 from first half warps reduce those to their registers
+		// reduce in log_2(blockDim.x / warpSize) steps
+		data_t *data_sh = (data_t*) d_data_sh;
+		if(lane_id == 0) {
+			for(int len = num_warps, len2 = num_warps >> 1; len2 > 0; len = len2, len2 = len >> 1) {
+				if(warp_id >= len2 && warp_id < len) data_sh[warp_id] = sum;
+				__syncthreads();
+				if(warp_id < len2) sum = op(sum, data_sh[len2 + warp_id]);
+			} // while
+		} // if
+
+		// write reduced output to global memory
+		if(th_xidx == 0) output[th_output_i] = sum;
+	} // reduce_block_single_warp_shfl()
 
 
 	template <typename iterator_t, typename data_t, typename functor_t>
@@ -341,6 +431,84 @@ namespace cuda {
 		input = base_input;
 		cudaFree(input);
 		cudaFree(output);
+		//nvtxRangeEnd(nvtx2);
+
+		return result;
+	} // reduce_single()
+
+
+	template <typename iterator_t, typename data_t, typename functor_t>
+	data_t reduce_single_new(iterator_t start, iterator_t end, data_t init, functor_t op,
+			unsigned int blocksize, unsigned int nsubtiles) {
+
+		//cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
+		//cudaDeviceSetCacheConfig(cudaFuncCachePreferShared);
+
+		unsigned int num_subtiles = nsubtiles;
+		//unsigned int num_subtiles = NUM_SUBTILES_;
+		unsigned int n = end - start;
+		//unsigned int block_size = BLOCK_DIM_REDUCE_ONE_;
+		unsigned int block_size = blocksize;
+		unsigned int n_grid_max = MAX_GRID_SIZE_ * block_size * num_subtiles;
+		unsigned int num_grids = ceil((float) n / n_grid_max);
+
+		//nvtxRangeId_t nvtx0 = nvtxRangeStart("single_new_setup");
+		data_t *buffer1 = NULL, *buffer2 = NULL;//, *base_output = NULL;
+		data_t *input = NULL; //, *base_input = NULL;
+		unsigned int output_size = MAX_GRID_SIZE_;
+		//unsigned int input_size = (n > MAX_GRID_SIZE_) ? n : MAX_GRID_SIZE_;
+		cudaMalloc((void**) &buffer1, 2 * output_size * sizeof(data_t));
+		buffer2 = buffer1 + output_size;
+		// the input data segment to process
+		//base_output = buffer1;
+		input = start;
+		//base_input = input;
+		//nvtxRangeEnd(nvtx0);
+
+		unsigned int d_shmem_size = block_size * sizeof(data_t); // >> 1;
+
+		data_t result = init;
+		unsigned int n_grid = min(n, n_grid_max);
+		unsigned int n_i = n;
+
+		unsigned int num_blocks = ceil((float) n_grid / (block_size * num_subtiles));
+		//nvtxRangeId_t nvtx1 = nvtxRangeStart("single_new_kernel");
+		reduce_block_single <<< num_blocks, block_size, d_shmem_size >>>
+						(input, n_i, init, op, buffer1, num_subtiles);
+		cudaError_t err = cudaGetLastError();
+		if(err != cudaSuccess) {
+			std::cerr << "error: something went wrong in kernel launch 1: "
+						<< cudaGetErrorString(err) << std::endl;
+		} // if
+		cudaThreadSynchronize();
+		//nvtxRangeEnd(nvtx1);
+		n_grid = num_blocks;
+		n_i = num_blocks;
+		data_t *temp = buffer1; buffer1 = buffer2; buffer2 = temp;
+		while(1) {
+			if(num_blocks == 1) break;
+			num_blocks = ceil((float) n_grid / (block_size * num_subtiles));
+			//nvtx1 = nvtxRangeStart("single_new_kernel");
+			reduce_block_single <<< num_blocks, block_size, d_shmem_size >>>
+							(buffer2, n_i, init, op, buffer1, num_subtiles);
+			cudaError_t err = cudaGetLastError();
+			if(err != cudaSuccess) {
+				std::cerr << "error: something went wrong in kernel launch: "
+							<< cudaGetErrorString(err) << std::endl;
+			} // if
+			cudaThreadSynchronize();
+			//nvtxRangeEnd(nvtx1);
+			n_grid = num_blocks;
+			n_i = num_blocks;
+			temp = buffer1; buffer1 = buffer2; buffer2 = temp;
+		} // while
+
+		//nvtxRangeId_t nvtx2 = nvtxRangeStart("single_new_finalize");
+		//data_t temp_result;
+		cudaMemcpy(&result, &buffer2[0], sizeof(data_t), cudaMemcpyDeviceToHost);
+		//result = op(result, temp_result);
+		//result = temp_result;
+		cudaFree(buffer2);
 		//nvtxRangeEnd(nvtx2);
 
 		return result;
