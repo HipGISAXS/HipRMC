@@ -8,7 +8,7 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = n
+USE_GPU = y
 USE_MPI = y
 
 ## base directories
@@ -60,14 +60,14 @@ ifeq ($(USE_GPU), y)
 CUDA_INCL = -I$(CUDA_DIR)/include
 CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft -lnvToolsExt
 NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64 #-dc
-NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
-NVCC_FLAGS += -gencode arch=compute_20,code=compute_20
-NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
-NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
+#NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
+#NVCC_FLAGS += -gencode arch=compute_20,code=compute_20
+#NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
+#NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
 NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
 #NVCC_FLAGS += -Xptxas -v -Xcompiler -v -Xlinker -v --ptxas-options="-v"
 NVLIB_FLAGS = -Xlinker -lgomp
-NVLIB_FLAGS += -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
+NVLIB_FLAGS += i-arch=sm_35 -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
 else
 CUDA_INCL =
 CUDA_LIBS =
@@ -109,8 +109,8 @@ MISC_FLAGS += -DUSE_DFT
 MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
 
 ## choose optimization levels, debug flags, gprof flag, etc
-OPT_FLAGS = -g -DDEBUG #-v #-pg
-#OPT_FLAGS += -O3 -DNDEBUG #-v
+#OPT_FLAGS = -g -DDEBUG #-v #-pg
+OPT_FLAGS += -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
 #PREC_FLAG =			# leave empty for single precision
