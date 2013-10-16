@@ -14,7 +14,7 @@ USE_MPI = y
 ## base directories
 BOOST_DIR = /usr/local/boost_1_49_0
 TIFF_LIB_DIR = /usr/local/lib
-OPENCV_DIR = /usr
+#OPENCV_DIR = /usr
 WOO_DIR = /home/asarje
 ifeq ($(USE_MPI), y)
 MPI_DIR = /usr/local/openmpi
@@ -78,8 +78,8 @@ endif
 TIFF_LIBS = -L $(TIFF_LIB_DIR) -ltiff
 
 ## opencv
-OPENCV_INCL = -I $(OPENCV_DIR)/include
-OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
+#OPENCV_INCL = -I $(OPENCV_DIR)/include
+#OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
 
 ## woo
 WOO_INCL = -I $(WOO_DIR)
@@ -109,8 +109,8 @@ MISC_FLAGS += -DUSE_DFT
 MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
 
 ## choose optimization levels, debug flags, gprof flag, etc
-#OPT_FLAGS = -g -DDEBUG #-v #-pg
-OPT_FLAGS += -O3 -DNDEBUG #-v
+OPT_FLAGS = -g -DDEBUG #-v #-pg
+#OPT_FLAGS += -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
 #PREC_FLAG =			# leave empty for single precision
