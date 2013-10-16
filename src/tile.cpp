@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 16 Oct 2013 12:38:37 PM PDT
+  *  Modified: Wed 16 Oct 2013 03:42:59 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -36,10 +36,11 @@ namespace hir {
 		mod_f_mat_i_(0),
 		indices_(indices),
 		dft_mat_(rows, cols),
-		mt_rand_gen_(time(NULL))
+		mt_rand_gen_(time(NULL)),
 		#ifndef USE_GPU
-			, autotuner_(rows, cols, indices)
+			autotuner_(rows, cols, indices),
 		#endif
+		fft_update_time_(0.0), reduction_time_(0.0), misc_time_(0.0), mpi_time_(0.0)
 		{
 
 		woo::BoostChronoTimer mytimer;
@@ -112,10 +113,14 @@ namespace hir {
 		new_pos_(tile.new_pos_),
 		old_index_(tile.old_index_),
 		new_index_(tile.new_index_),
-		mt_rand_gen_(time(NULL))
+		mt_rand_gen_(time(NULL)),
 		#ifndef USE_GPU
-			, autotuner_(tile.autotuner_)
+			autotuner_(tile.autotuner_),
 		#endif
+		fft_update_time_(tile.fft_update_time_),
+		reduction_time_(tile.reduction_time_),
+		misc_time_(tile.misc_time_),
+		mpi_time_(tile.mpi_time_)
 		{
 		#ifdef USE_GPU
 			unsigned int size2 = final_size_ * final_size_;
@@ -157,15 +162,16 @@ namespace hir {
 						multi_node
 					#endif
 					);
-		mytimer.stop();
-		std::cout << "**  Initial model construction time: " << mytimer.elapsed_msec() << " ms."
-					<< std::endl;
-		std::cout << "++              Number of particles: " << num_particles_ << std::endl;
 		#ifdef USE_GPU
 			unsigned int block_x = CUDA_BLOCK_SIZE_X_;
 			unsigned int block_y = CUDA_BLOCK_SIZE_Y_;
 			gtile_.init(a_mat_.data(), final_size_, size_, block_x, block_y);
 		#endif // USE_GPU
+		mytimer.stop();
+		std::cout << "**  Initial model construction time: " << mytimer.elapsed_msec() << " ms."
+					<< std::endl;
+		std::cout << "++              Number of particles: " << num_particles_ << std::endl;
+		misc_time_ += mytimer.elapsed_msec();
 
 		return true;
 	} // Tile::init()
@@ -191,6 +197,7 @@ namespace hir {
 
 		// compute fft of a_mat_ into fft_mat_ and other stuff
 		woo::BoostChronoTimer mytimer;
+		mytimer.start();
 		#ifdef USE_GPU
 			unsigned int block_x = CUDA_BLOCK_SIZE_X_;
 			unsigned int block_y = CUDA_BLOCK_SIZE_Y_;
@@ -215,13 +222,13 @@ namespace hir {
 			int local_rows = rows_;
 			int prefix_sums = 0;
 			multi_node.scan_sum("real_world", local_rows, prefix_sums);
-			std::cout << "PREEEEEFIX SUM " << prefix_sums << std::endl;
 			prefix_sums -= rows_;
 			multi_node.allgather("real_world", &prefix_sums, 1, row_offsets_, 1);
 		#endif // USE_MPI
+		mytimer.stop();
+		misc_time_ += mytimer.elapsed_msec();
 
 		// autotune temperature (tstar)
-		std::cout << "MMMMMMMMultinode: " << multi_node.size("real_world") << std::endl;
 		#ifndef USE_GPU		// currently gpu version does not have autotuning
 			mytimer.start();
 /*			if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps
@@ -240,19 +247,28 @@ namespace hir {
 			std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
 						<< " ms." << std::endl;
 			tstar_set_ = true;
+			misc_time_ += mytimer.elapsed_msec();
 		#endif // USE_GPU
 
 		#ifdef USE_MPI
+			mytimer.start();
 			compute_fft_mat(multi_node);
 			compute_mod_mat(f_mat_i_, multi_node);
 			copy_mod_mat(1 - mod_f_mat_i_);
+			mytimer.stop(); fft_update_time_ += mytimer.elapsed_msec();
+			mytimer.start();
 			prev_chi2_ = compute_chi2(pattern, mod_f_mat_[1 - mod_f_mat_i_], mask,
 										base_norm, multi_node);
+			mytimer.stop(); reduction_time_ += mytimer.elapsed_msec();
 		#else
+			mytimer.start();
 			compute_fft_mat();
 			compute_mod_mat(f_mat_i_);
 			copy_mod_mat(1 - mod_f_mat_i_);
+			mytimer.stop(); fft_update_time_ += mytimer.elapsed_msec();
+			mytimer.start();
 			prev_chi2_ = compute_chi2(pattern, mod_f_mat_[1 - mod_f_mat_i_], mask, base_norm);
+			mytimer.stop(); reduction_time_ += mytimer.elapsed_msec();
 		#endif // USE_MPI
 		//std::cout << "++         Initial chi2-error value: " << prev_chi2_ << std::endl;
 
@@ -311,10 +327,13 @@ namespace hir {
 				#endif
 				);
 		mytimer_.stop(); vmove_time_ += mytimer_.elapsed_msec();
+		misc_time_ += mytimer_.elapsed_msec();
 
 		//std::cout << "HEHEHEHEHEHE: " << multi_node.rank("real_world") << std::endl;
 
+		mytimer_.start();
 		multi_node.barrier("real_world");
+		mytimer_.stop(); mpi_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
 		#ifdef USE_DFT
@@ -340,8 +359,11 @@ namespace hir {
 			#endif
 		#endif
 		mytimer_.stop(); dft2_time_ += mytimer_.elapsed_msec();
+		fft_update_time_ += mytimer_.elapsed_msec();
 
+		mytimer_.start();
 		multi_node.barrier("real_world");
+		mytimer_.stop(); mpi_time_ += mytimer_.elapsed_msec();
 		//std::cout << "HIHIHIHIHIHIHIHHI: " << multi_node.rank("real_world") << std::endl;
 
 		mytimer_.start();
@@ -351,15 +373,18 @@ namespace hir {
 			compute_mod_mat(f_scratch_i);
 		#endif
 		mytimer_.stop(); mod_time_ += mytimer_.elapsed_msec();
+		fft_update_time_ += mytimer_.elapsed_msec();
 
 		//std::cout << "HOHOHOHOHOHOHO: " << multi_node.rank("real_world") << std::endl;
 
-		multi_node.barrier("real_world");
-
 		mytimer_.start();
+		multi_node.barrier("real_world");
+		mytimer_.stop(); mpi_time_ += mytimer_.elapsed_msec();
+
+		//mytimer_.start();
 		//compute_model_norm(mod_f_scratch_i, mask);
 		//double new_c_factor = base_norm / model_norm_;
-		mytimer_.stop(); norm_time_ += mytimer_.elapsed_msec();
+		//mytimer_.stop(); norm_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
 		double new_chi2 = compute_chi2(pattern, mod_f_mat_[mod_f_scratch_i], mask, base_norm
@@ -369,8 +394,11 @@ namespace hir {
 									);
 		chi2_list_.push_back(new_chi2);		// save this chi2 value
 		mytimer_.stop(); chi2_time_ += mytimer_.elapsed_msec();
+		reduction_time_ += mytimer_.elapsed_msec();
 
+		mytimer_.start();
 		multi_node.barrier("real_world");
+		mytimer_.stop(); mpi_time_ += mytimer_.elapsed_msec();
 		//std::cout << "HUHUHUHUHUHUHU: " << multi_node.rank("real_world") << std::endl;
 
 		mytimer_.start();
@@ -388,10 +416,11 @@ namespace hir {
 				} // if-else
 		#ifdef USE_MPI
 			} // if
+			mytimer2_.start();
 			multi_node.broadcast("real_world", &accept, 1);
+			multi_node.barrier("real_world");
+			mytimer2_.stop(); mpi_time_ += mytimer2_.elapsed_msec();
 		#endif
-
-		multi_node.barrier("real_world");
 
 		if(accept) {	// accept the move
 			// update to newly computed stuff
@@ -404,6 +433,7 @@ namespace hir {
 			#endif
 		} // if
 		mytimer_.stop(); rest_time_ += mytimer_.elapsed_msec();
+		misc_time_ += mytimer_.elapsed_msec();
 
 		// write current model at every "steps"
 		if(iter % 10000 == 0) {
@@ -418,7 +448,9 @@ namespace hir {
 			#endif
 		} // if
 
+		mytimer_.start();
 		multi_node.barrier("real_world");
+		mytimer_.stop(); mpi_time_ += mytimer_.elapsed_msec();
 
 		//std::cout << "HERERERERERE: " << multi_node.rank("real_world") << std::endl;
 
@@ -1200,6 +1232,15 @@ namespace hir {
 		std::cout << "**                       Other time: " << rest_time_  << " ms." << std::endl;
 		return true;
 	} // Tile::print_times()
+
+
+	bool Tile::print_new_times() {
+		std::cout << "@@                  FFT update time: " << fft_update_time_ << " ms." << std::endl;
+		std::cout << "@@                   Reduction time: " << reduction_time_  << " ms." << std::endl;
+		std::cout << "@@               Miscellaneous time: " << misc_time_   << " ms." << std::endl;
+		std::cout << "@@           MPI communication time: " << mpi_time_  << " ms." << std::endl;
+		return true;
+	} // Tile::print_new_times()
 
 
 	bool Tile::print_a_mat() {

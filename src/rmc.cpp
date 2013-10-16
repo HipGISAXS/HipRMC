@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 16 Oct 2013 11:40:19 AM PDT
+  *  Modified: Wed 16 Oct 2013 03:40:24 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -1058,6 +1058,9 @@ namespace hir {
 			if(multi_node_.is_master("world"))
 		#endif
 				std::cout << "++ Simulation done [" << sim_timer.elapsed_msec() << " ms]" << std::endl;
+		for(unsigned int i = 0; i < num_tiles_; ++ i) {
+			tiles_[i].print_new_times();
+		} // for
 
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			double chi2 = 0.0;

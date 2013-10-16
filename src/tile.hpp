@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 14 Oct 2013 03:21:51 PM PDT
+  *  Modified: Wed 16 Oct 2013 03:43:15 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -103,12 +103,20 @@ namespace hir {
 			std::string prefix_;								// used as prefix to image filenames
 
 			woo::BoostChronoTimer mytimer_;
+			woo::BoostChronoTimer mytimer2_;
 
 			// some temporary variables ...
 			#ifndef USE_DFT
 				mat_real_t virtual_a_mat_;			// the current virtual model
 			#endif
 			mat_real_t diff_mat_;					// mod difference matrix (temporary)
+
+			// some timing variables
+			real_t fft_update_time_;			// for dft or fft computation and update
+			real_t reduction_time_;				// norm and chi2 computations
+			real_t misc_time_;					// rest of the time
+			real_t mpi_time_;					// all communications time
+												// (note: this time overlaps with above times)
 
 
 			// functions
@@ -225,6 +233,7 @@ namespace hir {
 			#endif
 			bool update_from_model();
 			bool print_times();
+			bool print_new_times();
 			bool finalize_result(double&
 									#ifdef USE_MPI
 										, woo::MultiNode&
