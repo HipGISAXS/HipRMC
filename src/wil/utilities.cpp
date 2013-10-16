@@ -3,7 +3,7 @@
   *
   *  File: utilities.cpp
   *  Created: Jun 25, 2012
-  *  Modified: Sun 25 Aug 2013 09:23:40 AM PDT
+  *  Modified: Wed 16 Oct 2013 01:09:33 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -165,10 +165,10 @@ namespace wil {
 	 * arithmetic operators for complex types
 	 */
 
-	complex_t operator*(complex_t c, complex_t s) {
-		return complex_t(c.real() * s.real() - c.imag() * s.imag(),
-						 c.real() * s.imag() + c.imag() * s.real());
-	} // operator*()
+//	complex_t operator*(complex_t c, complex_t s) {
+//		return complex_t(c.real() * s.real() - c.imag() * s.imag(),
+//						 c.real() * s.imag() + c.imag() * s.real());
+//	} // operator*()
 
 	complex_t operator*(complex_t c, real_t s) {
 		return complex_t(c.real() * s, c.imag() * s);
@@ -443,11 +443,13 @@ namespace wil {
 		result.clear();
 		for(complex_vec_t::iterator i = matrix.begin(); i != matrix.end(); ++ i)
 			result.push_back(exp(*i));
+		return true;
 	} // mat_exp()
 
 
 	bool mat_exp_in(complex_vec_t& matrix) {
 		for(complex_vec_t::iterator i = matrix.begin(); i != matrix.end(); ++ i) *i = exp(*i);
+		return true;
 	} // mat_exp_in()
 
 
