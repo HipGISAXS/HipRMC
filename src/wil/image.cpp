@@ -3,11 +3,12 @@
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Wed 16 Oct 2013 09:08:12 AM PDT
+  *  Modified: Wed 16 Oct 2013 12:45:58 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
+#include <iostream>
 #include <boost/math/special_functions/round.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/gil/extension/io/tiff_io.hpp>
