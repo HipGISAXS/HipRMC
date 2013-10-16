@@ -3,7 +3,7 @@
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Wed 16 Oct 2013 12:45:58 PM PDT
+  *  Modified: Wed 16 Oct 2013 04:34:45 PM EDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -12,8 +12,8 @@
 #include <boost/math/special_functions/round.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/gil/extension/io/tiff_io.hpp>
-#include <boost/gil/extension/numeric/sampler.hpp>
-#include <boost/gil/extension/numeric/resample.hpp>
+//#include <boost/gil/extension/numeric/sampler.hpp>
+//#include <boost/gil/extension/numeric/resample.hpp>
 
 #include "image.hpp"
 #include "utilities.hpp"
@@ -376,7 +376,7 @@ namespace wil {
 	 * NOTE: this requires the boost gil numeric library (it is not an official part of boost)
 	 * let the coordinates of old and new be from min (0, 0) to max (old_x-1, old_y-1) (new_x-1, new_y-1)
 	 */
-	bool scale_image(int old_x, int old_y, int new_x, int new_y, real_t *old_data, real_t* &new_data) {
+/*	bool scale_image(int old_x, int old_y, int new_x, int new_y, real_t *old_data, real_t* &new_data) {
 		
 		typedef boost::gil::matrix3x2<real_t> matrix3x2;
 
@@ -390,12 +390,12 @@ namespace wil {
 
 		return true;
 	} // Image::scale_image()
-
+*/
 
 	/**
 	 * nearest neighbor based sampling is used
 	 */
-	bool resample_pixels(int old_x, int old_y, real_t* old_data, int new_x, int new_y, real_t* &new_data,
+/*	bool resample_pixels(int old_x, int old_y, real_t* old_data, int new_x, int new_y, real_t* &new_data,
 								const boost::gil::matrix3x2<real_t>& mat) {
 		// mapping from new to old
 		boost::gil::point2 <int> new_p;
@@ -412,7 +412,7 @@ namespace wil {
 		} // for y
 		return true;
 	} // Image::resample_pixels()
-
+*/
 
 	/**
 	 * read a tiff image from file into image_buffer_
