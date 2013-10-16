@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 13 Oct 2013 07:32:24 PM PDT
+  *  Modified: Wed 16 Oct 2013 10:44:09 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -153,13 +153,13 @@ namespace hir {
 		#ifdef USE_MPI
 		if(multi_node_.is_master("world")) {
 		#endif
+			double min_val, max_val;
 			// TODO: opencv usage is temporary. improve with woo::wil ...
 			// TODO: take a subimage of the input ...
-			cv::Mat img = cv::imread(HipRMCInput::instance().input_image(), 0);	// grayscale only for now
+/*			cv::Mat img = cv::imread(HipRMCInput::instance().input_image(), 0);	// grayscale only for now
 			//cv::getRectSubPix(img, cv::Size(rows_, cols_), cv::Point2f(cx, cy), subimg);
 			// extract the input image raw data (grayscale values)
 			// and create mask array = indices in image data where value is min
-			double min_val, max_val;
 			cv::minMaxIdx(img, &min_val, &max_val);
 			double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
 			//std::cout << "MIN: " << min_val << ", MAX: " << max_val
@@ -186,11 +186,20 @@ namespace hir {
 			} // for
 			// write it out
 			cv::imwrite(HipRMCInput::instance().label() + "/input_image.tif", img);
+*/
+			//////////////////////////////////////////
+			wil::Image img(0, 0, 30, 30, 30);
+			img.read(HipRMCInput::instance().input_image());
+			img.get_data(img_data);
+			wil::Image img_temp(rows_, cols_, 30, 30, 30);
+			img_temp.construct_image(img_data);
+			img_temp.save(HipRMCInput::instance().label() + "/input_image.tif");
+			////////////////////////////////////////
 
 			// read in mask if given
 			if(HipRMCInput::instance().mask_set()) {
 				// read mask file and set the mask matrix
-				cv::Mat mask_img = cv::imread(HipRMCInput::instance().mask_image(), 0);	// grayscale only
+				/*cv::Mat mask_img = cv::imread(HipRMCInput::instance().mask_image(), 0);	// grayscale only
 				// extract the input mask raw data (grayscale values)
 				// and create the mask array
 				for(unsigned int i = 0; i < rows_; ++ i) {
@@ -199,7 +208,19 @@ namespace hir {
 						unsigned int index = cols_ * i + j;
 						mask_data[index] = (temp < 128) ? 0 : 1;
 					} // for
+				} // for*/
+				wil::Image mask_img(0, 0, 30, 30, 30);
+				mask_img.read(HipRMCInput::instance().mask_image());
+				real_t *temp_mask = new (std::nothrow) real_t[rows_ * cols_];
+				mask_img.get_data(temp_mask);
+				for(unsigned int i = 0; i < rows_; ++ i) {
+					for(unsigned int j = 0; j < cols_; ++ j) {
+						unsigned int index = cols_ * i + j;
+						real_t temp = temp_mask[index];
+						mask_data[index] = (255 * temp < 180) ? 0 : 1;
+					} // for
 				} // for
+				delete[] temp_mask;
 			} else {	// no mask is set
 				// set all entries in mask matrix to 1
 				for(unsigned int i = 0; i < rows_; ++ i) {
@@ -210,23 +231,30 @@ namespace hir {
 				} // for
 			} // if-else
 			// write the mask to output (for verification)
-			cv::Mat mask_temp(rows_, cols_, 0);
+			/*cv::Mat mask_temp(rows_, cols_, 0);
 			for(unsigned int i = 0; i < rows_; ++ i) {
 				for(unsigned int j = 0; j < cols_; ++ j) {
 					real_t temp = mask_data[cols_ * i + j];
 					mask_temp.at<unsigned char>(i, j) = (unsigned char) (255 * temp);
 				} // for
 			} // for
-			cv::imwrite(HipRMCInput::instance().label() + "/input_mask.tif", mask_temp);
+			cv::imwrite(HipRMCInput::instance().label() + "/input_mask.tif", mask_temp);*/
+			wil::Image mask_temp(rows_, cols_, 30, 30, 30);
+			mask_temp.construct_image(mask_data);
+			mask_temp.save(HipRMCInput::instance().label() + "/input_mask.tif");
 
 			#ifdef USE_MODEL_INPUT	// for testing/debugging
-			for(int i = 0; i < rows_ * cols_; ++ i) img_data[i] = (255 * img_data[i] < 128) ? 0 : 1;
-			for(unsigned int i = 0; i < rows_; ++ i) {
+			for(int i = 0; i < rows_ * cols_; ++ i) img_data[i] = (255 * img_data[i] < 180) ? 0 : 1;
+			/*for(unsigned int i = 0; i < rows_; ++ i) {
 				for(unsigned int j = 0; j < cols_; ++ j) {
 					img.at<unsigned char>(i, j) = (unsigned char) (255 * img_data[cols_ * i + j]);
 				} // for
 			} // for
-			cv::imwrite(HipRMCInput::instance().label() + "/base_01_pattern.tif", img);
+			cv::imwrite(HipRMCInput::instance().label() + "/base_01_pattern.tif", img);*/
+			wil::Image base_01pat(rows_, cols_, 30, 30, 30);
+			base_01pat.construct_image(img_data);
+			base_01pat.save(HipRMCInput::instance().label() + "/base_01_pattern.tif");
+
 			max_val = 0.0, min_val = 1e10;
 			#ifdef USE_GPU
 				cucomplex_t *mat_in_h, *mat_out_h;
@@ -299,7 +327,7 @@ namespace hir {
 				fftw_free(mat_out);
 				fftw_free(mat_in);
 			#endif // USE_GPU
-			for(unsigned int i = 0; i < rows_; ++ i) {
+			/*for(unsigned int i = 0; i < rows_; ++ i) {
 				for(unsigned int j = 0; j < cols_; ++ j) {
 					real_t temp = (img_data[cols_ * i + j] - min_val) / (max_val - min_val);
 					img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
@@ -307,7 +335,10 @@ namespace hir {
 				} // for
 			} // for
 			// write it out
-			cv::imwrite(HipRMCInput::instance().label() + "/base_fft_pattern.tif", img);
+			cv::imwrite(HipRMCInput::instance().label() + "/base_fft_pattern.tif", img);*/
+			wil::Image base_fft(rows_, cols_, 30, 30, 30);
+			base_fft.construct_image(img_data);
+			base_fft.save(HipRMCInput::instance().label() + "/base_fft_pattern.tif");
 			#endif // USE_MODEL_INPUT
 
 		#ifdef USE_MPI
@@ -454,7 +485,7 @@ namespace hir {
 	} // RMC::init()
 
 
-	bool RMC::scale_image_colormap(cv::Mat& img, double min_val, double max_val) {
+/*	bool RMC::scale_image_colormap(cv::Mat& img, double min_val, double max_val) {
 		for(unsigned int i = 0; i < rows_; ++ i) {
 			for(unsigned int j = 0; j < cols_; ++ j) {
 				unsigned char temp = img.at<unsigned char>(i, j);
@@ -466,7 +497,7 @@ namespace hir {
 		} // for
 		return true;
 	} // RMC::scale_image_colormap()
-
+*/
 
 	// called once at RMC initialization
 	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading, unsigned int max_dist) {
@@ -754,21 +785,27 @@ namespace hir {
 				} // for j
 			} // for i
 			// write them out (for verification)
-			cv::Mat img(tile_size_, tile_size_, 0);
+			/*cv::Mat img(tile_size_, tile_size_, 0);
 			for(unsigned int i = 0; i < tile_size_; ++ i) {
 				for(unsigned int j = 0; j < tile_size_; ++ j) {
 					real_t temp = (cropped_pattern_[tile_size_ * i + j] - min_val) / (max_val - min_val);
 					img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
 				} // for
 			} // for
-			cv::imwrite(HipRMCInput::instance().label() + "/cropped_pattern.tif", img);
-			for(unsigned int i = 0; i < tile_size_; ++ i) {
+			cv::imwrite(HipRMCInput::instance().label() + "/cropped_pattern.tif", img);*/
+			wil::Image img(tile_size_, tile_size_, 30, 30, 30);
+			img.construct_image(cropped_pattern_.data());
+			img.save(HipRMCInput::instance().label() + "/cropped_pattern.tif");
+			/*for(unsigned int i = 0; i < tile_size_; ++ i) {
 				for(unsigned int j = 0; j < tile_size_; ++ j) {
 					unsigned int temp = cropped_mask_mat_[tile_size_ * i + j];
 					img.at<unsigned char>(i, j) = (unsigned char) 255 * temp;
 				} // for
 			} // for
-			cv::imwrite(HipRMCInput::instance().label() + "/cropped_mask.tif", img);
+			cv::imwrite(HipRMCInput::instance().label() + "/cropped_mask.tif", img);*/
+			wil::Image mask_img(tile_size_, tile_size_, 30, 30, 30);
+			img.construct_image(cropped_mask_mat_.data());
+			img.save(HipRMCInput::instance().label() + "/cropped_mask.tif");
 		#endif
 		return true;
 	} // RMC::crop_pattern_to_tile()
@@ -829,7 +866,7 @@ namespace hir {
 			//normalize_cropped_pattern();
 
 			// normalize the cropped pattern
-			cv::Mat img(tile_size_, tile_size_, 0);
+			/*cv::Mat img(tile_size_, tile_size_, 0);
 			for(unsigned int i = 0; i < tile_size_; ++ i) {
 				for(unsigned int j = 0; j < tile_size_; ++ j) {
 					real_t temp = (cropped_pattern_[tile_size_ * i + j] - min_val) / (max_val - min_val);
@@ -837,7 +874,10 @@ namespace hir {
 				} // for
 			} // for
 			// write it out
-			cv::imwrite(HipRMCInput::instance().label() + "/normalized_pattern.tif", img);
+			cv::imwrite(HipRMCInput::instance().label() + "/normalized_pattern.tif", img);*/
+			wil::Image img(tile_size_, tile_size_, 30, 30, 30);
+			img.construct_image(cropped_pattern_.data());
+			img.save(HipRMCInput::instance().label() + "/normalized_pattern.tif");
 
 			/*real_t * data = new (std::nothrow) real_t[tile_size_ * tile_size_];
 			for(int i = 0; i < tile_size_; ++ i) {

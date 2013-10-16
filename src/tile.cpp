@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 14 Oct 2013 03:28:52 PM PDT
+  *  Modified: Wed 16 Oct 2013 10:45:24 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -406,7 +406,7 @@ namespace hir {
 		mytimer_.stop(); rest_time_ += mytimer_.elapsed_msec();
 
 		// write current model at every "steps"
-		if(iter % 1000 == 0) {
+		if(iter % 10000 == 0) {
 			#ifdef USE_MPI
 				update_model(multi_node);
 				//std::cout << "SHITTY SHIT SHIT SHIT SHIT " << multi_node.rank("real_world") << std::endl;
@@ -427,7 +427,7 @@ namespace hir {
 
 
 	void Tile::create_image(std::string str, unsigned int iter, const mat_real_t &mat, bool swapped) {
-/*		std::stringstream num_iter;
+		std::stringstream num_iter;
 		num_iter << std::setfill('0') << std::setw(4) << iter;
 		char str0[5];
 		num_iter >> str0;
@@ -437,7 +437,7 @@ namespace hir {
 		num_size >> str1;
 		double min_val, max_val;
 		woo::matrix_min_max(mat, min_val, max_val);
-*/
+
 		/*cv::Mat img(size_, size_, 0);
 		for(unsigned int i = 0; i < size_; ++ i) {
 			for(unsigned int j = 0; j < size_; ++ j) {
@@ -455,32 +455,32 @@ namespace hir {
 		*/
 		int rows = mat.num_rows();
 		int cols = mat.num_cols();
-		std::cout << "====================== SO I REACHED HERE: " << rows << ", " << cols << std::endl;
-//		real_t * data = new (std::nothrow) real_t[rows * cols];
+		//std::cout << "====================== SO I REACHED HERE: " << rows << ", " << cols << std::endl;
+		real_t * data = new (std::nothrow) real_t[rows * cols];
 		//real_t * data = (real_t*) malloc(rows * cols * sizeof(real_t));
 		//real_t data[rows * cols];
-//		if(data == NULL) {
-//			std::cerr << "error: failed to allocate memory for image data" << std::endl;
-//			exit(1);
-//		} // if
-		std::cout << "SO I REACHED HERERE =====================" << std::endl;
-//		for(int i = 0; i < rows; ++ i) {
-//			for(int j = 0; j < cols; ++ j) {
-//				int i_swap = i, j_swap = j;
+		if(data == NULL) {
+			std::cerr << "error: failed to allocate memory for image data" << std::endl;
+			exit(1);
+		} // if
+		//std::cout << "SO I REACHED HERERE =====================" << std::endl;
+		for(int i = 0; i < rows; ++ i) {
+			for(int j = 0; j < cols; ++ j) {
+				int i_swap = i, j_swap = j;
 				// FIXME do quadrant swap thingy
 				//if(swapped) {
 				//	i_swap = (i + (rows >> 1)) % rows;
 				//	j_swap = (j + (cols >> 1)) % cols;
 				//} // if
-//				data[cols * i + j] = 255 * ((mat(i_swap, j_swap) - min_val) / (max_val - min_val));
-//			} // for j
-//		} // for i
-//		wil::Image img(rows, cols, 30, 30, 30);
-//		img.construct_image(data);
-//		std::string filename = prefix_ + "_" + std::string(str1) + "_" + std::string(str0) +
-//								"_" + str + ".tif";
-//		img.save(HipRMCInput::instance().label() + "/" + filename);
-//		delete[] data;
+				data[cols * i + j] = 255 * ((mat(i_swap, j_swap) - min_val) / (max_val - min_val));
+			} // for j
+		} // for i
+		wil::Image img(rows, cols, 30, 30, 30);
+		img.construct_image(data);
+		std::string filename = prefix_ + "_" + std::string(str1) + "_" + std::string(str0) +
+								"_" + str + ".tif";
+		img.save(HipRMCInput::instance().label() + "/" + filename);
+		delete[] data;
 		//free(data);
 	} // Tile::create_image()
 

@@ -3,7 +3,7 @@
   *
   *  File: image.hpp
   *  Created: Jun 18, 2012
-  *  Modified: Sun 25 Aug 2013 09:21:56 AM PDT
+  *  Modified: Wed 16 Oct 2013 08:40:12 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -58,12 +58,17 @@ namespace wil {
 			bool construct_image(const real_t* data, int slice);
 			bool construct_log_image(real_t* data);
 			bool construct_image(real_t* data);
+			bool construct_image(unsigned int* data);
 			bool construct_palette(real_t* data);
 			bool save(std::string filename);			/* save the current image buffer */
 			bool save(std::string filename, int xval);	/* save slice xval */
 			bool save(char* filename, int xval);
 			bool save(std::string filename, int xbegin, int xend);	/* save slices from xbegin to xend */
 			bool save(char* filename, int xbegin, int xend);
+
+			// for reading in an image
+			bool read(const char* filename);
+			bool get_data(real_t*&);
 
 	}; // class Image
 

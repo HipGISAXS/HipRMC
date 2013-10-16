@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Sun 13 Oct 2013 12:59:36 PM PDT
+  *  Modified: Wed 16 Oct 2013 08:33:48 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -11,7 +11,7 @@
 #ifndef __RMC_HPP__
 #define __RMC_HPP__
 
-#include <opencv2/opencv.hpp>
+//#include <opencv2/opencv.hpp>
 
 #ifdef USE_MPI
 #include "woo/comm/multi_node_comm.hpp"
@@ -75,7 +75,7 @@ namespace hir {
 			bool destroy_simulation_tiles();
 			bool compute_base_norm();
 			bool initialize_mask();
-			bool scale_image_colormap(cv::Mat&, double, double);
+//			bool scale_image_colormap(cv::Mat&, double, double);
 			//bool scale_pattern_to_tile(unsigned int);
 			bool crop_pattern_to_tile(unsigned int);
 			bool preprocess_pattern_and_mask(unsigned int);
