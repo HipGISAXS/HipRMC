@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 16 Oct 2013 10:45:24 AM PDT
+  *  Modified: Wed 16 Oct 2013 12:38:37 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -1204,6 +1204,7 @@ namespace hir {
 
 	bool Tile::print_a_mat() {
 		//print_matrix("a_mat", a_mat_.data(), a_mat_.num_rows(), a_mat_.num_cols());
+		return true;
 	} // Tile::print_a_mat()
 
 
