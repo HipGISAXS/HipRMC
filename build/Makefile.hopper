@@ -17,9 +17,9 @@ BOOST_DIR = /usr/common/usg/boost/1.51/gnu
 #HDF5_DIR = /usr/local/hdf5-1.8.9
 #Z_DIR = /usr/local/zlib-1.2.7
 #SZ_DIR = /usr/local/szip-2.1
-#TIFF_LIB_DIR = /usr/local/lib
-OPENCV_DIR = /global/homes/a/asarje/local/opencv-2.4.3-hopper
-WOO_DIR = /global/homes/a/asarje/lib
+TIFF_DIR = /global/homes/a/asarje/local/tiff-4.0.2-hopper
+#OPENCV_DIR = /global/homes/a/asarje/local/opencv-2.4.3-hopper
+#WOO_DIR = /global/homes/a/asarje/lib
 ifeq ($(USE_GPU), y)
 CUDA_DIR =
 FFTW_DIR =
@@ -29,7 +29,7 @@ FFTW_DIR = /opt/fftw/3.3.0.1/x86_64
 endif
 
 ## compilers
-CXX = CC -v
+CXX = CC
 ifeq ($(USE_GPU), y)
 NVCC =
 else
@@ -38,7 +38,7 @@ endif
 
 
 ## compiler flags
-CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
+CXX_FLAGS = -std=c++0x -fopenmp #-lgomp -v #-Wall -Wextra
 ## gnu c++ compilers >= 4.3 support -std=c++0x [requirement for hipgisaxs 4.3.x <= g++ <= 4.6.x]
 ## gnu c++ compilers >= 4.7 also support -std=c++11, but they are not supported by cuda
 
@@ -70,14 +70,15 @@ NVCC_FLAGS =
 endif
 
 ## libtiff
-TIFF_LIBS = -L $(TIFF_LIB_DIR) -ltiff
+TIFF_INCL = -I$(TIFF_DIR)/include
+TIFF_LIBS = -L$(TIFF_DIR)/lib -ltiff -lz
 
 ## opencv
-OPENCV_INCL = -I $(OPENCV_DIR)/include
-OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
+#OPENCV_INCL = -I$(OPENCV_DIR)/include
+#OPENCV_LIBS = -Bdynamic -L$(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
 
 ## woo
-WOO_INCL = -I $(WOO_DIR)
+#WOO_INCL = -I $(WOO_DIR)
 
 ## fftw
 ifeq ($(USE_GPU), y)
@@ -87,6 +88,10 @@ else
 FFTW_INCL = -I $(FFTW_DIR)/include
 FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3
 endif
+
+## gsl
+GSL_INCL = -I$(GSL_DIR)/include
+GSL_LIBS = -L$(GSL_DIR)/lib -Wl,--no-as-needed -lgsl -lgslcblas -lm
 
 ## miscellaneous
 MISC_INCL =
@@ -113,10 +118,10 @@ endif
 
 
 ## all includes
-ALL_INCL = $(OPENCV_INCL) $(WOO_INCL) $(CUDA_INCL) $(FFTW_INCL) $(BOOST_INCL)
+ALL_INCL = $(OPENCV_INCL) $(WOO_INCL) $(CUDA_INCL) $(FFTW_INCL) $(BOOST_INCL) $(TIFF_INCL) $(GSL_INCL)
 
 ## all libraries
-ALL_LIBS = $(OPENCV_LIBS) $(CUDA_LIBS) $(FFTW_LIBS) $(BOOST_LIBS) $(TIFF_LIBS) $(GSL_LIBS) $(MPI_LIBS)
+ALL_LIBS = $(CUDA_LIBS) $(FFTW_LIBS) $(BOOST_LIBS) $(TIFF_LIBS) $(GSL_LIBS) $(MPI_LIBS) $(OPENCV_LIBS)
 
 ## all flags
 ALL_FLAGS = $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MPI_FLAG) $(MISC_FLAGS)
