@@ -3,7 +3,7 @@
   *
   *  File: multi_node_comm.hpp
   *  Created: Mar 18, 2013
-  *  Modified: Wed 16 Oct 2013 11:14:48 AM PDT
+  *  Modified: Wed 16 Oct 2013 12:19:40 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -67,6 +67,7 @@ namespace woo {
 				idle_ = false;
 				master_rank_ = MASTER_RANK;
 				MPI_Comm_rank(world_, &rank_);
+				return *this;
 			} // operator=()
 
 			MultiNodeComm& operator=(const MultiNodeComm& comm) {
@@ -80,6 +81,7 @@ namespace woo {
 				idle_ = comm.idle_;
 				master_rank_ = comm.master_rank_;
 				rank_ = comm.rank_;
+				return *this;
 			} // operator=()
 
 			inline void set_idle() { idle_ = true; }
