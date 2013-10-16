@@ -3,7 +3,7 @@
   *
   *  File: image.hpp
   *  Created: Jun 18, 2012
-  *  Modified: Wed 16 Oct 2013 08:40:12 AM PDT
+  *  Modified: Wed 16 Oct 2013 04:35:05 PM EDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -12,7 +12,7 @@
 #define _IMAGE_HPP_
 
 #include <boost/gil/gil_all.hpp>
-#include <boost/gil/extension/numeric/affine.hpp>
+//#include <boost/gil/extension/numeric/affine.hpp>
 
 #include "globals.hpp"
 #include "colormap.hpp"
@@ -72,8 +72,8 @@ namespace wil {
 
 	}; // class Image
 
-	bool scale_image(int, int, int, int, real_t*, real_t*&);
-	bool resample_pixels(int, int, real_t*, int, int, real_t*&, const boost::gil::matrix3x2<real_t>&);
+//	bool scale_image(int, int, int, int, real_t*, real_t*&);
+//	bool resample_pixels(int, int, real_t*, int, int, real_t*&, const boost::gil::matrix3x2<real_t>&);
 
 } // namespace wil
 
