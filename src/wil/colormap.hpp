@@ -3,7 +3,7 @@
   *
   *  File: colormap.hpp
   *  Created: Jul 02, 2012
-  *  Modified: Sun 25 Aug 2013 09:26:21 AM PDT
+  *  Modified: Wed 16 Oct 2013 12:45:28 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include <boost/array.hpp>
+#include <iostream>
 
 #include "globals.hpp"
 

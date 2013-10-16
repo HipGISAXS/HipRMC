@@ -1,0 +1,9 @@
+#!/bin/bash
+
+module load boost/1.54
+module load fftw
+module load gsl
+
+## for c++11 compatibility
+export PATH=/global/common/carver/usg/gcc/4.5.4/bin:$PATH
+export LD_LIBRARY_PATH=/global/common/carver/usg/gcc/4.5.4/lib:$LD_LIBRARY_PATH
