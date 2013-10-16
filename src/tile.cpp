@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 16 Oct 2013 03:42:59 PM PDT
+  *  Modified: Wed 16 Oct 2013 04:12:53 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -373,7 +373,7 @@ namespace hir {
 			compute_mod_mat(f_scratch_i);
 		#endif
 		mytimer_.stop(); mod_time_ += mytimer_.elapsed_msec();
-		fft_update_time_ += mytimer_.elapsed_msec();
+		//fft_update_time_ += mytimer_.elapsed_msec();
 
 		//std::cout << "HOHOHOHOHOHOHO: " << multi_node.rank("real_world") << std::endl;
 
@@ -717,8 +717,12 @@ namespace hir {
 			#endif
 			) {
 		#ifdef USE_GPU
+			mytimer2_.start();
 			gtile_.compute_mod_mat(f_i, 1 - mod_f_mat_i_);
+			mytimer2_.stop(); fft_update_time_ += mytimer2_.elapsed_msec();
+			mytimer2_.start();
 			gtile_.normalize_mod_mat(1 - mod_f_mat_i_);
+			mytimer2_.stop(); reduction_time_ += mytimer2_.elapsed_msec();
 		#else // USE CPU
 			#pragma omp parallel for collapse(2)
 			for(unsigned int i = 0; i < rows_; ++ i) {
