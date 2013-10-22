@@ -3,7 +3,7 @@
 #
 # File: Makefile
 # Created: January 27, 2013
-# Modified: Jan 27, 2013
+# Modified: Oct 16, 2013
 #
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
@@ -67,7 +67,7 @@ NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64 #-dc
 NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
 #NVCC_FLAGS += -Xptxas -v -Xcompiler -v -Xlinker -v --ptxas-options="-v"
 NVLIB_FLAGS = -Xlinker -lgomp
-NVLIB_FLAGS += i-arch=sm_35 -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
+NVLIB_FLAGS += -arch=sm_35 -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
 else
 CUDA_INCL =
 CUDA_LIBS =
