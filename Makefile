@@ -3,18 +3,18 @@
 #
 # File: Makefile
 # Created: January 27, 2013
-# Modified: Jan 27, 2013
+# Modified: Oct 16, 2013
 #
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = n
-USE_MPI = n
+USE_GPU = y
+USE_MPI = y
 
 ## base directories
 BOOST_DIR = /usr/local/boost_1_49_0
 TIFF_LIB_DIR = /usr/local/lib
-OPENCV_DIR = /usr
+#OPENCV_DIR = /usr
 WOO_DIR = /home/asarje
 ifeq ($(USE_MPI), y)
 MPI_DIR = /usr/local/openmpi
@@ -60,14 +60,14 @@ ifeq ($(USE_GPU), y)
 CUDA_INCL = -I$(CUDA_DIR)/include
 CUDA_LIBS = -L$(CUDA_DIR)/lib64 -lcudart -lcufft -lnvToolsExt
 NVCC_FLAGS = -Xcompiler -fPIC -Xcompiler -fopenmp -m 64 #-dc
-NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
-NVCC_FLAGS += -gencode arch=compute_20,code=compute_20
-NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
-NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
+#NVCC_FLAGS += -gencode arch=compute_20,code=sm_20
+#NVCC_FLAGS += -gencode arch=compute_20,code=compute_20
+#NVCC_FLAGS += -gencode arch=compute_20,code=sm_21
+#NVCC_FLAGS += -gencode arch=compute_30,code=sm_30
 NVCC_FLAGS += -gencode arch=compute_35,code=sm_35
 #NVCC_FLAGS += -Xptxas -v -Xcompiler -v -Xlinker -v --ptxas-options="-v"
 NVLIB_FLAGS = -Xlinker -lgomp
-NVLIB_FLAGS += -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
+NVLIB_FLAGS += -arch=sm_35 -Wl,-rpath -Wl,$(CUDA_DIR)/lib64
 else
 CUDA_INCL =
 CUDA_LIBS =
@@ -78,8 +78,8 @@ endif
 TIFF_LIBS = -L $(TIFF_LIB_DIR) -ltiff
 
 ## opencv
-OPENCV_INCL = -I $(OPENCV_DIR)/include
-OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
+#OPENCV_INCL = -I $(OPENCV_DIR)/include
+#OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
 
 ## woo
 WOO_INCL = -I $(WOO_DIR)
@@ -109,8 +109,8 @@ MISC_FLAGS += -DUSE_DFT
 MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
 
 ## choose optimization levels, debug flags, gprof flag, etc
-OPT_FLAGS = -g -DDEBUG #-v #-pg
-#OPT_FLAGS += -O3 -DNDEBUG #-v
+#OPT_FLAGS = -g -DDEBUG #-v #-pg
+OPT_FLAGS += -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
 #PREC_FLAG =			# leave empty for single precision
@@ -128,7 +128,7 @@ ALL_INCL = $(OPENCV_INCL) $(WOO_INCL) $(CUDA_INCL) $(FFTW_INCL) $(BOOST_INCL) $(
 ALL_LIBS = $(OPENCV_LIBS) $(CUDA_LIBS) $(FFTW_LIBS) $(BOOST_LIBS) $(TIFF_LIBS) $(GSL_LIBS) $(MPI_LIBS)
 
 ## all flags
-ALL_FLAGS = $(OPT_FLAGS) $(CXX_FLAGS) $(PREC_FLAG) $(MPI_FLAG) $(MISC_FLAGS)
+ALL_FLAGS = $(OPT_FLAGS) $(PREC_FLAG) $(MPI_FLAG) $(MISC_FLAGS)
 
 
 PREFIX = $(PWD)
@@ -138,17 +138,18 @@ OBJ_DIR = $(PREFIX)/obj
 SRC_DIR = $(PREFIX)/src
 
 ## all objects
-OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o \
-			  tile_autotuner.o
+OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o
 ifeq ($(USE_GPU), y)
 OBJECTS_SIM += cutile.o
+else
+OBJECTS_SIM += tile_autotuner.o
 endif
 
 ## the main binary
 OBJ_BIN_SIM = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SIM))
 
 $(BINARY_SIM): $(OBJ_BIN_SIM)
-	$(CXX) -o $(BIN_DIR)/$@ $^ $(ALL_FLAGS) $(ALL_LIBS)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(ALL_FLAGS) $(CXX_FLAGS) $(ALL_LIBS)
 
 
 BINARY_SCALE = hiprmc-scale
@@ -156,13 +157,13 @@ OBJECTS_SCALE = testscale.o tile.o tile_scale.o utilities.o image.o
 OBJ_BIN_SCALE = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_SCALE))
 
 $(BINARY_SCALE): $(OBJ_BIN_SCALE)
-	$(CXX) -o $(BIN_DIR)/$@ $^ $(ALL_FLAGS) $(ALL_LIBS)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(ALL_FLAGS) $(CXX_FLAGS) $(ALL_LIBS)
 
 $(OBJ_DIR)/tile_scale.o: $(SRC_DIR)/tile_scale.cpp $(SRC_DIR)/tile.hpp
-	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(ALL_INCL)
+	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(CXX_FLAGS) $(ALL_INCL)
 	
 $(OBJ_DIR)/testscale.o: $(SRC_DIR)/testscale.cpp $(SRC_DIR)/rmc.hpp
-	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(ALL_INCL)
+	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(CXX_FLAGS) $(ALL_INCL)
 	
 
 ## c++ compilation
@@ -170,16 +171,16 @@ _DEPS_CXX = %.hpp
 DEPS_CXX = $(patsubst %,$(SRC_DIR)/%,$(_DEPS_CXX))
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp $(DEPS_CXX)
-	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(ALL_INCL)
+	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(CXX_FLAGS) $(ALL_INCL)
 	
 _DEPS_WIL = wil/%.hpp
 DEPS_WIL = $(patsubst %,$(SRC_DIR)/wil/%,$(_DEPS_CXX))
 
 $(OBJ_DIR)/%.o: $(SRC_DIR)/wil/%.cpp $(DEPS_WIL)
-	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(ALL_INCL)
+	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(CXXX_FLAGS) $(ALL_INCL)
 	
 $(OBJ_DIR)/hiprmc.o: $(SRC_DIR)/hiprmc.cpp $(SRC_DIR)/rmc.hpp
-	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(ALL_INCL)
+	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(CXX_FLAGS) $(ALL_INCL)
 
 ifeq ($(USE_GPU), y)
 $(OBJ_DIR)/cutile.o: $(SRC_DIR)/tile.cu
@@ -198,10 +199,10 @@ OBJ_BIN_COMPUTE_FFT = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_COMPUTE_FFT))
 computefft: $(BINARY_COMPUTE_FFT)
 
 $(BINARY_COMPUTE_FFT): $(OBJ_BIN_COMPUTE_FFT)
-	$(CXX) -o $(BIN_DIR)/$@ $^ $(ALL_FLAGS) $(ALL_LIBS)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(ALL_FLAGS) $(CXX_FLAGS) $(ALL_LIBS)
 
 $(OBJ_DIR)/generate.o: $(SRC_DIR)/generate.cpp
-	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(ALL_INCL)
+	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(CXX_FLAGS) $(ALL_INCL)
 
 BINARY_LOADING = compute-loading
 OBJECTS_LOADING = compute_loading.o utilities.o image.o
@@ -210,10 +211,10 @@ OBJ_BIN_LOADING = $(patsubst %,$(OBJ_DIR)/%,$(OBJECTS_LOADING))
 computeloading: $(BINARY_LOADING)
 
 $(BINARY_LOADING): $(OBJ_BIN_LOADING)
-	$(CXX) -o $(BIN_DIR)/$@ $^ $(ALL_FLAGS) $(ALL_LIBS)
+	$(CXX) -o $(BIN_DIR)/$@ $^ $(ALL_FLAGS) $(CXX_FLAGS) $(ALL_LIBS)
 
 $(OBJ_DIR)/compute_loading.o: $(SRC_DIR)/compute_loading.cpp
-	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(ALL_INCL)
+	$(CXX) -c $< -o $@ $(ALL_FLAGS) $(CXX_FLAGS) $(ALL_INCL)
 
 
 .PHONY: clean
