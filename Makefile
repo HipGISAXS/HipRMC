@@ -8,11 +8,11 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = y
+USE_GPU = n
 USE_MPI = y
 
 ## base directories
-BOOST_DIR = /usr/local/boost_1_49_0
+BOOST_DIR = /usr/local/boost
 TIFF_LIB_DIR = /usr/local/lib
 #OPENCV_DIR = /usr
 WOO_DIR = /home/asarje
