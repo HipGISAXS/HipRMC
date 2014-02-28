@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 13 Sep 2013 10:34:04 AM PDT
+  *  Modified: Thu 27 Feb 2014 04:23:58 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -541,7 +541,7 @@ namespace hir {
 
 
 	bool Tile::compute_fft(const mat_real_t& src, mat_complex_t& dst) {
-		gtile_.compute_fft(src, dst);
+//		gtile_.compute_fft(src, dst);
 		return true;
 	} // Tile::compute_fft()
 
@@ -581,8 +581,8 @@ namespace hir {
 
 	bool Tile::compute_mod(const mat_complex_t& src, mat_real_t& dst) {
 		#ifdef USE_GPU
-			gtile_.compute_mod(src, dst);
-			gtile_.normalize(dst);
+//			gtile_.compute_mod(src, dst);
+//			gtile_.normalize(dst);
 		#else // USE CPU
 			#pragma omp parallel for collapse(2)
 			for(unsigned int i = 0; i < size_; ++ i) {
@@ -724,7 +724,7 @@ namespace hir {
 								real_t base_norm) {
 		real_t chi2 = 0.0;
 		#ifdef USE_GPU
-			chi2 = gtile_.compute_chi2(a, b);
+//			chi2 = gtile_.compute_chi2(a, b);
 		#else
 			#pragma omp parallel for collapse(2) reduction(+:chi2)
 			for(unsigned int i = 0; i < size_; ++ i) {
@@ -844,7 +844,7 @@ namespace hir {
 	bool Tile::compute_dft2(mat_complex_t& vandermonde_mat, unsigned int old_row, unsigned int old_col,
 							unsigned int new_row, unsigned int new_col, mat_complex_t& dft_mat) {
 		#ifdef USE_GPU
-			gtile_.compute_dft2(old_row, old_col, new_row, new_col, num_particles_, dft_mat);
+//			gtile_.compute_dft2(old_row, old_col, new_row, new_col, num_particles_, dft_mat);
 		#else
 			typename mat_complex_t::row_iterator old_row_iter = vandermonde_mat.row(old_row);
 			typename mat_complex_t::col_iterator old_col_iter = vandermonde_mat.column(old_col);

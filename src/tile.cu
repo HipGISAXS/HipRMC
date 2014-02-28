@@ -3,7 +3,7 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Mon 09 Sep 2013 12:49:31 PM PDT
+  *  Modified: Thu 27 Feb 2014 03:56:32 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -55,8 +55,10 @@ namespace hir {
 	} // GTile::GTile()
 
 
-	__host__ bool GTile::init(real_t* pattern, cucomplex_t* vander, real_t* a,
-			const unsigned int* mask, unsigned int size, unsigned int tile_size,
+	//__host__ bool GTile::init(real_t* pattern, cucomplex_t* vander, real_t* a,
+	//		const unsigned int* mask, unsigned int size, unsigned int tile_size,
+	//		unsigned int block_x = CUDA_BLOCK_SIZE_X_, unsigned int block_y = CUDA_BLOCK_SIZE_Y_) {
+	__host__ bool GTile::init(real_t* a, unsigned int size, unsigned int tile_size,
 			unsigned int block_x = CUDA_BLOCK_SIZE_X_, unsigned int block_y = CUDA_BLOCK_SIZE_Y_) {
 		// NOT USED stuff: pattern, vander, a, mask ...
 		final_size_ = size;

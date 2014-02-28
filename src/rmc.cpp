@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Fri 13 Sep 2013 11:06:35 AM PDT
+  *  Modified: Thu 27 Feb 2014 03:50:53 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -416,12 +416,13 @@ namespace hir {
 			multi_node_.broadcast("real_world", img_data, rows_ * cols_);
 			multi_node_.broadcast("real_world", mask_data, rows_ * cols_);
 		} // if
-		#endif // USE_MPI
-
 		std::cout << "++      Processor " << multi_node_.rank("real_world")
 					<< " number of tiles: " << num_tiles_ << std::endl;
+		#endif // USE_MPI
 
+		#ifdef USE_MPI
 		if(!multi_node_.is_idle("real_world")) {
+		#endif // USE_MPI
 			in_pattern_.populate(img_data);
 			mask_mat_.populate(mask_data);
 
@@ -439,7 +440,9 @@ namespace hir {
 
 			initialize_tiles(indices, &(HipRMCInput::instance().loading()[tile_num_offset]),
 								HipRMCInput::instance().max_move_distance());
+		#ifdef USE_MPI
 		} // if
+		#endif
 
 		delete[] mask_data;
 		delete[] img_data;
@@ -803,11 +806,15 @@ namespace hir {
 	// simulate RMC
 	bool RMC::simulate(int num_steps, unsigned int rate, unsigned int scale_factor = 1) {
 
+		#ifdef USE_MPI
 		if(multi_node_.is_idle("real_world")) return true;
 		if(multi_node_.is_master("real_world")) {
+		#endif
 			std::cout << std::endl << "++                Current tile size: "
 						<< tile_size_ << " x " << tile_size_ << std::endl;
+		#ifdef USE_MPI
 		} // if
+		#endif
 
 		if(!initialize_simulation(scale_factor)) {
 			std::cerr << "error: failed to initialize simulation set" << std::endl;

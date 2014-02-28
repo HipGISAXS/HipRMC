@@ -8,10 +8,10 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = y
+USE_GPU = n
 
 ## base directories
-BOOST_DIR = /usr/local/boost_1_49_0
+BOOST_DIR = /usr/local/boost
 #MPI_DIR = /usr/local/openmpi-1.6
 #HDF5_DIR = /usr/local/hdf5-1.8.9
 #Z_DIR = /usr/local/zlib-1.2.7
@@ -37,7 +37,7 @@ endif
 
 
 ## compiler flags
-CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
+CXX_FLAGS = -std=c++0x -fopenmp -lgomp -lgsl -lgslcblas #-Wall -Wextra #-lgsl -lgslcblas -lm
 ## gnu c++ compilers >= 4.3 support -std=c++0x [requirement for hipgisaxs 4.3.x <= g++ <= 4.6.x]
 ## gnu c++ compilers >= 4.7 also support -std=c++11, but they are not supported by cuda
 
@@ -127,7 +127,8 @@ OBJ_DIR = $(PREFIX)/obj
 SRC_DIR = $(PREFIX)/src
 
 ## all objects
-OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o
+OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o \
+			  tile_autotuner.o
 ifeq ($(USE_GPU), y)
 OBJECTS_SIM += cutile.o
 endif
