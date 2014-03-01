@@ -3,15 +3,16 @@
   *
   *  File: tile.cu
   *  Created: Feb 02, 2013
-  *  Modified: Thu 27 Feb 2014 03:56:32 PM PST
+  *  Modified: Sat 01 Mar 2014 07:26:20 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
 #include <iostream>
-#include <thrust/reduce.h>
+//#include <thrust/reduce.h>
+//#include <thrust/device_ptr.h>
 
-#include <woo/reduce/reduce.cuh>
+#include "woo/reduce/reduce.cuh"
 
 #include <nvToolsExt.h>
 #include <cuda_profiler_api.h>
@@ -329,10 +330,10 @@ namespace hir {
 		compute_chi2_kernel <<< grid_dims_, block_dims_ >>> (pattern_, mod_f_mat_[buff_i], tile_size_,
 															c_factor, real_buff_d_);
 		cudaThreadSynchronize();
-		/*thrust::device_ptr<real_t> buff_p(real_buff_d_);
-		thrust::plus<real_t> plus;
-		chi2 = thrust::reduce(buff_p, buff_p + (tile_size_ * tile_size_), 0.0, plus);
-		*/
+		//thrust::device_ptr<real_t> buff_p(real_buff_d_);
+		//thrust::plus<real_t> plus;
+		//chi2 = thrust::reduce(buff_p, buff_p + (tile_size_ * tile_size_), 0.0, plus);
+		
 		plus_t plus_op;
 		//chi2 = woo::cuda::reduce_multiple<real_t*, real_t, plus_t>(real_buff_d_,
 		//													real_buff_d_ + (tile_size_ * tile_size_),

@@ -1,0 +1,8 @@
+#!/bin/bash
+
+module swap PrgEnv-pgi PrgEnv-gnu
+module load boost/1.51-gnu
+module load fftw/3.3.0.1
+module load gsl
+
+#export LD_LIBRARY_PATH=/global/homes/a/asarje/local/opencv-2.4.3-hopper/lib:$LD_LIBRARY_PATH

@@ -8,3 +8,7 @@ profile.*
 profiles
 Makefile
 Makefile*
+alex.m
+inputs/*.hig
+data/*.tif
+data/*.tiff

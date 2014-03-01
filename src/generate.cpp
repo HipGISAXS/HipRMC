@@ -3,7 +3,7 @@
   *
   *  File: generate.cpp
   *  Created: Mar 06, 2013
-  *  Modified: Thu 01 Aug 2013 01:05:03 PM PDT
+  *  Modified: Wed 02 Oct 2013 07:01:17 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -61,7 +61,8 @@
 		} // for
 
 		wil::Image img(size, size, 30, 30, 30);
-		img.construct_image(temp_data);
+		//img.construct_image(temp_data);
+		img.construct_log_image(temp_data);
 		std::string str(outfile);
 		img.save(str);
 

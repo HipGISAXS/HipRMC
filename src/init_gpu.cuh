@@ -3,7 +3,7 @@
   *
   *  File: init_gpu.cuh
   *  Created: Feb 22, 2013
-  *  Modified: Sun 04 Aug 2013 10:17:14 AM PDT
+  *  Modified: Mon 12 Aug 2013 04:33:01 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -18,7 +18,7 @@ namespace hir {
 
 	bool init_gpu() {
 		std::cout << "-- Waking up GPU(s) ..." << std::flush << std::endl;
-		cudaSetDevice(2);
+		cudaSetDevice(1);
 		cudaFree(0);
 		return true;
 	} // init_gpu()

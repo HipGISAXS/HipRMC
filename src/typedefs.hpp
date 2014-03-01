@@ -3,7 +3,7 @@
   *
   *  File: typedefs.hpp
   *  Created: Feb 03, 2013
-  *  Modified: Sat 07 Sep 2013 09:58:16 AM PDT
+  *  Modified: Mon 14 Oct 2013 09:57:34 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -19,7 +19,7 @@
 #ifdef USE_GPU
 #include <cuComplex.h>
 #endif // USE_GPU
-#include <woo/matrix/matrix.hpp>
+#include "woo/matrix/matrix.hpp"
 
 namespace hir {
 

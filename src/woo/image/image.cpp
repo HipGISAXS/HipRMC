@@ -3,17 +3,16 @@
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Wed 16 Oct 2013 04:34:45 PM EDT
+  *  Modified: Sun 25 Aug 2013 09:24:10 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
-#include <iostream>
 #include <boost/math/special_functions/round.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
 #include <boost/gil/extension/io/tiff_io.hpp>
-//#include <boost/gil/extension/numeric/sampler.hpp>
-//#include <boost/gil/extension/numeric/resample.hpp>
+#include <boost/gil/extension/numeric/sampler.hpp>
+#include <boost/gil/extension/numeric/resample.hpp>
 
 #include "image.hpp"
 #include "utilities.hpp"
@@ -160,20 +159,6 @@ namespace wil {
 
 		return true;
 	} // Image::construct_log_image()
-
-
-	bool Image::construct_image(unsigned int* data) {						// and here ...
-		if(data == NULL) {
-			std::cerr << "empty data found while constructing image" << std::endl;
-			return false;
-		} // if
-		real_t *rdata = new (std::nothrow) real_t[nx_ * ny_ * nz_];
-		for(int i = 0; i < nx_ * ny_ * nz_; ++ i) rdata[i] = (real_t) data[i];
-		construct_image(rdata);
-		delete[] rdata;
-
-		return true;
-	} // Image::construct_image()
 
 
 	bool Image::construct_image(real_t* data) {						// and here ...
@@ -376,7 +361,7 @@ namespace wil {
 	 * NOTE: this requires the boost gil numeric library (it is not an official part of boost)
 	 * let the coordinates of old and new be from min (0, 0) to max (old_x-1, old_y-1) (new_x-1, new_y-1)
 	 */
-/*	bool scale_image(int old_x, int old_y, int new_x, int new_y, real_t *old_data, real_t* &new_data) {
+	bool scale_image(int old_x, int old_y, int new_x, int new_y, real_t *old_data, real_t* &new_data) {
 		
 		typedef boost::gil::matrix3x2<real_t> matrix3x2;
 
@@ -390,12 +375,12 @@ namespace wil {
 
 		return true;
 	} // Image::scale_image()
-*/
+
 
 	/**
 	 * nearest neighbor based sampling is used
 	 */
-/*	bool resample_pixels(int old_x, int old_y, real_t* old_data, int new_x, int new_y, real_t* &new_data,
+	bool resample_pixels(int old_x, int old_y, real_t* old_data, int new_x, int new_y, real_t* &new_data,
 								const boost::gil::matrix3x2<real_t>& mat) {
 		// mapping from new to old
 		boost::gil::point2 <int> new_p;
@@ -412,90 +397,5 @@ namespace wil {
 		} // for y
 		return true;
 	} // Image::resample_pixels()
-*/
-
-	/**
-	 * read a tiff image from file into image_buffer_
-	 */
-	bool Image::read(const char* filename) {
-		typedef boost::gil::type_from_x_iterator <boost::gil::rgb8_ptr_t> pixel_itr_t;
-
-		boost::gil::point2 <std::ptrdiff_t> dims = boost::gil::tiff_read_dimensions(filename);
-		nx_ = 1; ny_ = dims.x; nz_ = dims.y;
-
-		if(image_buffer_ != NULL) { delete[] image_buffer_; image_buffer_ = NULL; }
-		image_buffer_ = new (std::nothrow) boost::gil::rgb8_pixel_t[ny_ * nz_];
-		if(image_buffer_ == NULL) {
-			std::cerr << "error: could not allocate memory for image buffer. size = "
-					<< ny_ << "x" << nz_ << std::endl;
-			return false;
-		} // if
-
-//		boost::gil::rgb8_pixel_t *image_buff = new (std::nothrow) boost::gil::rgb8_pixel_t[ny_ * nz_];
-//		if(image_buff == NULL) {
-//			std::cerr << "error: could not allocate memory for image buffer. size = "
-//					<< ny_ << "x" << nz_ << std::endl;
-//			return false;
-//		} // if
-
-		//std::cout << "OKIEgonfsuarnjefOMEFndiaKNIF " << sizeof(boost::gil::rgb8_pixel_t) << std::endl;
-		pixel_itr_t::view_t view = interleaved_view(ny_, nz_, image_buffer_,
-													ny_ * sizeof(boost::gil::rgb8_pixel_t));
-		boost::gil::tiff_read_and_convert_view(filename, view);
-		if(view.width() != ny_ || view.height() != nz_) {
-			std::cerr << "error: something is wrong with the image dimensions: "
-			   			<< view.width() << "," << view.height() << std::endl;
-			return false;
-		} // if
-		//std::cout << "NUM CHANNELS: " << view.num_channels() << std::endl;
-//		if(view.num_channels() != 3) {
-//			std::cerr << "error: image is not rgb. it has " << view.num_channels()
-//						<< " channels" << std::endl;
-//			return false;
-//		} // if
-
-/*		pixel_itr_t::xy_locator_t data = view.pixels();
-		for(int i = 0; i < ny_; ++ i) {
-			for(int j = 0; j < nz_; ++ j) {
-				boost::gil::rgb8_pixel_t temp = data.xy_at(i, j)(0, 0);
-				unsigned char r = boost::gil::get_color(temp, boost::gil::red_t());
-				unsigned char g = boost::gil::get_color(temp, boost::gil::green_t());
-				unsigned char b = boost::gil::get_color(temp, boost::gil::blue_t());
-				std::cout << i << ":" << j << "\t" << (unsigned int) r << "\t" << (unsigned int) g << "\t" << (unsigned int) b << std::endl;
-				boost::gil::rgb8_pixel_t pix(r, g, b);
-				image_buffer_[i * nz_ + j] = pix;
-			} // for
-		} // for
-*/
-		//boost::gil::tiff_write_view("sgbfjbsfegbs.tif", view);
-		return true;
-	} // Image::read()
-
-
-	/**
-	 * obtain raw data from the image_buffer_ as array of reals
-	 */
-	bool Image::get_data(real_t* &data) {
-		if(image_buffer_ == NULL) return false;
-
-		if(data == NULL) {
-			std::cerr << "error: could not allocate memory for raw data. size = "
-					<< ny_ << "x" << nz_ << std::endl;
-			return false;
-		} // if
-
-		for(int i = 0; i < ny_; ++ i) {
-			for(int j = 0; j < nz_; ++ j) {
-				boost::gil::rgb8_pixel_t color = image_buffer_[i * nz_ + j];
-				unsigned char r = boost::gil::get_color(color, boost::gil::red_t());
-				unsigned char g = boost::gil::get_color(color, boost::gil::green_t());
-				unsigned char b = boost::gil::get_color(color, boost::gil::blue_t());
-				real_t gray = (double) (r + g + b) / (255 * 3.0);	// just a linear mapping
-				data[i * nz_ + j] = gray;
-			} // for
-		} // for
-
-		return true;
-	} // Image::get_data()
 
 } // namespace wil
