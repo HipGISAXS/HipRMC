@@ -3,7 +3,7 @@
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Wed 16 Oct 2013 04:34:45 PM EDT
+  *  Modified: Sun 02 Mar 2014 10:49:47 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -417,11 +417,16 @@ namespace wil {
 	/**
 	 * read a tiff image from file into image_buffer_
 	 */
-	bool Image::read(const char* filename) {
+	bool Image::read(const char* filename, unsigned int ny, unsigned int nz) {
 		typedef boost::gil::type_from_x_iterator <boost::gil::rgb8_ptr_t> pixel_itr_t;
 
 		boost::gil::point2 <std::ptrdiff_t> dims = boost::gil::tiff_read_dimensions(filename);
 		nx_ = 1; ny_ = dims.x; nz_ = dims.y;
+		if(ny_ != ny || nz_ != nz) {
+			std::cerr << "error: image size not same as input size. aborting" << std::endl;
+			return false;
+		} // if
+		ny_ = ny; nz_ = nz;
 
 		if(image_buffer_ != NULL) { delete[] image_buffer_; image_buffer_ = NULL; }
 		image_buffer_ = new (std::nothrow) boost::gil::rgb8_pixel_t[ny_ * nz_];

@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 01 Mar 2014 07:28:19 AM PST
+  *  Modified: Sun 02 Mar 2014 10:32:10 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -739,7 +739,6 @@ namespace hir {
 	} // Tile::compute_mod_mat()
 
 
-	#ifndef USE_GPU
 	bool Tile::compute_mod(const mat_complex_t& src, mat_real_t& dst) {
 		#ifdef USE_GPU
 //			gtile_.compute_mod(src, dst);
@@ -753,12 +752,11 @@ namespace hir {
 					dst(i, j) = temp;
 				} // for
 			} // for
-		} // for
-		normalize(dst);
+			normalize(dst);
+		#endif // USE_GPU
 
 		return true;
 	} // Tile::compute_mod()
-	#endif
 
 
 	/*bool Tile::normalize_mod(unsigned int mat_i) {

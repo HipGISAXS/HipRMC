@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Sat 01 Mar 2014 07:30:35 AM PST
+  *  Modified: Sun 02 Mar 2014 10:50:34 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -201,7 +201,7 @@ namespace hir {
 */
 			//////////////////////////////////////////
 			wil::Image img(0, 0, 30, 30, 30);
-			img.read(HipRMCInput::instance().input_image());
+			if(!img.read(HipRMCInput::instance().input_image(), rows_, cols_)) return false;
 			img.get_data(img_data);
 			wil::Image img_temp(rows_, cols_, 30, 30, 30);
 			img_temp.construct_image(img_data);
@@ -222,7 +222,7 @@ namespace hir {
 					} // for
 				} // for*/
 				wil::Image mask_img(0, 0, 30, 30, 30);
-				mask_img.read(HipRMCInput::instance().mask_image());
+				if(!mask_img.read(HipRMCInput::instance().mask_image(), rows_, cols_)) return false;
 				real_t *temp_mask = new (std::nothrow) real_t[rows_ * cols_];
 				mask_img.get_data(temp_mask);
 				for(unsigned int i = 0; i < rows_; ++ i) {
@@ -476,7 +476,6 @@ namespace hir {
 
 		in_pattern_.populate(local_img_data);
 		mask_mat_.populate(local_mask_data);
->>>>>>> parallel
 
 		vec_uint_t indices;
 		initialize_particles_random(indices);
