@@ -3,7 +3,7 @@
   *
   *  File: image.hpp
   *  Created: Jun 18, 2012
-  *  Modified: Wed 16 Oct 2013 04:35:05 PM EDT
+  *  Modified: Sun 02 Mar 2014 10:46:56 AM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -67,7 +67,7 @@ namespace wil {
 			bool save(char* filename, int xbegin, int xend);
 
 			// for reading in an image
-			bool read(const char* filename);
+			bool read(const char* filename, unsigned int ny, unsigned int nz);
 			bool get_data(real_t*&);
 
 	}; // class Image
