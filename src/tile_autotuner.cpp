@@ -3,7 +3,7 @@
  *
  *  File: tile_autotuner.cpp
  *  Created: Sep 05, 2013
- *  Modified: Fri 13 Sep 2013 10:33:27 AM PDT
+ *  Modified: Wed 28 May 2014 12:07:29 PM PDT
  *
  *  Author: Abhinav Sarje <asarje@lbl.gov>
  */
@@ -149,8 +149,8 @@ namespace hir {
 
 		tstar_ = temp_tstar; cooling_factor_ = cooling; tstar_set_ = true;
 
-		//std::cout << "++                      Temperature: " << tstar_ << std::endl;
-		//std::cout << "++                          Cooling: " << cooling_factor_ << std::endl;
+		std::cout << "++                      Temperature: " << tstar_ << std::endl;
+		std::cout << "++                          Cooling: " << cooling_factor_ << std::endl;
 
 		return true;
 	} // Tile::autotune_temperature()

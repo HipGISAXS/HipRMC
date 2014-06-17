@@ -3,7 +3,7 @@
   *
   *  File: rmc.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Thu 27 Feb 2014 03:50:53 PM PST
+  *  Modified: Wed 28 May 2014 12:11:50 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -958,8 +958,7 @@ namespace hir {
 			if(multi_node_.is_idle("real_world")) return true;
 			if(multi_node_.is_master("real_world")) {
 		#endif
-				std::cout << std::endl << "++ Performing scaled simulation ..."
-							<< std::endl << std::endl;
+				std::cout << std::endl << "++ Performing scaled simulation ..." << std::endl;
 		#ifdef USE_MPI
 			} // if
 		#endif

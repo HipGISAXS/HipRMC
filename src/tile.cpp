@@ -3,7 +3,7 @@
   *
   *  File: tile.cpp
   *  Created: Jan 25, 2013
-  *  Modified: Thu 27 Feb 2014 04:23:58 PM PST
+  *  Modified: Wed 28 May 2014 12:06:21 PM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -324,9 +324,9 @@ namespace hir {
 		mytimer_.stop(); rest_time_ += mytimer_.elapsed_msec();
 
 		// write current model at every "steps"
-		if(iter % 1000 == 0) {
+		if(iter % 5000 == 0) {
 			update_model();
-			create_image("model", iter / 1000, a_mat_, false);
+			create_image("model", iter / 5000, a_mat_, false);
 		} // if
 
 		return true;
