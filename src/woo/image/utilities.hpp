@@ -3,7 +3,7 @@
   *
   *  File: utilities.hpp
   *  Created: Jun 25, 2012
-  *  Modified: Wed 16 Oct 2013 01:08:59 PM PDT
+  *  Modified: Sun 25 Aug 2013 09:24:16 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -90,24 +90,11 @@ namespace wil {
 	 */
 
 //	extern complex_t operator*(float2 c, float2 s);
-//	extern complex_t operator*(complex_t c, complex_t s);
+	extern complex_t operator*(complex_t c, complex_t s);
 	extern complex_t operator*(complex_t c, real_t s);
 	extern complex_t operator*(real_t s, complex_t c);
-#ifdef USE_GPU
-	extern complex_t operator*(real_t s, cucomplex_t c);
-	extern complex_t operator*(cucomplex_t c, real_t s);
-	extern complex_t operator*(complex_t s, cucomplex_t c);
-	extern complex_t operator*(cucomplex_t c, complex_t s);
-#endif
-
 	extern std::complex<long double> operator*(std::complex<long double> c, long double s);
 
-#ifdef USE_GPU
-	extern complex_t operator+(real_t s, cucomplex_t c);
-	extern complex_t operator+(cucomplex_t c, real_t s);
-	extern complex_t operator+(complex_t s, cucomplex_t c);
-	extern complex_t operator+(cucomplex_t c, complex_t s);
-#endif
 
 	/**
 	 * matrix and vector operation functions

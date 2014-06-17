@@ -3,7 +3,7 @@
   *
   *  File: utilities.cpp
   *  Created: Jun 25, 2012
-  *  Modified: Wed 16 Oct 2013 01:09:33 PM PDT
+  *  Modified: Sun 25 Aug 2013 09:24:14 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -165,10 +165,10 @@ namespace wil {
 	 * arithmetic operators for complex types
 	 */
 
-//	complex_t operator*(complex_t c, complex_t s) {
-//		return complex_t(c.real() * s.real() - c.imag() * s.imag(),
-//						 c.real() * s.imag() + c.imag() * s.real());
-//	} // operator*()
+	complex_t operator*(complex_t c, complex_t s) {
+		return complex_t(c.real() * s.real() - c.imag() * s.imag(),
+						 c.real() * s.imag() + c.imag() * s.real());
+	} // operator*()
 
 	complex_t operator*(complex_t c, real_t s) {
 		return complex_t(c.real() * s, c.imag() * s);
@@ -178,24 +178,6 @@ namespace wil {
 		return complex_t(c.real() * s, c.imag() * s);
 	} // operator*()
 
-#ifdef USE_GPU
-	complex_t operator*(cucomplex_t c, real_t s) {
-		return complex_t(s * c.x, s * c.y);
-	} // operator*()
-
-	complex_t operator*(real_t s, cucomplex_t c) {
-		return complex_t(s * c.x, s * c.y);
-	} // operator*()
-
-	complex_t operator*(complex_t s, cucomplex_t c) {
-		return complex_t(s.real() * c.x - s.imag() * c.y, s.real() * c.y + s.imag() * c.x);
-	} // operator*()
-
-	complex_t operator*(cucomplex_t c, complex_t s) {
-		return complex_t(s.real() * c.x - s.imag() * c.y, s.real() * c.y + s.imag() * c.x);
-	} // operator*()
-#endif
-
 	std::complex<long double> operator*(std::complex<long double> c, long double s) {
 		return std::complex<long double>(c.real() * s, c.imag() * s);
 	} // operator*()
@@ -203,24 +185,6 @@ namespace wil {
 	std::complex<long double> operator/(std::complex<long double> c, long double s) {
 		return std::complex<long double>(c.real() / s, c.imag() / s);
 	} // operator*()
-
-#ifdef USE_GPU
-	complex_t operator+(complex_t s, cucomplex_t c) {
-		return complex_t(s.real() + c.x, s.imag() + c.y);
-	} // operator+()
-
-	complex_t operator+(cucomplex_t c, complex_t s) {
-		return complex_t(s.real() + c.x, s.imag() + c.y);
-	} // operator+()
-
-	complex_t operator+(cucomplex_t c, real_t s) {
-		return complex_t(s + c.x, c.y);
-	} // operator+()
-
-	complex_t operator+(real_t s, cucomplex_t c) {
-		return complex_t(s + c.x, c.y);
-	} // operator+()
-#endif
 
 
 	/**
@@ -443,13 +407,11 @@ namespace wil {
 		result.clear();
 		for(complex_vec_t::iterator i = matrix.begin(); i != matrix.end(); ++ i)
 			result.push_back(exp(*i));
-		return true;
 	} // mat_exp()
 
 
 	bool mat_exp_in(complex_vec_t& matrix) {
 		for(complex_vec_t::iterator i = matrix.begin(); i != matrix.end(); ++ i) *i = exp(*i);
-		return true;
 	} // mat_exp_in()
 
 
