@@ -53,8 +53,6 @@ namespace hir {
 		cooling_factor_ = 0.0;
 		tstar_set_ = false;
 
-		std::cout << "HOHOHOHOHOHOHOHO: " << rows_ << ", " << cols_ << std::endl;
-
 		// two buffers each
 		mytimer.start();
 		f_mat_.push_back(mat_complex_t(rows_, cols_));
@@ -129,7 +127,6 @@ namespace hir {
 
 
 	Tile::~Tile() {
-		std::cout << "destroying tileeeeeeeeeeeeeeeeeeeeee: " << f_mat_.size() << std::endl;
 		#ifdef USE_GPU
 			delete[] cucomplex_buff_;
 		#endif // USE_GPU
@@ -154,7 +151,7 @@ namespace hir {
 		prefix_ = std::string(prefix);
 
 		// fill a_mat_ with particles
-		std::cout << "UPDATING MODEL" << std::endl;
+		//std::cout << "UPDATING MODEL" << std::endl;
 		mytimer.start();
 		update_model(
 					#ifdef USE_MPI
@@ -230,7 +227,7 @@ namespace hir {
 		// autotune temperature (tstar)
 		#ifndef USE_GPU		// currently gpu version does not have autotuning
 			mytimer.start();
-/*			if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps
+			if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps
 					#ifdef USE_MPI
 						, multi_node
 					#endif
@@ -238,9 +235,9 @@ namespace hir {
 				std::cerr << "error: failed to autotune temperature" << std::endl;
 				return false;
 			} // if
-*/			mytimer.stop();
-			tstar_ = 1.0;
-			cooling_factor_ = 0.01;
+			mytimer.stop();
+//			tstar_ = 1.0;
+//			cooling_factor_ = 0.01;
 			std::cout << "TEMPERATURE = " << tstar_ << std::endl;
 			std::cout << "COOLING = " << cooling_factor_ << std::endl;
 			std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
@@ -373,8 +370,6 @@ namespace hir {
 		#endif
 		mytimer_.stop(); mod_time_ += mytimer_.elapsed_msec();
 		//fft_update_time_ += mytimer_.elapsed_msec();
-
-		//std::cout << "HOHOHOHOHOHOHO: " << multi_node.rank("real_world") << std::endl;
 
 		mytimer_.start();
 		multi_node.barrier("real_world");

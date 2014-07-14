@@ -528,7 +528,7 @@ namespace hir {
 			temp << "_" << std::setfill('0') << std::setw(4) << i;
 			char prefix[10];
 			temp >> prefix;
-			std::cout << "PREFIX: " << prefix << std::endl;
+			//std::cout << "PREFIX: " << prefix << std::endl;
 			int num_particles = loading[i] * tile_size_ * tile_size_;
 			tiles_[i].init(loading[i], max_dist, prefix, num_particles
 					#ifdef USE_MPI

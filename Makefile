@@ -105,8 +105,8 @@ else
 MISC_FLAGS =
 endif
 
-MISC_FLAGS += -DUSE_DFT
-MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
+MISC_FLAGS += -DUSE_DFT				# enable use of quick DFT computation instead of full fft
+#MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
 
 ## choose optimization levels, debug flags, gprof flag, etc
 #OPT_FLAGS = -g -DDEBUG #-v #-pg
