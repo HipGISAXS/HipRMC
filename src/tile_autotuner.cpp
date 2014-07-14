@@ -93,7 +93,7 @@ namespace hir {
 										, woo::MultiNode& multi_node
 									#endif
 									) {
-		//std::cout << "++ Autotuning temperature ..." << std::endl;
+		std::cout << "++ Autotuning temperature ..." << std::endl;
 		std::map <const real_t, real_t> acceptance_map;
 		real_t tmin = 0.0, tstep = 0.01, tmax = 2.0, tstar = tmin;
 		unsigned int tstar_tune_steps = 100;		// input parameter TODO ...
@@ -164,8 +164,8 @@ namespace hir {
 
 		tstar_ = temp_tstar; cooling_factor_ = cooling; tstar_set_ = true;
 
-		std::cout << "++                      Temperature: " << tstar_ << std::endl;
-		std::cout << "++                          Cooling: " << cooling_factor_ << std::endl;
+		std::cout << "**                      Temperature: " << tstar_ << std::endl;
+		std::cout << "**                          Cooling: " << cooling_factor_ << std::endl;
 
 		return true;
 	} // Tile::autotune_temperature()

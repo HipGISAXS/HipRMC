@@ -238,8 +238,8 @@ namespace hir {
 			mytimer.stop();
 //			tstar_ = 1.0;
 //			cooling_factor_ = 0.01;
-			std::cout << "TEMPERATURE = " << tstar_ << std::endl;
-			std::cout << "COOLING = " << cooling_factor_ << std::endl;
+			//std::cout << "TEMPERATURE = " << tstar_ << std::endl;
+			//std::cout << "COOLING = " << cooling_factor_ << std::endl;
 			std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
 						<< " ms." << std::endl;
 			tstar_set_ = true;
@@ -275,7 +275,7 @@ namespace hir {
 
 
 	bool Tile::destroy_scale() {
-		std::cout << "****** destroying scale tiles" << std::endl;
+		//std::cout << "****** destroying scale tiles" << std::endl;
 		#ifdef USE_GPU
 			gtile_.destroy_scale();
 		#else	// use CPU

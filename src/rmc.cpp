@@ -452,8 +452,8 @@ namespace hir {
 				local_tile_cols_ = tile_size_;
 			} // if-else
 
-			std::cout << "RANK" << real_world_rank << ": " << local_tile_rows_ << ", " << local_tile_cols_ << std::endl;
-			std::cout << "====== " << real_world_size << "\t" << local_rows_ << "\t" << local_cols_ << std::endl;
+			//std::cout << "RANK" << real_world_rank << ": " << local_tile_rows_ << ", " << local_tile_cols_ << std::endl;
+			//std::cout << "====== " << real_world_size << "\t" << local_rows_ << "\t" << local_cols_ << std::endl;
 		#else
 			int local_rows_ = rows_;
 			int local_cols_ = cols_;
@@ -488,7 +488,8 @@ namespace hir {
 		initialize_tiles(indices, &(HipRMCInput::instance().loading()[tile_num_offset]),
 							HipRMCInput::instance().max_move_distance());
 
-		std::cout << "DONE INIT!" << std::endl;
+		//std::cout << "DONE INIT!" << std::endl;
+		std::cout << "++ Initialization done." << std::endl;
 
 		delete[] local_mask_data;
 		delete[] local_img_data;
@@ -1112,7 +1113,7 @@ namespace hir {
 		//	tiles_[i].print_times();
 		//} // for
 		multi_node_.barrier("world");
-		std::cout << "P" << multi_node_.rank() << ": SIM SIM SIM!!!!" << std::endl;
+		//std::cout << "P" << multi_node_.rank() << ": SIM SIM SIM!!!!" << std::endl;
 		destroy_simulation_tiles();
 
 		return true;
