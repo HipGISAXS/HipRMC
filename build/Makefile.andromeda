@@ -8,14 +8,14 @@
 # Author: Abhinav Sarje <asarje@lbl.gov>
 ##
 
-USE_GPU = y
+USE_GPU = n
 USE_MPI = y
 
 ## base directories
-BOOST_DIR = /usr/local/boost_1_49_0
+BOOST_DIR = /usr/local/boost
 TIFF_LIB_DIR = /usr/local/lib
 #OPENCV_DIR = /usr
-WOO_DIR = /home/asarje
+WOO_DIR = 
 ifeq ($(USE_MPI), y)
 MPI_DIR = /usr/local/openmpi
 endif
@@ -41,7 +41,7 @@ endif
 
 
 ## compiler flags
-CXX_FLAGS = -std=c++0x -fopenmp -lgomp #-Wall -Wextra #-lgsl -lgslcblas -lm
+CXX_FLAGS = -std=c++0x -fopenmp -lgomp -lgsl -lgslcblas #-Wall -Wextra #-lgsl -lgslcblas -lm
 ## gnu c++ compilers >= 4.3 support -std=c++0x [requirement for hipgisaxs 4.3.x <= g++ <= 4.6.x]
 ## gnu c++ compilers >= 4.7 also support -std=c++11, but they are not supported by cuda
 
@@ -82,7 +82,7 @@ TIFF_LIBS = -L $(TIFF_LIB_DIR) -ltiff
 #OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
 
 ## woo
-WOO_INCL = -I $(WOO_DIR)
+#WOO_INCL = -I $(WOO_DIR)
 
 ## fftw
 ifeq ($(USE_GPU), y)
@@ -105,8 +105,8 @@ else
 MISC_FLAGS =
 endif
 
-MISC_FLAGS += -DUSE_DFT
-MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
+MISC_FLAGS += -DUSE_DFT				# enable use of quick DFT computation instead of full fft
+#MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
 
 ## choose optimization levels, debug flags, gprof flag, etc
 #OPT_FLAGS = -g -DDEBUG #-v #-pg
@@ -138,7 +138,8 @@ OBJ_DIR = $(PREFIX)/obj
 SRC_DIR = $(PREFIX)/src
 
 ## all objects
-OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o
+OBJECTS_SIM = hiprmc.o rmc.o tile.o image.o utilities.o tile_scale.o hiprmc_input.o read_oo_input.o \
+			  tile_autotuner.o
 ifeq ($(USE_GPU), y)
 OBJECTS_SIM += cutile.o
 else
