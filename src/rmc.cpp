@@ -200,7 +200,8 @@ namespace hir {
 */
 			//////////////////////////////////////////
 			wil::Image img(0, 0, 30, 30, 30);
-			if(!img.read(HipRMCInput::instance().input_image(), rows_, cols_)) return false;
+			//if(!img.read(HipRMCInput::instance().input_image(), rows_, cols_)) return false;
+			if(!img.read_tiff(HipRMCInput::instance().input_image(), rows_, cols_)) return false;
 			img.get_data(img_data);
 			wil::Image img_temp(rows_, cols_, 30, 30, 30);
 			img_temp.construct_image(img_data);
@@ -221,15 +222,20 @@ namespace hir {
 					} // for
 				} // for*/
 				wil::Image mask_img(0, 0, 30, 30, 30);
-				if(!mask_img.read(HipRMCInput::instance().mask_image(), rows_, cols_)) return false;
+				//if(!mask_img.read(HipRMCInput::instance().mask_image(), rows_, cols_)) return false;
+				//if(!mask_img.read_new(HipRMCInput::instance().mask_image(), rows_, cols_)) return false;
+				if(!mask_img.read_tiff(HipRMCInput::instance().mask_image(), rows_, cols_)) return false;
 				real_t *temp_mask = new (std::nothrow) real_t[rows_ * cols_];
 				mask_img.get_data(temp_mask);
+				//std::cout << rows_ << " x " << cols_ << std::endl;
 				for(unsigned int i = 0; i < rows_; ++ i) {
 					for(unsigned int j = 0; j < cols_; ++ j) {
 						unsigned int index = cols_ * i + j;
 						real_t temp = temp_mask[index];
 						mask_data[index] = (255 * temp < 180) ? 0 : 1;
+						//std::cout << mask_data[index] << " ";
 					} // for
+					//std::cout << std::endl;
 				} // for
 				delete[] temp_mask;
 			} else {	// no mask is set

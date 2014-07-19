@@ -3,62 +3,99 @@
   *
   *  File: image.cpp
   *  Created: Jun 18, 2012
-  *  Modified: Sun 02 Mar 2014 10:49:47 AM PST
+  *  Modified: Sat 19 Jul 2014 10:37:07 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
 
 #include <iostream>
+#include <cstdio>
+#include <boost/mpl/vector.hpp>
 #include <boost/math/special_functions/round.hpp>
 #include <boost/math/special_functions/fpclassify.hpp>
-#include <boost/gil/extension/io/tiff_io.hpp>
 //#include <boost/gil/extension/numeric/sampler.hpp>
 //#include <boost/gil/extension/numeric/resample.hpp>
+#include <boost/gil/extension/dynamic_image/any_image.hpp>
+#include <boost/gil/extension/io/tiff_dynamic_io.hpp>
+#include <boost/gil/extension/io/tiff_io.hpp>
 
 #include "image.hpp"
 #include "utilities.hpp"
+
+// Define a color conversion rule NB in the boost::gil namespace
+namespace boost { namespace gil {
+	template <> void color_convert<rgba8_pixel_t, rgb8_pixel_t>(const rgba8_pixel_t& src,
+																rgb8_pixel_t& dst) {
+		unsigned int alpha = (unsigned int) get_color(src, alpha_t());
+		std::cout << alpha << std::endl;
+		if(alpha < 128) {	// if half or less transparent, make it white
+			get_color(dst, red_t()) = 255;
+			get_color(dst, green_t()) = 255;
+			get_color(dst, blue_t()) = 255;
+		} else {			// if not transparent, keep the color values
+			get_color(dst, red_t()) = get_color(src, red_t());
+			get_color(dst, green_t()) = get_color(src, green_t());
+			get_color(dst, blue_t()) = get_color(src, blue_t());
+		} // if-else
+	} // color_convert()
+	template <> void color_convert<rgb8_pixel_t, rgb8_pixel_t>(const rgb8_pixel_t& src,
+																rgb8_pixel_t& dst) {
+		std::cout << "-" << std::endl;
+		get_color(dst, red_t()) = get_color(src, red_t());
+		get_color(dst, green_t()) = get_color(src, green_t());
+		get_color(dst, blue_t()) = get_color(src, blue_t());
+	} // color_convert()
+}} // namespace gil boost
+
 
 namespace wil {
 
 	Image::Image(unsigned int ny, unsigned int nz):
 					nx_(1), ny_(ny), nz_(nz), color_map_8_() {
 		image_buffer_ = NULL;
+		rgba_image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int ny, unsigned int nz, char* palette):
 					nx_(1), ny_(ny), nz_(nz), color_map_8_(palette) {
 		image_buffer_ = NULL;
+		rgba_image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int ny, unsigned int nz, std::string palette):
 					nx_(1), ny_(ny), nz_(nz), color_map_8_(palette) {
 		image_buffer_ = NULL;
+		rgba_image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int ny, unsigned int nz, unsigned int r, unsigned int g, unsigned int b):
 					nx_(1), ny_(ny), nz_(nz), color_map_(r, g, b) {
 		image_buffer_ = NULL;
+		rgba_image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int nx, unsigned int ny, unsigned int nz):
 					nx_(nx), ny_(ny), nz_(nz), color_map_8_(), color_map_() {
 		image_buffer_ = NULL;
+		rgba_image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int nx, unsigned int ny, unsigned int nz, char* palette):
 					nx_(nx), ny_(ny), nz_(nz), color_map_8_(palette) {
 		image_buffer_ = NULL;
+		rgba_image_buffer_ = NULL;
 	} // Image::Image()
 
 
 	Image::Image(unsigned int nx, unsigned int ny, unsigned int nz, std::string palette):
 					nx_(nx), ny_(ny), nz_(nz), color_map_8_(palette) {
 		image_buffer_ = NULL;
+		rgba_image_buffer_ = NULL;
 	} // Image::Image()
 
 
@@ -66,6 +103,7 @@ namespace wil {
 			unsigned int r, unsigned int g, unsigned int b):
 					nx_(nx), ny_(ny), nz_(nz), color_map_(r, g, b) {
 		image_buffer_ = NULL;
+		rgba_image_buffer_ = NULL;
 	} // Image::Image()
 
 
@@ -88,8 +126,21 @@ namespace wil {
 	void print_rgb_2d(boost::gil::rgb8_pixel_t* data, unsigned int nx, unsigned int ny) {
 		for(unsigned int i = 0; i < ny; ++ i) {
 			for(unsigned int j = 0; j < nx; ++ j) {
-				std::cout << data[nx * i + j][0] << "," << data[nx * i + j][1]
-							<< "," << data[nx * i + j][2] << "\t";
+				std::cout << (int) data[nx * i + j][0] << "," << (int) data[nx * i + j][1]
+							<< "," << (int) data[nx * i + j][2] << "\t";
+			} // for
+			std::cout << std::endl;
+		} // for
+	} // print_arr_2d()
+
+
+	void print_rgba_2d(boost::gil::rgba8_pixel_t* data, unsigned int nx, unsigned int ny) {
+		for(unsigned int i = 0; i < ny; ++ i) {
+			for(unsigned int j = 0; j < nx; ++ j) {
+				std::cout << (int) data[nx * i + j][0] << ","
+							<< (int) data[nx * i + j][1] << ","
+							<< (int) data[nx * i + j][2] << ","
+							<< (int) data[nx * i + j][3] << "\t";
 			} // for
 			std::cout << std::endl;
 		} // for
@@ -452,6 +503,7 @@ namespace wil {
 			   			<< view.width() << "," << view.height() << std::endl;
 			return false;
 		} // if
+		//print_rgb_2d(image_buffer_, ny_, nz_);
 		//std::cout << "NUM CHANNELS: " << view.num_channels() << std::endl;
 //		if(view.num_channels() != 3) {
 //			std::cerr << "error: image is not rgb. it has " << view.num_channels()
@@ -459,22 +511,136 @@ namespace wil {
 //			return false;
 //		} // if
 
-/*		pixel_itr_t::xy_locator_t data = view.pixels();
-		for(int i = 0; i < ny_; ++ i) {
-			for(int j = 0; j < nz_; ++ j) {
-				boost::gil::rgb8_pixel_t temp = data.xy_at(i, j)(0, 0);
-				unsigned char r = boost::gil::get_color(temp, boost::gil::red_t());
-				unsigned char g = boost::gil::get_color(temp, boost::gil::green_t());
-				unsigned char b = boost::gil::get_color(temp, boost::gil::blue_t());
-				std::cout << i << ":" << j << "\t" << (unsigned int) r << "\t" << (unsigned int) g << "\t" << (unsigned int) b << std::endl;
-				boost::gil::rgb8_pixel_t pix(r, g, b);
-				image_buffer_[i * nz_ + j] = pix;
-			} // for
-		} // for
-*/
-		//boost::gil::tiff_write_view("sgbfjbsfegbs.tif", view);
 		return true;
 	} // Image::read()
+
+
+	bool Image::read_new(const char* filename, unsigned int ny, unsigned int nz) {
+		//void 	tiff_read_and_convert_image (const char *filename, Image &im)
+		typedef boost::gil::type_from_x_iterator <boost::gil::rgb8_ptr_t> rgb8pixel_itr_t;
+		typedef boost::gil::type_from_x_iterator <boost::gil::rgba8_ptr_t> rgba8pixel_itr_t;
+
+		typedef boost::mpl::vector <boost::gil::gray8_image_t,
+									boost::gil::rgb8_image_t,
+									boost::gil::gray16_image_t,
+									boost::gil::rgb16_image_t,
+									boost::gil::rgba8_image_t> images_t;
+		boost::gil::any_image<images_t> img;
+		boost::gil::tiff_read_image(filename, img);
+		unsigned int width = img.width();
+		unsigned int height = img.height();
+		int num_channels = img.num_channels();
+		boost::gil::any_image<images_t>::view_t imgview = boost::gil::view(img);
+		nx_ = 1; ny_ = width; nz_ = height;
+
+		std::cout << "width = " << width << ", height = " << height << std::endl;
+		std::cout << "width = " << ny_ << ", height = " << nz_ << std::endl;
+
+		//if(image_buffer_ != NULL) { delete[] image_buffer_; image_buffer_ = NULL; }
+		//image_buffer_ = new (std::nothrow) boost::gil::rgb8_pixel_t[ny_ * nz_];
+		//if(image_buffer_ == NULL) {
+		//	std::cerr << "error: could not allocate memory for image buffer. size = "
+		//				<< ny_ << "x" << nz_ << std::endl;
+		//	return false;
+		//} // if
+		//rgb8pixel_itr_t::view_t view_rgb = boost::gil::interleaved_view(ny_, nz_, image_buffer_,
+		//													ny_ * sizeof(boost::gil::rgb8_pixel_t));
+
+		if(rgba_image_buffer_ != NULL) { delete[] rgba_image_buffer_; rgba_image_buffer_ = NULL; }
+		rgba_image_buffer_ = new (std::nothrow) boost::gil::rgba8_pixel_t[ny_ * nz_];
+		if(rgba_image_buffer_ == NULL) {
+			std::cerr << "error: could not allocate memory for image buffer. size = "
+						<< ny_ << "x" << nz_ << std::endl;
+			return false;
+		} // if
+		rgba8pixel_itr_t::view_t view_rgba = boost::gil::interleaved_view(ny_, nz_, rgba_image_buffer_,
+															ny_ * sizeof(boost::gil::rgba8_pixel_t));
+		boost::gil::copy_and_convert_pixels(imgview, view_rgba);
+
+		//switch(num_channels) {
+		//	case 3:
+		//				boost::gil::color_convert<const boost::gil::rgb8_pixel_t, boost::gil::rgb8_pixel_t>);
+		//		break;
+		//	case 4:
+		//		boost::gil::copy_and_convert_pixels(imgview, view_rgb);
+		//				boost::gil::color_convert<const boost::gil::rgba8_pixel_t, boost::gil::rgb8_pixel_t>);
+		//		break;
+		//	default:
+		//		std::cerr << "error: unsupported number of channels in input image "
+		//					<< filename << std::endl;
+		//		return false;
+		//} // switch
+
+		std::cout << "IMAGE BUFFER: " << std::endl;
+		print_rgba_2d(rgba_image_buffer_, ny_, nz_);
+
+		return true;
+	} // Image::read_new()
+
+
+	bool Image::read_tiff(const char* filename, unsigned int ny, unsigned int nz) {
+		//std::cout << "Image::read_tiff ..." << std::endl;
+
+		TIFF* tif = TIFFOpen(filename, "r");
+		if(tif == NULL) {
+			std::cerr << "error: failed to open TIFF file " << filename << std::endl;
+			return false;
+		} // if
+
+		unsigned int length; TIFFGetField(tif, TIFFTAG_IMAGELENGTH, &length);
+		unsigned int width; TIFFGetField(tif, TIFFTAG_IMAGEWIDTH, &width);
+		short int bps; TIFFGetField(tif, TIFFTAG_BITSPERSAMPLE, &bps);
+		short int spp; TIFFGetField(tif, TIFFTAG_SAMPLESPERPIXEL, &spp);
+
+		//std::cout << "Length = " << length << std::endl;
+		//std::cout << " Width = " << width << std::endl;
+		//std::cout << "   BPS = " << bps << std::endl;
+		//std::cout << "   SPP = " << spp << std::endl;
+
+		nx_ = 1; ny_ = width; nz_ = length;
+
+		//unsigned int * buf = new (std::nothrow) unsigned int[ny * nz];
+		unsigned int * buf = (unsigned int *) _TIFFmalloc(sizeof(unsigned int) * ny * nz);
+		TIFFReadRGBAImage(tif, ny, nz, buf, 1);
+
+		typedef typename boost::gil::color_element_type
+						<boost::gil::rgb8_pixel_t, boost::gil::red_t>::type red_channel_t;
+		typedef typename boost::gil::color_element_type
+						<boost::gil::rgb8_pixel_t, boost::gil::green_t>::type green_channel_t;
+		typedef typename boost::gil::color_element_type
+						<boost::gil::rgb8_pixel_t, boost::gil::blue_t>::type blue_channel_t;
+		unsigned int max_r = boost::gil::channel_traits<red_channel_t>::max_value();
+		unsigned int max_g = boost::gil::channel_traits<green_channel_t>::max_value();
+		unsigned int max_b = boost::gil::channel_traits<blue_channel_t>::max_value();
+
+		image_buffer_ = new (std::nothrow) boost::gil::rgb8_pixel_t[ny * nz];
+		//for(unsigned int i = 0; i < ny * nz; ++ i) {
+		for(unsigned int j = 0; j < nz; ++ j) {
+		for(unsigned int k = 0; k < ny; ++ k) {
+			unsigned int i = j * ny + k;
+			unsigned int r = TIFFGetR(buf[i]);
+			unsigned int g = TIFFGetG(buf[i]);
+			unsigned int b = TIFFGetB(buf[i]);
+			unsigned int a = TIFFGetA(buf[i]);
+			//std::cout << r << "," << g << "," << b << "," << a << " ";
+			if(a < 128) {	// is transparent - make it white !!!!!!!!!!!!!!!!
+				get_color(image_buffer_[i], boost::gil::red_t()) = max_r;
+				get_color(image_buffer_[i], boost::gil::green_t()) = max_g;
+				get_color(image_buffer_[i], boost::gil::blue_t()) = max_b;
+			} else {			// is opaque
+				get_color(image_buffer_[i], boost::gil::red_t()) = r;
+				get_color(image_buffer_[i], boost::gil::green_t()) = g;
+				get_color(image_buffer_[i], boost::gil::blue_t()) = b;
+			} // if-else
+		}
+		//std::cout << std::endl;
+		} // for
+
+		//delete[] buf;
+		_TIFFfree(buf);
+		TIFFClose(tif);
+		return true;
+	} // Image::read_tiff()
 
 
 	/**
@@ -492,10 +658,10 @@ namespace wil {
 		for(int i = 0; i < ny_; ++ i) {
 			for(int j = 0; j < nz_; ++ j) {
 				boost::gil::rgb8_pixel_t color = image_buffer_[i * nz_ + j];
-				unsigned char r = boost::gil::get_color(color, boost::gil::red_t());
-				unsigned char g = boost::gil::get_color(color, boost::gil::green_t());
-				unsigned char b = boost::gil::get_color(color, boost::gil::blue_t());
-				real_t gray = (double) (r + g + b) / (255 * 3.0);	// just a linear mapping
+				unsigned int r = boost::gil::get_color(color, boost::gil::red_t());
+				unsigned int g = boost::gil::get_color(color, boost::gil::green_t());
+				unsigned int b = boost::gil::get_color(color, boost::gil::blue_t());
+				real_t gray = (r + g + b) / 3.0 / 255;	// just a linear mapping
 				data[i * nz_ + j] = gray;
 			} // for
 		} // for

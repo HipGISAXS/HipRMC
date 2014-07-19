@@ -3,7 +3,7 @@
   *
   *  File: image.hpp
   *  Created: Jun 18, 2012
-  *  Modified: Sun 02 Mar 2014 10:46:56 AM PST
+  *  Modified: Sat 19 Jul 2014 08:59:15 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -11,8 +11,8 @@
 #ifndef _IMAGE_HPP_
 #define _IMAGE_HPP_
 
-#include <boost/gil/gil_all.hpp>
-//#include <boost/gil/extension/numeric/affine.hpp>
+//#include <boost/gil/gil_all.hpp>
+#include <boost/gil/extension/dynamic_image/dynamic_image_all.hpp>
 
 #include "globals.hpp"
 #include "colormap.hpp"
@@ -32,6 +32,8 @@ namespace wil {
 			unsigned int ny_;				/* y dimension */
 			unsigned int nz_;				/* z dimension */
 			boost::gil::rgb8_pixel_t* image_buffer_;	/* this will hold the final rgb values */
+			boost::gil::rgba8_pixel_t* rgba_image_buffer_;	/* this will hold the final rgb values */
+
 			ColorMap8 color_map_8_;			/* defines mapping to colors in the defined palette */
 			ColorMap color_map_;			/* better color mapping */
 
@@ -68,6 +70,8 @@ namespace wil {
 
 			// for reading in an image
 			bool read(const char* filename, unsigned int ny, unsigned int nz);
+			bool read_new(const char* filename, unsigned int ny, unsigned int nz);
+			bool read_tiff(const char* filename, unsigned int ny, unsigned int nz);
 			bool get_data(real_t*&);
 
 	}; // class Image
