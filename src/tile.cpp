@@ -180,11 +180,12 @@ namespace hir {
 								, woo::MultiNode& multi_node
 							#endif
 							) {
+    // FIXME: cannot remember why I had the following check in scaling ...
 		if(pattern.num_rows() != rows_ || vandermonde.num_rows() != rows_ ||
 				mask.num_rows() != rows_ || pattern.num_cols() != cols_ ||\
 				vandermonde.num_cols() != cols_ || mask.num_cols() != cols_) {
-			std::cerr << "error: some matrix size is not what it should be!"
-						<< std::endl;
+			std::cerr << "error: some matrix size is not what it should be! "
+                << rows_ << " " << pattern.num_rows() << " " << a_mat_.num_rows() << std::endl;
 			return false;
 		} // if
 

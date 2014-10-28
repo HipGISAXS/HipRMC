@@ -3,7 +3,7 @@
   *
   *  File: tile_scale.cpp
   *  Created: Mar 04, 2013
-  *  Modified: Mon 14 Oct 2013 03:23:54 PM PDT
+  *  Modified: Tue 28 Oct 2014 10:20:16 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -184,6 +184,8 @@ namespace hir {
 
 		// update size
 		++ size_;
+    ++ rows_;
+    ++ cols_;
 
 		delete[] new_col;
 		delete[] new_row;

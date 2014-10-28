@@ -10,6 +10,7 @@
 #include <random>
 #include <algorithm>
 #include <boost/filesystem.hpp>
+#include <ctime>
 
 #include "rmc.hpp"
 #include "constants.hpp"
@@ -649,8 +650,9 @@ namespace hir {
 			//multi_node_.random_shuffle("real_world", indices);
 			// currently all procs will have the whole indices array
 			if(multi_node_.is_master("real_world")) {
-				std::random_device rd;
-				std::mt19937_64 gen(rd());
+				//std::random_device rd;
+				//std::mt19937_64 gen(rd());
+				std::mt19937_64 gen(time(NULL));
 				std::shuffle(indices.begin(), indices.end(), gen);
 			} // if
 			unsigned int *recv_buff = new (std::nothrow) unsigned int[indices.size()];
@@ -660,8 +662,9 @@ namespace hir {
 		#else
 			// using mersenne-twister
 			// TODO: use woo library instead ... 
-			std::random_device rd;
-			std::mt19937_64 gen(rd());
+		//	std::random_device rd;
+		//	std::mt19937_64 gen(rd());
+			std::mt19937_64 gen(time(NULL));
 			std::shuffle(indices.begin(), indices.end(), gen);
 		#endif // USE_MPI
 		//print_array("indices", (unsigned int*)&indices[0], indices.size());
@@ -786,7 +789,6 @@ namespace hir {
 
 			} // if-else
 		#else // without MPI
-      std::cout << "************** " << cropped_pattern_.num_rows() << " " << tile_size_ << std::endl;
 			if(size_ == tile_size_) {
 				cropped_pattern_ = in_pattern_;
 				cropped_mask_mat_ = mask_mat_;
@@ -810,6 +812,9 @@ namespace hir {
 					} // for j
 				} // for i
 			} // if-else
+      std::cout << "************** " << cropped_pattern_.num_rows() << " " << tile_size_ << std::endl;
+			local_tile_cols_ = tile_size_;
+			local_tile_rows_ = tile_size_;
 			real_t max_val = 0.0, min_val = 1e10;
 			for(int i = 0; i < tile_size_; ++ i) {
 				for(int j = 0; j < tile_size_; ++ j) {
@@ -1193,6 +1198,7 @@ namespace hir {
 		sim_timer.start();
 		simulate(num_steps, rate, scale_factor);
 		for(unsigned int tsize = tile_size_, iter = 0; tsize < size_; tsize += curr_scale_fac, ++ iter) {
+      std::cout << "=========================== " << tile_size_ << " " << size_ << std::endl;
 			if(tile_size_ < size_) {
 				// loop over the local tiles
 				for(unsigned int i = 0; i < num_tiles_; ++ i) {
