@@ -95,8 +95,8 @@ namespace hir {
 									) {
 		std::cout << "++ Autotuning temperature ..." << std::endl;
 		std::map <const real_t, real_t> acceptance_map;
-		real_t tmin = 0.0, tstep = 0.01, tmax = 2.0, tstar = tmin;
-		unsigned int tstar_tune_steps = 100;		// input parameter TODO ...
+		real_t tmin = 0.0, tstep = 0.05, tmax = 2.0, tstar = tmin;
+		unsigned int tstar_tune_steps = 50;		// input parameter TODO ...
 		if(tstar_set_) tmax = tstar_;
 		for(int i = 0; tstar < tmax + tstep; ++ i, tstar += tstep) {
 			// simulate few steps with current tstar and obtain the acceptance rate

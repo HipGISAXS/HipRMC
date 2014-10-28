@@ -119,43 +119,45 @@ namespace hir {
 			} // if
 		#ifdef USE_MPI
 		} // if
-		if(multi_node_.size() == 1) {	// all tiles to one proc
-			multi_node_.dup("real_world", "world");
-			num_tiles_ = global_num_tiles_;
-		} else if(multi_node_.size() == global_num_tiles_) {	// each proc has exactly 1 tile
-			multi_node_.split("real_world", "world", multi_node_.rank());
-			num_tiles_ = 1;
-		} else if(global_num_tiles_ < multi_node_.size()) {
-			// multiple processors are responsible for each tile
-			// tile number this processor is responsible for (round robin distribution)
-			int tile_num = multi_node_.rank("world") % global_num_tiles_;
-			// create new communicator
-			multi_node_.split("real_world", "world", tile_num);
-			num_tiles_ = 1;
-		} else if(multi_node_.size() < global_num_tiles_) {	// each proc has multiple tiles
-			// multiple tiles are assigned to each processor
-			// each proc is in its own world
-			multi_node_.split("real_world", "world", multi_node_.rank());
-			num_tiles_ = (global_num_tiles_ / multi_node_.size("world")) +
-							(multi_node_.rank("world") < global_num_tiles_ % multi_node_.size("world"));
-		} // if-else
+		#endif
+		#ifdef USE_MPI
+  		if(multi_node_.size() == 1) {	// all tiles to one proc
+	  		multi_node_.dup("real_world", "world");
+		  	num_tiles_ = global_num_tiles_;
+  		} else if(multi_node_.size() == global_num_tiles_) {	// each proc has exactly 1 tile
+	  		multi_node_.split("real_world", "world", multi_node_.rank());
+		  	num_tiles_ = 1;
+  		} else if(global_num_tiles_ < multi_node_.size()) {
+	  		// multiple processors are responsible for each tile
+		  	// tile number this processor is responsible for (round robin distribution)
+  			int tile_num = multi_node_.rank("world") % global_num_tiles_;
+	  		// create new communicator
+		  	multi_node_.split("real_world", "world", tile_num);
+			  num_tiles_ = 1;
+  		} else if(multi_node_.size() < global_num_tiles_) {	// each proc has multiple tiles
+	  		// multiple tiles are assigned to each processor
+		  	// each proc is in its own world
+			  multi_node_.split("real_world", "world", multi_node_.rank());
+  			num_tiles_ = (global_num_tiles_ / multi_node_.size("world")) +
+	                   (multi_node_.rank("world") < global_num_tiles_ % multi_node_.size("world"));
+  		} // if-else
 
-		// construct a communicator in world for all masters in real_world
-		int color = multi_node_.is_master("real_world");
-		multi_node_.split("real_world_masters", "world", color);
+	  	// construct a communicator in world for all masters in real_world
+		  int color = multi_node_.is_master("real_world");
+  		multi_node_.split("real_world_masters", "world", color);
 
-		if(multi_node_.is_master("real_world")) {
-			std::cout << "++     Number of MPI processes used: " << multi_node_.size("real_world")
-						<< std::endl;
-			#pragma omp parallel
-			{
-				#ifdef _OPENMP
-					if(omp_get_thread_num() == 0)
-						std::cout << "++         Number of OpenMP threads: " << omp_get_num_threads()
-									<< std::endl;
-				#endif
-			} // pragma omp parallel
-		} // if
+      if(multi_node_.is_master("real_world")) {
+	  		std::cout << "++     Number of MPI processes used: " << multi_node_.size("real_world")
+		      				<< std::endl;
+  			#pragma omp parallel
+	  		{
+		  		#ifdef _OPENMP
+			  		if(omp_get_thread_num() == 0)
+				  		std::cout << "++         Number of OpenMP threads: " << omp_get_num_threads()
+					  				<< std::endl;
+  				#endif
+	  		} // pragma omp parallel
+		  } // if
 		#endif // USE_MPI
 
 		real_t *img_data = new (std::nothrow) real_t[rows_ * cols_];
@@ -460,7 +462,19 @@ namespace hir {
 
 			//std::cout << "RANK" << real_world_rank << ": " << local_tile_rows_ << ", " << local_tile_cols_ << std::endl;
 			//std::cout << "====== " << real_world_size << "\t" << local_rows_ << "\t" << local_cols_ << std::endl;
-		#else
+
+		  // FIXME: for now assuming there is NO SCALING
+  		in_pattern_.resize(local_rows_, local_cols_);
+	  	cropped_pattern_.resize(local_rows_, local_cols_);
+		  mask_mat_.resize(local_rows_, local_cols_);
+  		cropped_mask_mat_.resize(local_rows_, local_cols_);
+	  	vandermonde_mat_.resize(local_rows_, local_cols_);
+
+		  in_pattern_.populate(local_img_data);
+  		mask_mat_.populate(local_mask_data);
+
+		#else // without MPI
+
 			int local_rows_ = rows_;
 			int local_cols_ = cols_;
 			local_img_data = img_data;
@@ -470,17 +484,18 @@ namespace hir {
 			tile_offset_cols_ = 0;
 			local_tile_rows_ = tile_size_;
 			local_tile_cols_ = tile_size_;
+
+      in_pattern_.resize(local_rows_, local_cols_);
+		  mask_mat_.resize(local_rows_, local_cols_);
+
+	  	cropped_pattern_.resize(local_tile_rows_, local_tile_cols_);
+  		cropped_mask_mat_.resize(local_tile_rows_, local_tile_cols_);
+	  	vandermonde_mat_.resize(local_tile_rows_, local_tile_cols_);
+
+		  in_pattern_.populate(local_img_data);
+  		mask_mat_.populate(local_mask_data);
+
 		#endif // USE_MPI
-
-		// FIXME: for now assuming there is NO SCALING
-		in_pattern_.resize(local_rows_, local_cols_);
-		cropped_pattern_.resize(local_rows_, local_cols_);
-		mask_mat_.resize(local_rows_, local_cols_);
-		cropped_mask_mat_.resize(local_rows_, local_cols_);
-		vandermonde_mat_.resize(local_rows_, local_cols_);
-
-		in_pattern_.populate(local_img_data);
-		mask_mat_.populate(local_mask_data);
 
 		vec_uint_t indices;
 		initialize_particles_random(indices);
@@ -770,7 +785,8 @@ namespace hir {
 				// ... */
 
 			} // if-else
-		#else
+		#else // without MPI
+      std::cout << "************** " << cropped_pattern_.num_rows() << " " << tile_size_ << std::endl;
 			if(size_ == tile_size_) {
 				cropped_pattern_ = in_pattern_;
 				cropped_mask_mat_ = mask_mat_;
@@ -1118,7 +1134,9 @@ namespace hir {
 		//for(unsigned int i = 0; i < num_tiles_; ++ i) {
 		//	tiles_[i].print_times();
 		//} // for
+    #ifdef USE_MPI
 		multi_node_.barrier("world");
+    #endif
 		//std::cout << "P" << multi_node_.rank() << ": SIM SIM SIM!!!!" << std::endl;
 		destroy_simulation_tiles();
 
@@ -1199,7 +1217,9 @@ namespace hir {
 			num_steps = num_steps_fac * tile_size_;
 			simulate(num_steps, rate, curr_scale_fac);
 		} // for
+		#ifdef USE_MPI
 		multi_node_.barrier("world");
+		#endif
 		sim_timer.stop();
 		#ifdef USE_MPI
 			if(multi_node_.is_master("real_world"))

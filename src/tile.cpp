@@ -213,8 +213,8 @@ namespace hir {
 		#endif // USE_GPU
 
 		// compute row offsets
-		row_offsets_[0] = 0;
 		#ifdef USE_MPI
+		  row_offsets_[0] = 0;
 			int local_rows = rows_;
 			int prefix_sums = 0;
 			multi_node.scan_sum("real_world", local_rows, prefix_sums);
@@ -314,7 +314,9 @@ namespace hir {
 
 		//std::cout << "HAHAHAHAHAHAHA: " << multi_node.rank("real_world") << "\t" << indices_.size() << std::endl;
 
+    #ifdef USE_MPI
 		multi_node.barrier("real_world");
+    #endif
 
 		mytimer_.start();
 		virtual_move_random_particle_restricted(max_move_distance_
@@ -328,7 +330,9 @@ namespace hir {
 		//std::cout << "HEHEHEHEHEHE: " << multi_node.rank("real_world") << std::endl;
 
 		mytimer_.start();
+    #ifdef USE_MPI
 		multi_node.barrier("real_world");
+    #endif
 		mytimer_.stop(); mpi_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
@@ -357,9 +361,11 @@ namespace hir {
 		mytimer_.stop(); dft2_time_ += mytimer_.elapsed_msec();
 		fft_update_time_ += mytimer_.elapsed_msec();
 
+    #ifdef USE_MPI
 		mytimer_.start();
 		multi_node.barrier("real_world");
 		mytimer_.stop(); mpi_time_ += mytimer_.elapsed_msec();
+    #endif
 		//std::cout << "HIHIHIHIHIHIHIHHI: " << multi_node.rank("real_world") << std::endl;
 
 		mytimer_.start();
@@ -372,7 +378,9 @@ namespace hir {
 		//fft_update_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
+		#ifdef USE_MPI
 		multi_node.barrier("real_world");
+		#endif
 		mytimer_.stop(); mpi_time_ += mytimer_.elapsed_msec();
 
 		//mytimer_.start();
@@ -391,7 +399,9 @@ namespace hir {
 		reduction_time_ += mytimer_.elapsed_msec();
 
 		mytimer_.start();
+		#ifdef USE_MPI
 		multi_node.barrier("real_world");
+    #endif
 		mytimer_.stop(); mpi_time_ += mytimer_.elapsed_msec();
 		//std::cout << "HUHUHUHUHUHUHU: " << multi_node.rank("real_world") << std::endl;
 
@@ -443,7 +453,9 @@ namespace hir {
 		} // if
 
 		mytimer_.start();
+		#ifdef USE_MPI
 		multi_node.barrier("real_world");
+    #endif
 		mytimer_.stop(); mpi_time_ += mytimer_.elapsed_msec();
 
 		//std::cout << "HERERERERERE: " << multi_node.rank("real_world") << std::endl;
