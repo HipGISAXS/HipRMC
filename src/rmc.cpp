@@ -812,7 +812,6 @@ namespace hir {
 					} // for j
 				} // for i
 			} // if-else
-      std::cout << "************** " << cropped_pattern_.num_rows() << " " << tile_size_ << std::endl;
 			local_tile_cols_ = tile_size_;
 			local_tile_rows_ = tile_size_;
 			real_t max_val = 0.0, min_val = 1e10;
@@ -1198,7 +1197,6 @@ namespace hir {
 		sim_timer.start();
 		simulate(num_steps, rate, scale_factor);
 		for(unsigned int tsize = tile_size_, iter = 0; tsize < size_; tsize += curr_scale_fac, ++ iter) {
-      std::cout << "=========================== " << tile_size_ << " " << size_ << std::endl;
 			if(tile_size_ < size_) {
 				// loop over the local tiles
 				for(unsigned int i = 0; i < num_tiles_; ++ i) {
