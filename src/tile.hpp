@@ -3,7 +3,7 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 16 Oct 2013 03:43:15 PM PDT
+  *  Modified: Mon 03 Nov 2014 05:59:41 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -161,7 +161,7 @@ namespace hir {
 									#endif
 									);
 			bool simulate_autotune_step(const mat_real_t&, mat_complex_t&, const mat_uint_t&,
-									real_t, unsigned int
+									real_t, unsigned int, unsigned int
 									#ifdef USE_MPI
 										, woo::MultiNode&
 									#endif
@@ -169,6 +169,7 @@ namespace hir {
 			bool autotune_move_random_particle_restricted(unsigned int, unsigned int&, unsigned int&,
 									unsigned int&, unsigned int&, unsigned int&, unsigned int&,
 									unsigned int&, unsigned int&);
+      bool save_acceptance_map(const std::map<const real_t, real_t>&);
 			#ifndef USE_GPU
 				bool compute_fft(const mat_real_t&, mat_complex_t&);
 				bool compute_mod(const mat_complex_t&, mat_real_t&);
@@ -214,7 +215,7 @@ namespace hir {
 									);
 			bool destroy_scale();
 			// simulation functions
-			bool simulate_step(const mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, unsigned int
+			bool simulate_step(const mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, unsigned int, unsigned int
 									#ifdef USE_MPI
 										, woo::MultiNode&
 									#endif

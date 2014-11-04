@@ -1058,7 +1058,7 @@ namespace hir {
 			} // if
 			for(unsigned int i = 0; i < num_tiles_; ++ i) {
 				tiles_[i].simulate_step(cropped_pattern_, vandermonde_mat_, cropped_mask_mat_,
-										base_norm_, step
+										base_norm_, step, num_steps
 										#ifdef USE_MPI
 											, multi_node_
 										#endif

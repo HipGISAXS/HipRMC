@@ -238,7 +238,7 @@ namespace hir {
 			} // if
 			mytimer.stop();
 //			tstar_ = 1.0;
-//			cooling_factor_ = 0.01;
+//			cooling_factor_ = 1.0;
 			//std::cout << "TEMPERATURE = " << tstar_ << std::endl;
 			//std::cout << "COOLING = " << cooling_factor_ << std::endl;
 			std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
@@ -304,7 +304,7 @@ namespace hir {
 	bool Tile::simulate_step(const mat_real_t& pattern,
 							mat_complex_t& vandermonde,
 							const mat_uint_t& mask,
-							real_t base_norm, unsigned int iter
+							real_t base_norm, unsigned int iter, unsigned int max_iter
 							#ifdef USE_MPI
 								, woo::MultiNode& multi_node
 							#endif
@@ -415,9 +415,22 @@ namespace hir {
 				if(diff_chi2 > 0.0) {
 					accept = 1;
 				} else {
-					real_t p = exp(diff_chi2 * (cooling_factor_ * iter + 1) / tstar_);
+          real_t temperature = 0.0;
+          real_t p = 0.0;
+          if(tstar_ < 1e-30) {
+            temperature = 0.0;
+            p = 0.0;
+          } else {
+//            p = exp((diff_chi2 * max_iter * max_iter * max_iter)
+//                       * (1.0 + cooling_factor_ * iter / max_iter) / tstar_);
+            temperature = tstar_ / (1.0 + cooling_factor_ * iter / max_iter);
+            p = exp((diff_chi2 * max_iter * max_iter * max_iter) / temperature);
+            //std::cout << "DIFF: " << diff_chi2 << " TEMPERATURE: " << temperature << " PROBABILITY: " << p << std::endl;
+          } // if-else
 					real_t prand = mt_rand_gen_.rand();
 					if(prand < p) accept = 1;
+//          if(iter % (max_iter / 10) == 0)
+//            std::cout << "******** current temperature is " << temperature << std::endl;
 				} // if-else
 		#ifdef USE_MPI
 			} // if
@@ -907,8 +920,11 @@ namespace hir {
 					// FIXME: quadrant swap thingy ...
 					int i_swap = (i + (size_ >> 1)) % size_;
 					int j_swap = (j + (size_ >> 1)) % size_;
-					real_t temp = fabs(a(i_swap, j_swap) - b(i, j)) * mask(i_swap, j_swap);
-					chi2 += temp * temp;
+					//real_t temp = fabs(a(i_swap, j_swap) - b(i, j)) * mask(i_swap, j_swap);
+					//chi2 += temp * temp;
+					real_t temp = fabs(a(i_swap, j_swap) * a(i_swap, j_swap) - b(i, j) * b(i, j))
+                        * mask(i_swap, j_swap);
+					chi2 += temp;
 				} // for
 			} // for
 		#endif // USE_GPU
@@ -916,7 +932,8 @@ namespace hir {
 		#ifdef USE_MPI
 			multi_node.allreduce_sum("real_world", chi2, total_chi2);
 		#endif
-		total_chi2 = (pow((real_t) size_, 2.5)) * total_chi2 / (base_norm * base_norm);
+		//total_chi2 = (pow((real_t) size_, 2.5)) * total_chi2 / (base_norm * base_norm);
+		total_chi2 = total_chi2 / (base_norm * base_norm);
 		return total_chi2;
 	} // Tile::compute_chi2()
 
