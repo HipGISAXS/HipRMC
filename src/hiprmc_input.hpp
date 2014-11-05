@@ -3,7 +3,7 @@
   *
   *  File: hiprmc_input.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Mon 09 Sep 2013 11:08:09 AM PDT
+  *  Modified: Tue 04 Nov 2014 04:03:44 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -40,6 +40,7 @@ namespace hir {
 			vec_real_t loading_factors_;	// loading factor of each tile
 			vec_real_t tstar_;				// temperature for each tile
 			vec_real_t cooling_factors_;	// cooling factor with iteration number for each tile
+      std::string init_model_;    // initial model if specified (optional), else random is used
 
 			vec2_int_t model_start_size_;	// size of starting model (when using scaling)
 			unsigned int num_steps_factor_;	// this * image_size = total number of simulation steps
@@ -110,6 +111,7 @@ namespace hir {
 			unsigned int model_start_num_cols() const { return model_start_size_[1]; }
 			const char* input_image() const { return input_image_.c_str(); }
 			const char* mask_image() const { return mask_image_.c_str(); }
+      std::string init_model() const { return init_model_; }
 			bool mask_set() const { return mask_set_; }
 			vec_real_t loading() const { return loading_factors_; }
 			vec_real_t tstar() const { return tstar_; }

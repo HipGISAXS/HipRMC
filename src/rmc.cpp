@@ -49,9 +49,14 @@ namespace hir {
 		num_tiles_ = global_num_tiles_;
 		unsigned int start_num_rows = HipRMCInput::instance().model_start_num_rows();
 		unsigned int start_num_cols = HipRMCInput::instance().model_start_num_cols();
-		tile_size_ = std::max(start_num_rows, start_num_cols);
-		//scaled_pattern_.resize(tile_size_, tile_size_);
 
+    // if there is an initial model, don't do scaling
+    if(HipRMCInput::instance().init_model().empty())
+      tile_size_ = std::max(start_num_rows, start_num_cols);
+    else
+      tile_size_ = std::max(rows_, cols_);
+
+		//scaled_pattern_.resize(tile_size_, tile_size_);
 		//in_pattern_.resize(rows_, cols_);
 		//cropped_pattern_.resize(tile_size_, tile_size_);
 		//mask_mat_.resize(rows_, cols_);
@@ -499,7 +504,8 @@ namespace hir {
 		#endif // USE_MPI
 
 		vec_uint_t indices;
-		initialize_particles_random(indices);
+    if(HipRMCInput::instance().init_model().empty()) initialize_particles_random(indices);
+    else initialize_particles_image(indices);
 
 		int tile_num_offset = 0;
 		#ifdef USE_MPI
@@ -670,6 +676,25 @@ namespace hir {
 		//print_array("indices", (unsigned int*)&indices[0], indices.size());
 		return true;
 	} // RMC::initialize_particles_random()
+
+
+  bool RMC::initialize_particles_image(vec_uint_t &indices) {
+    indices.clear();
+    // read model image
+		wil::Image model_img(0, 0, 30, 30, 30);
+		if(!model_img.read_tiff(HipRMCInput::instance().init_model().c_str(), rows_, cols_)) return false;
+		real_t *temp_model = new (std::nothrow) real_t[rows_ * cols_];
+		model_img.get_data(temp_model);
+    vec_uint_t empty;
+		for(unsigned int i = 0; i < rows_ * cols_; ++ i) {
+		  real_t temp = temp_model[i];
+			if(255 * temp < 180) empty.push_back(i);
+      else indices.push_back(i);
+		} // for
+    indices.insert(indices.end(), empty.begin(), empty.end());
+		delete[] temp_model;
+    return true;
+  } // RMC::initialize_particles_image()
 
 
 /*	bool RMC::scale_pattern_to_tile(unsigned int scale_factor) {

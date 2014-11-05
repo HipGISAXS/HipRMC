@@ -96,7 +96,7 @@ namespace hir {
 		std::cout << "++ Autotuning temperature ..." << std::endl;
 		std::map <const real_t, real_t> acceptance_map;
 		real_t tmin = 0.0, tstep = 0.05, tmax = 2.0, tstar = tmin;
-		unsigned int tstar_tune_steps = 100;		// input parameter TODO ...
+		unsigned int tstar_tune_steps = 200;		// input parameter TODO ...
 //		if(tstar_set_) tmax = tstar_;
 		for(int i = 0; tstar < tmax + tstep; ++ i, tstar += tstep) {
 			// simulate few steps with current tstar and obtain the acceptance rate
@@ -108,15 +108,18 @@ namespace hir {
 				std::cout << "error: failed to initialize autotuner" << std::endl;
 				return false;
 			} // if
- //     std::cout << "++++++ t: " << autotuner_.tstar_ << " c: " << autotuner_.cooling_factor_ << std::endl;
+      //std::cout << "++++++ t: " << autotuner_.tstar_ << " c: " << autotuner_.cooling_factor_ << std::endl;
+      unsigned int neg_steps = 0;
 			for(int iter = 0; iter < tstar_tune_steps; ++ iter) {
-				simulate_autotune_step(pattern, vandermonde, mask, base_norm, iter, tstar_tune_steps
+				simulate_autotune_step(pattern, vandermonde, mask, base_norm, iter, tstar_tune_steps, neg_steps
 						#ifdef USE_MPI
 							, multi_node
 						#endif
 						);
 			} // for
-			acceptance_map[tstar] = ((real_t) autotuner_.accepted_moves_) / tstar_tune_steps;
+			//acceptance_map[tstar] = ((real_t) autotuner_.accepted_moves_) / tstar_tune_steps;
+      if(neg_steps == 0) acceptance_map[tstar] = 0.0;
+      else acceptance_map[tstar] = ((real_t) autotuner_.accepted_moves_) / neg_steps;
 			//std::cout << "@@\t" << tstar << "\t" << acceptance_map[tstar] << std::endl;
 		} // for
 
@@ -152,12 +155,13 @@ namespace hir {
 													// for y = 0.3, x = -0.8472979 * b + a
 													// for y = 0.4, x =
 													// for y = 0.5, x =
+    //std::cout << "========== TSTAR: " << temp_tstar << " a: " << a << " b: " << b << std::endl;
 		//temp_tstar = std::max(1e-2, std::min(temp_tstar, 1.0));
-		temp_tstar = std::max(1e-30, std::min(temp_tstar, 1.0));
-//		if(tstar_set_) {
+		temp_tstar = std::max(1e-30, std::min(temp_tstar, 2.0));
+		if(tstar_set_) {
 			// make sure it is lower or equal to previous tstar_:
-//			temp_tstar = std::min(tstar_, temp_tstar);
-//		} // if
+			temp_tstar = std::min(tstar_, temp_tstar);
+		} // if
 		//real_t cooling = std::max(1e-2, (temp_tstar / std::max(1e-5, a - b)) / num_steps);
 		real_t cooling = std::max(1e-30, (temp_tstar / std::max(1e-30, a - b)) / num_steps);
 
@@ -168,10 +172,10 @@ namespace hir {
 
 		tstar_ = temp_tstar; cooling_factor_ = cooling; tstar_set_ = true;
 
-//		std::cout << "**                      Temperature: " << std::scientific << tstar_ << std::endl;
-//		std::cout << "**                          Cooling: " << std::scientific << cooling_factor_ << std::endl;
+		//std::cout << "**                      Temperature: " << std::scientific << tstar_ << std::endl;
+		//std::cout << "**                          Cooling: " << std::scientific << cooling_factor_ << std::endl;
     //std::cout << std::defaultfloat;
-//    std::cout.unsetf(std::ios_base::floatfield);
+    std::cout.unsetf(std::ios_base::floatfield);
 
 		return true;
 	} // Tile::autotune_temperature()
@@ -207,7 +211,7 @@ namespace hir {
 										mat_complex_t& vandermonde,
 										const mat_uint_t& mask,
 										real_t base_norm,
-										unsigned int iter, unsigned int max_iter
+										unsigned int iter, unsigned int max_iter, unsigned int &neg_steps
 										#ifdef USE_MPI
 											, woo::MultiNode& multi_node
 										#endif
@@ -223,7 +227,6 @@ namespace hir {
 						, multi_node
 					#endif
 					);
-		//update_fft(autotuner_.f_mat_, autotuner_.dft_mat_);
 		update_fft_mat(autotuner_.dft_mat_, autotuner_.f_mat_, autotuner_.f_mat_);
 		compute_mod(autotuner_.f_mat_, autotuner_.mod_f_mat_);
 		double new_chi2 = compute_chi2(pattern, autotuner_.mod_f_mat_, mask, base_norm
@@ -231,31 +234,24 @@ namespace hir {
 						, multi_node
 					#endif
 					);
-		double diff_chi2 = autotuner_.prev_chi2_ - new_chi2;
-//    std::cout << "**** prev: " << autotuner_.prev_chi2_ << " new: " << new_chi2
-//              << " diff: " << diff_chi2 << std::endl;
-		bool accept = false;
-		if(diff_chi2 > 0.0) accept = true;
-		else {
-      real_t temperature = 0.0;
-      real_t p = 0.0;
-      if(autotuner_.tstar_ < 1e-30) {
-        temperature = 0.0;
-        p = 0.0;
-      } else {
-        temperature = autotuner_.tstar_ / (1.0 + autotuner_.cooling_factor_ * iter / max_iter);
-        p = exp((diff_chi2 * max_iter * max_iter * max_iter) / temperature);
-      } // if-else
-			real_t prand = mt_rand_gen_.rand();
-//      std::cout << "**** p: " << p << " prand: " << prand << std::endl;
-			if(prand < p) accept = true;
-		} // if-else
-		if(accept) {	// accept the move
-			++ autotuner_.accepted_moves_;
-			autotuner_.prev_chi2_ = new_chi2;
-			autotuner_.indices_[old_pos] = new_index;
-			autotuner_.indices_[new_pos] = old_index;
-		} // if
+    bool accept = false;
+    if(new_chi2 < autotuner_.prev_chi2_) {
+      accept = true;
+    } else {
+      ++ neg_steps;
+  		bool neg_accept = accept_reject(autotuner_.prev_chi2_, new_chi2,
+                                      autotuner_.tstar_, autotuner_.cooling_factor_,
+                                      iter, max_iter);
+   		if(neg_accept) {	// accept the move
+        accept = true;
+	  		++ autotuner_.accepted_moves_;
+	  	} // if
+    } // if-else
+    if(accept) {
+     	autotuner_.prev_chi2_ = new_chi2;
+	    autotuner_.indices_[old_pos] = new_index;
+   		autotuner_.indices_[new_pos] = old_index;
+    } // if
 
 		return true;
 	} // Tile::simulate_step()

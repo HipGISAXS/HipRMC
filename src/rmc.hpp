@@ -3,7 +3,7 @@
   *
   *  File: rmc.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Wed 16 Oct 2013 08:33:48 AM PDT
+  *  Modified: Tue 04 Nov 2014 04:30:58 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -70,6 +70,7 @@ namespace hir {
 			bool initialize_tiles(const vec_uint_t&, const real_t*, unsigned int);
 			bool initialize_vandermonde(unsigned int);
 			bool initialize_particles_random(vec_uint_t&);
+			bool initialize_particles_image(vec_uint_t&);
 			bool initialize_simulation(unsigned int);
 			bool initialize_simulation_tiles(int);
 			bool destroy_simulation_tiles();

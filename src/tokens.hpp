@@ -3,7 +3,7 @@
   *
   *  File: tokens.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Mon 09 Sep 2013 10:58:18 AM PDT
+  *  Modified: Tue 04 Nov 2014 03:44:57 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -72,6 +72,7 @@ namespace hir {
 		instrument_loading_token,		/* loading factors array token */
 		instrument_tstar_token,			/* temperature array token */
 		instrument_cooling_factor_token,	/* cooling factors array token */
+    instrument_init_model_token,  /* model to start with instead of random */
 
 		compute_token,					/* computation object token */
 		compute_model_start_size_token,	/* size of the starting model token */

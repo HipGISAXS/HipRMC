@@ -3,7 +3,6 @@
   *
   *  File: token_mapper.hpp
   *  Created: Jun 11, 2013
-  *  Modified: Mon 09 Sep 2013 10:58:48 AM PDT
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -68,6 +67,8 @@ namespace hir {
 				KeyWords_[std::string("loadingfactors")]	= instrument_loading_token;
 				KeyWords_[std::string("temperatures")]		= instrument_tstar_token;
 				KeyWords_[std::string("coolingfactors")]	= instrument_cooling_factor_token;
+				KeyWords_[std::string("initmodel")]	      = instrument_init_model_token;
+
 				KeyWords_[std::string("modelstartsize")]	= compute_model_start_size_token;
 				KeyWords_[std::string("numstepsfactor")]	= compute_num_steps_factor_token;
 				KeyWords_[std::string("scalefactor")]		= compute_scale_factor_token;

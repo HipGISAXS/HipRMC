@@ -3,7 +3,7 @@
   *
   *  File: hiprmc_input.cpp
   *  Created: Jun 11, 2013
-  *  Modified: Mon 09 Sep 2013 11:04:49 AM PDT
+  *  Modified: Tue 04 Nov 2014 03:55:12 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -372,6 +372,7 @@ namespace hir {
 			case instrument_loading_token:
 			case instrument_tstar_token:
 			case instrument_cooling_factor_token:
+      case instrument_init_model_token:
 			case compute_token:
 			case compute_model_start_size_token:
 			case compute_num_steps_factor_token:
@@ -484,6 +485,10 @@ namespace hir {
 				mask_set_ = true;
 				break;
 
+      case instrument_init_model_token:
+        init_model_ = str;
+        break;
+
 			case compute_label_token:
 				label_ = str + "_" + timestamp();
 				break;
@@ -521,6 +526,7 @@ namespace hir {
 		for(vec_real_t::iterator i = cooling_factors_.begin(); i != cooling_factors_.end(); ++ i)
 			std::cout << *i << " ";
 		std::cout << std::endl;
+    std::cout << "           Initial model = " << init_model_ << std::endl;
 		std::cout << "        Model start size = " << model_start_size_[0] << " x " << model_start_size_[1] << std::endl;
 		std::cout << "  Number of steps factor = " << num_steps_factor_ << std::endl;
 		std::cout << "          Scaling factor = " << scale_factor_ << std::endl;

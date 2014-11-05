@@ -407,36 +407,18 @@ namespace hir {
 		//std::cout << "HUHUHUHUHUHUHU: " << multi_node.rank("real_world") << std::endl;
 
 		mytimer_.start();
-		double diff_chi2 = prev_chi2_ - new_chi2;
-		int accept = 0;
+		bool accept = false;
 		#ifdef USE_MPI
 			if(multi_node.is_master("real_world")) {
 		#endif
-				if(diff_chi2 > 0.0) {
-					accept = 1;
-				} else {
-          real_t temperature = 0.0;
-          real_t p = 0.0;
-          if(tstar_ < 1e-30) {
-            temperature = 0.0;
-            p = 0.0;
-          } else {
-//            p = exp((diff_chi2 * max_iter * max_iter * max_iter)
-//                       * (1.0 + cooling_factor_ * iter / max_iter) / tstar_);
-            temperature = tstar_ / (1.0 + cooling_factor_ * iter / max_iter);
-            p = exp((diff_chi2 * max_iter * max_iter * max_iter) / temperature);
-            //std::cout << "DIFF: " << diff_chi2 << " TEMPERATURE: " << temperature << " PROBABILITY: " << p << std::endl;
-          } // if-else
-					real_t prand = mt_rand_gen_.rand();
-					if(prand < p) accept = 1;
-//          if(iter % (max_iter / 10) == 0)
-//            std::cout << "******** current temperature is " << temperature << std::endl;
-				} // if-else
+        accept = accept_reject(prev_chi2_, new_chi2, tstar_, cooling_factor_, iter, max_iter);
 		#ifdef USE_MPI
 			} // if
 			mytimer2_.start();
-			multi_node.broadcast("real_world", &accept, 1);
+      int temp_accept = (accept) ? 1 : 0;
+			multi_node.broadcast("real_world", &temp_accept, 1);
 			multi_node.barrier("real_world");
+      accept = (temp_accept == 1);
 			mytimer2_.stop(); mpi_time_ += mytimer2_.elapsed_msec();
 		#endif
 
@@ -476,6 +458,29 @@ namespace hir {
 
 		return true;
 	} // Tile::simulate_step()
+
+
+  bool Tile::accept_reject(real_t prev_chi2, real_t new_chi2, real_t tstar, real_t cooling,
+                           unsigned int iter, unsigned int max_iter) {
+    double diff_chi2 = prev_chi2 - new_chi2;
+    bool accept = false;
+    if(diff_chi2 > 0.0) accept = true;
+    else {
+      real_t temperature = 0.0, p = 0.0;
+      if(tstar < 1e-30) {
+        temperature = 0.0; p = 0.0;
+      } else {
+        //temperature = tstar / (1.0 + cooling * (iter / max_iter));
+        temperature = tstar / ((2.0 - tstar) * (1.0 + cooling * iter));
+        p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 10) / 1e14));  // works best when scaling
+      } // if-else
+      real_t prand = mt_rand_gen_.rand();
+      //std::cout << "**** prev: " << prev_chi2 << " new: " << new_chi2 << " diff: " << diff_chi2
+      //          << " p: " << p << " prand: " << prand << std::endl;
+      if(prand < p) accept = true;
+    } // if-else
+    return accept;
+  } // Tile::accept_reject()
 
 
 	void Tile::create_image(std::string str, unsigned int iter, const mat_real_t &mat, bool swapped) {
@@ -922,7 +927,9 @@ namespace hir {
 					int j_swap = (j + (size_ >> 1)) % size_;
 					//real_t temp = fabs(a(i_swap, j_swap) - b(i, j)) * mask(i_swap, j_swap);
 					//chi2 += temp * temp;
-					real_t temp = fabs(a(i_swap, j_swap) * a(i_swap, j_swap) - b(i, j) * b(i, j))
+//					real_t temp = fabs(a(i_swap, j_swap) * a(i_swap, j_swap) - b(i, j) * b(i, j))
+//                        * mask(i_swap, j_swap);
+					real_t temp = fabs(a(i_swap, j_swap) * a(i_swap, j_swap) - log(b(i, j)) * log(b(i, j)))
                         * mask(i_swap, j_swap);
 					chi2 += temp;
 				} // for

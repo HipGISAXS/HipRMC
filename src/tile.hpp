@@ -3,7 +3,6 @@
   *
   *  File: tile.hpp
   *  Created: Jan 25, 2013
-  *  Modified: Mon 03 Nov 2014 05:59:41 PM PST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -148,6 +147,7 @@ namespace hir {
 			//bool mask_mat(const mat_uint_t&, unsigned int);
 			bool copy_mod_mat(unsigned int);
 			bool update_indices();
+      bool accept_reject(real_t, real_t, real_t, real_t, unsigned int, unsigned int);
 
 			// for autotuner (tstar)
 			bool autotune_temperature(const mat_real_t&, mat_complex_t&, const mat_uint_t&, real_t, int
@@ -161,7 +161,7 @@ namespace hir {
 									#endif
 									);
 			bool simulate_autotune_step(const mat_real_t&, mat_complex_t&, const mat_uint_t&,
-									real_t, unsigned int, unsigned int
+									real_t, unsigned int, unsigned int, unsigned int&
 									#ifdef USE_MPI
 										, woo::MultiNode&
 									#endif
