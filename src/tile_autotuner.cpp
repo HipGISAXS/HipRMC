@@ -95,7 +95,7 @@ namespace hir {
 									) {
 		std::cout << "++ Autotuning temperature ..." << std::endl;
 		std::map <const real_t, real_t> acceptance_map;
-		real_t tmin = 0.0, tstep = 0.05, tmax = 2.0, tstar = tmin;
+		real_t tmin = 0.0, tstep = 0.001, tmax = 0.4, tstar = tmin;
 		unsigned int tstar_tune_steps = 200;		// input parameter TODO ...
 //		if(tstar_set_) tmax = tstar_;
 		for(int i = 0; tstar < tmax + tstep; ++ i, tstar += tstep) {
@@ -145,8 +145,8 @@ namespace hir {
 		//tstar_ = a + b / 2.0;
 		//cooling_factor_ = (tstar_ / std::max(1e-5, a - b) - 1.0) / num_steps;
 
-		//real_t temp_tstar = -0.8472979 * b + a;		// this is for acceptance ~ 0.3
-		real_t temp_tstar = -2.1972246 * b + a;		// this is for acceptance ~ 0.1
+		real_t temp_tstar = -0.8472979 * b + a;		// this is for acceptance ~ 0.3
+		//real_t temp_tstar = -2.1972246 * b + a;		// this is for acceptance ~ 0.1
 													// derived from y = 1 / (1 + e^(- (x - a) / b))
 													// implies x = b * (ln y - ln(1 - y)) + a
 													// for y = 0.05, x =

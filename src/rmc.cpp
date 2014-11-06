@@ -547,6 +547,7 @@ namespace hir {
 			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_));
 		} // for
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
+      sleep(2e-6);
 			// construct prefix
 			std::stringstream temp;
 			#ifdef USE_MPI

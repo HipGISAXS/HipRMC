@@ -472,7 +472,9 @@ namespace hir {
       } else {
         //temperature = tstar / (1.0 + cooling * (iter / max_iter));
         temperature = tstar / ((2.0 - tstar) * (1.0 + cooling * iter));
-        p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 10) / 1e14));  // works best when scaling
+        //p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 10) / 1e14));  // works best when scaling
+        //p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 8) / 1e26.7));  // works best when scaling
+        p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 20) / 1e38));  // works best when scaling
       } // if-else
       real_t prand = mt_rand_gen_.rand();
       //std::cout << "**** prev: " << prev_chi2 << " new: " << new_chi2 << " diff: " << diff_chi2
@@ -929,7 +931,9 @@ namespace hir {
 					//chi2 += temp * temp;
 //					real_t temp = fabs(a(i_swap, j_swap) * a(i_swap, j_swap) - b(i, j) * b(i, j))
 //                        * mask(i_swap, j_swap);
-					real_t temp = fabs(a(i_swap, j_swap) * a(i_swap, j_swap) - log(b(i, j)) * log(b(i, j)))
+          real_t logb = b(i, j);
+          //if(b(i, j) > 1e-30) logb = log(b(i, j));
+					real_t temp = fabs(a(i_swap, j_swap) * a(i_swap, j_swap) - logb * logb)
                         * mask(i_swap, j_swap);
 					chi2 += temp;
 				} // for
@@ -989,6 +993,7 @@ namespace hir {
 			int pos[4];
 			if(multi_node.is_master("real_world")) {
 		#endif
+        //mt_rand_gen_.reset(time(NULL));
 				while(1) {
 					old_pos_ = floor(mt_rand_gen_.rand() * num_particles_);
 					new_pos_ = floor(mt_rand_gen_.rand() *	(size_ * size_ - num_particles_)) +
