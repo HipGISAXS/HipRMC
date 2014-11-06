@@ -25,7 +25,7 @@ namespace hir {
 
 	// constructor
 	Tile::Tile(unsigned int rows, unsigned int cols, const std::vector<unsigned int>& indices,
-				unsigned int final_size) :
+				unsigned int final_size, unsigned int index) :
 		a_mat_(std::max(rows, cols), std::max(rows, cols)),
 		#ifndef USE_DFT
 			virtual_a_mat_(rows, cols),
@@ -35,7 +35,7 @@ namespace hir {
 		mod_f_mat_i_(0),
 		indices_(indices),
 		dft_mat_(rows, cols),
-		mt_rand_gen_(time(NULL)),
+		mt_rand_gen_(time(NULL) * (index + 1)),
 		#ifndef USE_GPU
 			autotuner_(rows, cols, indices),
 		#endif
@@ -473,8 +473,9 @@ namespace hir {
         //temperature = tstar / (1.0 + cooling * (iter / max_iter));
         temperature = tstar / ((2.0 - tstar) * (1.0 + cooling * iter));
         //p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 10) / 1e14));  // works best when scaling
-        //p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 8) / 1e26.7));  // works best when scaling
-        p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 20) / 1e38));  // works best when scaling
+        //p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 20) / 1e38));  // works best when scaling
+        real_t multiplier = pow(max_iter, 4);
+        p = exp((diff_chi2 / temperature) * multiplier);  // works best when scaling
       } // if-else
       real_t prand = mt_rand_gen_.rand();
       //std::cout << "**** prev: " << prev_chi2 << " new: " << new_chi2 << " diff: " << diff_chi2

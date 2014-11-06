@@ -544,7 +544,7 @@ namespace hir {
 		std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
 		// initialize tiles
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
-			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_));
+			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_, i));
 		} // for
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
       sleep(2e-6);
