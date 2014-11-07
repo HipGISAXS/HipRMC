@@ -95,7 +95,7 @@ namespace hir {
 									) {
 		std::cout << "++ Autotuning temperature ..." << std::endl;
 		std::map <const real_t, real_t> acceptance_map;
-		real_t tmin = 0.0, tstep = 0.001, tmax = 2.1, tstar = tmin;
+		real_t tmin = 0.0, tstep = 0.05, tmax = 2.1, tstar = tmin;
 		unsigned int tstar_tune_steps = 200;		// input parameter TODO ...
 //		if(tstar_set_) tmax = tstar_;
 		for(int i = 0; tstar < tmax + tstep; ++ i, tstar += tstep) {
