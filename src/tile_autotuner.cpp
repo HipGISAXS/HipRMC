@@ -96,8 +96,7 @@ namespace hir {
 		std::cout << "++ Autotuning temperature ..." << std::endl;
 		std::map <const real_t, real_t> acceptance_map;
 		real_t tmin = 0.0, tstep = 0.05, tmax = 2.1, tstar = tmin;
-		unsigned int tstar_tune_steps = 200;		// input parameter TODO ...
-//		if(tstar_set_) tmax = tstar_;
+		unsigned int tstar_tune_steps = 100;		// input parameter TODO ...
 		for(int i = 0; tstar < tmax + tstep; ++ i, tstar += tstep) {
 			// simulate few steps with current tstar and obtain the acceptance rate
 			if(!init_autotune(pattern, mask, tstar, base_norm
@@ -108,7 +107,7 @@ namespace hir {
 				std::cout << "error: failed to initialize autotuner" << std::endl;
 				return false;
 			} // if
-      //std::cout << "++++++ t: " << autotuner_.tstar_ << " c: " << autotuner_.cooling_factor_ << std::endl;
+      //std::cout << "++++ t: " << autotuner_.tstar_ << " c: " << autotuner_.cooling_factor_ << std::endl;
       unsigned int neg_steps = 0;
 			for(int iter = 0; iter < tstar_tune_steps; ++ iter) {
 				simulate_autotune_step(pattern, vandermonde, mask, base_norm, iter, tstar_tune_steps, neg_steps
@@ -117,35 +116,61 @@ namespace hir {
 						#endif
 						);
 			} // for
-			//acceptance_map[tstar] = ((real_t) autotuner_.accepted_moves_) / tstar_tune_steps;
       if(neg_steps == 0) acceptance_map[tstar] = 0.0;
       else acceptance_map[tstar] = ((real_t) autotuner_.accepted_moves_) / neg_steps;
+      //acceptance_map[tstar] = ((real_t) autotuner_.accepted_moves_) / tstar_tune_steps;
 			//std::cout << "@@\t" << tstar << "\t" << acceptance_map[tstar] << std::endl;
 		} // for
-
-    save_acceptance_map(acceptance_map);
-
-		// find min and max acceptance rate values
-		real_t min_acc = 1.0, max_acc = 0.0;
-		for(map_real_t::const_iterator i = acceptance_map.begin(); i != acceptance_map.end(); ++ i) {
-			min_acc = (min_acc > (*i).second) ? (*i).second : min_acc;
-			max_acc = (max_acc < (*i).second) ? (*i).second : max_acc;
-		} // for
-		// scale them
-	//	for(map_real_t::iterator i = acceptance_map.begin(); i != acceptance_map.end(); ++ i) {
-	//		(*i).second = ((*i).second - min_acc) / (max_acc - min_acc);
-	//	} // for
-		//std::cout << "@@@@@@@@@@@ MIN_ACC: " << min_acc << ", MAX_ACC: " << max_acc << std::endl;
+    //save_acceptance_map(acceptance_map);
 
 		LWSolver lw;
 		real_t a = 0.25, b = 0.25;	// initial parameter choices
 		lw.solve_sigmoid(acceptance_map, a, b);
 		//std::cout << "+++++++++++++ a: " << a << ", b: " << b << std::endl;
 
+		real_t temp_tstar = -0.8472979 * b + a;		// this is for acceptance ~ 0.3
+    //std::cout << "+++++++++++++ temp_tstar: " << temp_tstar << std::endl;
+
+    // now use temp_tstar to do fine sampling around it
+
+    acceptance_map.clear();
+		tmin = std::max(0.0, temp_tstar - 0.2), tstep = 0.005, tmax = std::min(2.0, temp_tstar + 0.2);
+    tstar = tmin;
+		for(int i = 0; tstar < tmax + tstep; ++ i, tstar += tstep) {
+			// simulate few steps with current tstar and obtain the acceptance rate
+			if(!init_autotune(pattern, mask, tstar, base_norm
+						#ifdef USE_MPI
+							, multi_node
+						#endif
+						)) {
+				std::cout << "error: failed to initialize autotuner" << std::endl;
+				return false;
+			} // if
+      //std::cout << "++++ t: " << autotuner_.tstar_ << " c: " << autotuner_.cooling_factor_ << std::endl;
+      unsigned int neg_steps = 0;
+			for(int iter = 0; iter < tstar_tune_steps; ++ iter) {
+				simulate_autotune_step(pattern, vandermonde, mask, base_norm, iter, tstar_tune_steps, neg_steps
+						#ifdef USE_MPI
+							, multi_node
+						#endif
+						);
+			} // for
+      if(neg_steps == 0) acceptance_map[tstar] = 0.0;
+      else acceptance_map[tstar] = ((real_t) autotuner_.accepted_moves_) / neg_steps;
+      //acceptance_map[tstar] = ((real_t) autotuner_.accepted_moves_) / tstar_tune_steps;
+			//std::cout << "@@\t" << tstar << "\t" << acceptance_map[tstar] << std::endl;
+		} // for
+
+    save_acceptance_map(acceptance_map);
+
+		a = 0.25, b = 0.25;	// initial parameter choices
+		lw.solve_sigmoid(acceptance_map, a, b);
+		//std::cout << "+++++++++++++ a: " << a << ", b: " << b << std::endl;
+
 		//tstar_ = a + b / 2.0;
 		//cooling_factor_ = (tstar_ / std::max(1e-5, a - b) - 1.0) / num_steps;
 
-		real_t temp_tstar = -0.8472979 * b + a;		// this is for acceptance ~ 0.3
+		temp_tstar = -0.8472979 * b + a;		// this is for acceptance ~ 0.3
 		//real_t temp_tstar = -2.1972246 * b + a;		// this is for acceptance ~ 0.1
 													// derived from y = 1 / (1 + e^(- (x - a) / b))
 													// implies x = b * (ln y - ln(1 - y)) + a
@@ -156,24 +181,21 @@ namespace hir {
 													// for y = 0.4, x =
 													// for y = 0.5, x =
     //std::cout << "========== TSTAR: " << temp_tstar << " a: " << a << " b: " << b << std::endl;
+
+    // sanitize the found temp
+
 		//temp_tstar = std::max(1e-2, std::min(temp_tstar, 1.0));
 		temp_tstar = std::max(1e-30, std::min(temp_tstar, 2.0));
 		if(tstar_set_) {
 			// make sure it is lower or equal to previous tstar_:
 			temp_tstar = std::min(tstar_, temp_tstar);
 		} // if
-		//real_t cooling = std::max(1e-2, (temp_tstar / std::max(1e-5, a - b)) / num_steps);
 		real_t cooling = std::max(1e-30, (temp_tstar / std::max(1e-30, a - b)) / num_steps);
-
-		//std::cout << "@@\ta = " << a << ", b = " << b << std::endl;
-		//std::cout << "@@\tTSTAR: " << tstar_ << ", COOLING: " << cooling_factor_
-		//			<< ", TMIN: " << std::max(1e-2, a - b) << std::endl;
-		//std::cout << "@@\tNEWTSTAR: " << temp_tstar << ", NEWCOOLING: " << cooling << std::endl;
 
 		tstar_ = temp_tstar; cooling_factor_ = cooling; tstar_set_ = true;
 
-		//std::cout << "**                      Temperature: " << std::scientific << tstar_ << std::endl;
-		//std::cout << "**                          Cooling: " << std::scientific << cooling_factor_ << std::endl;
+		std::cout << "**                      Temperature: " << std::scientific << tstar_ << std::endl;
+		std::cout << "**                          Cooling: " << std::scientific << cooling_factor_ << std::endl;
     //std::cout << std::defaultfloat;
     std::cout.unsetf(std::ios_base::floatfield);
 

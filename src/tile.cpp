@@ -474,7 +474,7 @@ namespace hir {
         temperature = tstar / ((2.0 - tstar) * (1.0 + cooling * iter));
         //p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 10) / 1e14));  // works best when scaling
         //p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 20) / 1e38));  // works best when scaling
-        real_t multiplier = pow(max_iter, 5);
+        real_t multiplier = pow(max_iter, 6);
         p = exp((diff_chi2 / temperature) * multiplier);  // works best when scaling
       } // if-else
       real_t prand = mt_rand_gen_.rand();
