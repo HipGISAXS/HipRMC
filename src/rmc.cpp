@@ -134,6 +134,9 @@ namespace hir {
 	  		multi_node_.split("real_world", "world", multi_node_.rank());
 		  	num_tiles_ = 1;
   		} else if(global_num_tiles_ < multi_node_.size()) {
+        // TODO:
+        std::cout << "error: this case of ntiles < nodes is not completely correct" << std::endl;
+        return false;
 	  		// multiple processors are responsible for each tile
 		  	// tile number this processor is responsible for (round robin distribution)
   			int tile_num = multi_node_.rank("world") % global_num_tiles_;
@@ -173,39 +176,8 @@ namespace hir {
 		if(multi_node_.is_master("world")) {
 		#endif
 			double min_val, max_val;
-			// TODO: opencv usage is temporary. improve with woo::wil ...
 			// TODO: take a subimage of the input ...
-/*			cv::Mat img = cv::imread(HipRMCInput::instance().input_image(), 0);	// grayscale only for now
-			//cv::getRectSubPix(img, cv::Size(rows_, cols_), cv::Point2f(cx, cy), subimg);
-			// extract the input image raw data (grayscale values)
-			// and create mask array = indices in image data where value is min
-			cv::minMaxIdx(img, &min_val, &max_val);
-			double threshold = min_val;// + 2 * ceil(max_val / (min_val + 1));
-			//std::cout << "MIN: " << min_val << ", MAX: " << max_val
-			//			<< ", THRESH: " << threshold << std::endl;
-			cv::threshold(img, img, threshold, max_val, cv::THRESH_TOZERO);
-			// scale pixel intensities to span all of 0 - 255
-			scale_image_colormap(img, threshold, max_val);
-			// initialize image data from img
-			for(unsigned int i = 0; i < rows_; ++ i) {
-				for(unsigned int j = 0; j < cols_; ++ j) {
-					unsigned int temp = (unsigned int) img.at<unsigned char>(i, j);
-					unsigned int img_index = cols_ * i + j;
-					img_data[img_index] = (real_t) temp;
-					min_val = (min_val > img_data[img_index]) ? img_data[img_index] : min_val;
-					max_val = (max_val < img_data[img_index]) ? img_data[img_index] : max_val;
-				} // for
-			} // for
-			for(unsigned int i = 0; i < rows_; ++ i) {
-				for(unsigned int j = 0; j < cols_; ++ j) {
-					real_t temp = (img_data[cols_ * i + j] - min_val) / (max_val - min_val);
-					img.at<unsigned char>(i, j) = (unsigned char) (255 * temp);
-					img_data[cols_ * i + j] = temp;
-				} // for
-			} // for
-			// write it out
-			cv::imwrite(HipRMCInput::instance().label() + "/input_image.tif", img);
-*/
+
 			//////////////////////////////////////////
 			wil::Image img(0, 0, 30, 30, 30);
 			//if(!img.read(HipRMCInput::instance().input_image(), rows_, cols_)) return false;
@@ -219,16 +191,6 @@ namespace hir {
 			// read in mask if given
 			if(HipRMCInput::instance().mask_set()) {
 				// read mask file and set the mask matrix
-				/*cv::Mat mask_img = cv::imread(HipRMCInput::instance().mask_image(), 0);	// grayscale only
-				// extract the input mask raw data (grayscale values)
-				// and create the mask array
-				for(unsigned int i = 0; i < rows_; ++ i) {
-					for(unsigned int j = 0; j < cols_; ++ j) {
-						unsigned int temp = (unsigned int) mask_img.at<unsigned char>(i, j);
-						unsigned int index = cols_ * i + j;
-						mask_data[index] = (temp < 128) ? 0 : 1;
-					} // for
-				} // for*/
 				wil::Image mask_img(0, 0, 30, 30, 30);
 				//if(!mask_img.read(HipRMCInput::instance().mask_image(), rows_, cols_)) return false;
 				//if(!mask_img.read_new(HipRMCInput::instance().mask_image(), rows_, cols_)) return false;
@@ -256,26 +218,12 @@ namespace hir {
 				} // for
 			} // if-else
 			// write the mask to output (for verification)
-			/*cv::Mat mask_temp(rows_, cols_, 0);
-			for(unsigned int i = 0; i < rows_; ++ i) {
-				for(unsigned int j = 0; j < cols_; ++ j) {
-					real_t temp = mask_data[cols_ * i + j];
-					mask_temp.at<unsigned char>(i, j) = (unsigned char) (255 * temp);
-				} // for
-			} // for
-			cv::imwrite(HipRMCInput::instance().label() + "/input_mask.tif", mask_temp);*/
 			wil::Image mask_temp(rows_, cols_, 30, 30, 30);
 			mask_temp.construct_image(mask_data);
 			mask_temp.save(HipRMCInput::instance().label() + "/input_mask.tif");
 
 			#ifdef USE_MODEL_INPUT	// for testing/debugging
 			for(int i = 0; i < rows_ * cols_; ++ i) img_data[i] = (255 * img_data[i] < 180) ? 0 : 1;
-			/*for(unsigned int i = 0; i < rows_; ++ i) {
-				for(unsigned int j = 0; j < cols_; ++ j) {
-					img.at<unsigned char>(i, j) = (unsigned char) (255 * img_data[cols_ * i + j]);
-				} // for
-			} // for
-			cv::imwrite(HipRMCInput::instance().label() + "/base_01_pattern.tif", img);*/
 			wil::Image base_01pat(rows_, cols_, 30, 30, 30);
 			base_01pat.construct_image(img_data);
 			base_01pat.save(HipRMCInput::instance().label() + "/base_01_pattern.tif");
@@ -396,6 +344,7 @@ namespace hir {
 			// the masters will scatter the matrices among others in the real world
 			// calculate sizes to send to all
 			if(real_world_size > 1) {
+        // TODO: check this case ...
 				int *num_elements = NULL, *msg_sizes = NULL, *msg_displacements = NULL;
 				if(multi_node_.is_master("real_world")) {
 					num_elements = new (std::nothrow) int[real_world_size];
@@ -466,13 +415,10 @@ namespace hir {
 				local_tile_cols_ = tile_size_;
 			} // if-else
 
-			//std::cout << "RANK" << real_world_rank << ": " << local_tile_rows_ << ", " << local_tile_cols_ << std::endl;
-			//std::cout << "====== " << real_world_size << "\t" << local_rows_ << "\t" << local_cols_ << std::endl;
-
-		  // FIXME: for now assuming there is NO SCALING
   		in_pattern_.resize(local_rows_, local_cols_);
-	  	cropped_pattern_.resize(local_rows_, local_cols_);
 		  mask_mat_.resize(local_rows_, local_cols_);
+
+	  	cropped_pattern_.resize(local_rows_, local_cols_);
   		cropped_mask_mat_.resize(local_rows_, local_cols_);
 	  	vandermonde_mat_.resize(local_rows_, local_cols_);
 
@@ -503,17 +449,17 @@ namespace hir {
 
 		#endif // USE_MPI
 
-		vec_uint_t indices;
-    if(HipRMCInput::instance().init_model().empty()) initialize_particles_random(indices);
-    else initialize_particles_image(indices);
-
 		int tile_num_offset = 0;
 		#ifdef USE_MPI
 			// the assignment is round robin
 			tile_num_offset = multi_node_.rank("world") % global_num_tiles_;
 		#endif // USE_MPI
 
-		initialize_tiles(indices, &(HipRMCInput::instance().loading()[tile_num_offset]),
+//		vec_uint_t indices;
+//    if(HipRMCInput::instance().init_model().empty()) initialize_particles_random(indices);
+//    else initialize_particles_image(indices);
+
+		initialize_tiles(&(HipRMCInput::instance().loading()[tile_num_offset]),
 							HipRMCInput::instance().max_move_distance());
 
 		//std::cout << "DONE INIT!" << std::endl;
@@ -540,14 +486,16 @@ namespace hir {
 */
 
 	// called once at RMC initialization
-	bool RMC::initialize_tiles(const vec_uint_t &indices, const real_t* loading, unsigned int max_dist) {
+	bool RMC::initialize_tiles(const real_t* loading, unsigned int max_dist) {
 		std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
 		// initialize tiles
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
+		  vec_uint_t indices;
+      if(HipRMCInput::instance().init_model().empty()) initialize_particles_random(i, indices);
+      else initialize_particles_image(i, indices);
 			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_, i));
 		} // for
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
-      sleep(2e-6);
 			// construct prefix
 			std::stringstream temp;
 			#ifdef USE_MPI
@@ -558,7 +506,6 @@ namespace hir {
 			temp << "_" << std::setfill('0') << std::setw(4) << i;
 			char prefix[10];
 			temp >> prefix;
-			//std::cout << "PREFIX: " << prefix << std::endl;
 			int num_particles = loading[i] * tile_size_ * tile_size_;
 			tiles_[i].init(loading[i], max_dist, prefix, num_particles
 					#ifdef USE_MPI
@@ -580,7 +527,6 @@ namespace hir {
 		preprocess_pattern_and_mask(scale_factor);
 		compute_base_norm();
 		initialize_vandermonde(scale_factor);
-
 		return true;
 	} // RMC::initialize_simulation()
 
@@ -648,38 +594,31 @@ namespace hir {
 	} // RMC::initialize_vandermonde()
 
 
-	bool RMC::initialize_particles_random(vec_uint_t &indices) {
+	bool RMC::initialize_particles_random(unsigned int index, vec_uint_t &indices) {
 		indices.clear();
 		// create array of random indices
 		unsigned int start = 0; //matrix_offset_ - local_tile_size_ * local_tile_size_;
 		for(unsigned int i = start; i < tile_size_ * tile_size_; ++ i) indices.push_back(i);
 		#ifdef USE_MPI
-			//multi_node_.random_shuffle("real_world", indices);
 			// currently all procs will have the whole indices array
 			if(multi_node_.is_master("real_world")) {
-				//std::random_device rd;
-				//std::mt19937_64 gen(rd());
-				std::mt19937_64 gen(time(NULL));
+    #endif
+        // using mersenne-twister
+        // TODO: use woo library instead ... 
+				std::mt19937_64 gen(time(NULL) * (index + 1));
 				std::shuffle(indices.begin(), indices.end(), gen);
+    #ifdef USE_MPI
 			} // if
 			unsigned int *recv_buff = new (std::nothrow) unsigned int[indices.size()];
 			multi_node_.broadcast("real_world", &indices[0], indices.size());
-			//for(int i = 0; i < indices.size(); ++ i) indices[i] = recv_buff[i];
 			delete[] recv_buff;
-		#else
-			// using mersenne-twister
-			// TODO: use woo library instead ... 
-		//	std::random_device rd;
-		//	std::mt19937_64 gen(rd());
-			std::mt19937_64 gen(time(NULL));
-			std::shuffle(indices.begin(), indices.end(), gen);
 		#endif // USE_MPI
 		//print_array("indices", (unsigned int*)&indices[0], indices.size());
 		return true;
 	} // RMC::initialize_particles_random()
 
 
-  bool RMC::initialize_particles_image(vec_uint_t &indices) {
+  bool RMC::initialize_particles_image(unsigned int index, vec_uint_t &indices) {
     indices.clear();
     // read model image
 		wil::Image model_img(0, 0, 30, 30, 30);
@@ -730,7 +669,6 @@ namespace hir {
 				} // if
 				cropped_pattern_ = in_pattern_;
 				cropped_mask_mat_ = mask_mat_;
-				// TODO: check ...
 			} else {
 				// compute local_tile_rows_ and local_tile_cols_
 				local_tile_rows_ = local_tile_cols_ = 0;
@@ -996,7 +934,7 @@ namespace hir {
 			}
 			multi_node_.allreduce_sum("real_world", base_norm, base_norm_);
 		#else
-			unsigned int maxi = tile_size_;		// >> 1;
+			unsigned int maxi = tile_size_;
 			#pragma omp parallel shared(base_norm)
 			{
 				#pragma omp for collapse(2) reduction(+:base_norm)

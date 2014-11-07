@@ -994,11 +994,9 @@ namespace hir {
 			int pos[4];
 			if(multi_node.is_master("real_world")) {
 		#endif
-        //mt_rand_gen_.reset(time(NULL));
 				while(1) {
 					old_pos_ = floor(mt_rand_gen_.rand() * num_particles_);
-					new_pos_ = floor(mt_rand_gen_.rand() *	(size_ * size_ - num_particles_)) +
-								num_particles_;
+					new_pos_ = floor(mt_rand_gen_.rand() * (size_ * size_ - num_particles_)) + num_particles_;
 					// FIXME: currently this assumes that all indices_ array is on all procs
 					if(old_pos_ < indices_.size()) old_index_ = indices_[old_pos_];
 					else {

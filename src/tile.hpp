@@ -174,7 +174,7 @@ namespace hir {
 				bool compute_fft(const mat_real_t&, mat_complex_t&);
 				bool compute_mod(const mat_complex_t&, mat_real_t&);
 				bool normalize(mat_real_t&);
-			#endif
+			#endif // USE_GPU
 			#ifdef USE_DFT
 				bool compute_dft2(mat_complex_t&, unsigned int, unsigned int,
 									unsigned int, unsigned int, mat_complex_t&
