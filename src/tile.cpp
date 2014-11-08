@@ -471,10 +471,8 @@ namespace hir {
         temperature = 0.0; p = 0.0;
       } else {
         //temperature = tstar / (1.0 + cooling * (iter / max_iter));
-        temperature = tstar / ((2.0 - tstar) * (1.0 + cooling * iter));
-        //p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 10) / 1e14));  // works best when scaling
-        //p = exp((diff_chi2 / temperature) * (pow((double)max_iter, 20) / 1e38));  // works best when scaling
-        real_t multiplier = pow(max_iter, 6);
+        temperature = tstar / ((MAX_TEMPERATURE - tstar) * (1.0 + cooling * iter));
+        real_t multiplier = num_particles_ * pow(size_, 2);
         p = exp((diff_chi2 / temperature) * multiplier);  // works best when scaling
       } // if-else
       real_t prand = mt_rand_gen_.rand();
@@ -925,18 +923,16 @@ namespace hir {
 			for(unsigned int i = 0; i < a.num_rows(); ++ i) {
 				for(unsigned int j = 0; j < a.num_cols(); ++ j) {
 					if(i == 0 && j == 0) continue;
-					// FIXME: quadrant swap thingy ...
 					int i_swap = (i + (size_ >> 1)) % size_;
 					int j_swap = (j + (size_ >> 1)) % size_;
-					//real_t temp = fabs(a(i_swap, j_swap) - b(i, j)) * mask(i_swap, j_swap);
-					//chi2 += temp * temp;
-//					real_t temp = fabs(a(i_swap, j_swap) * a(i_swap, j_swap) - b(i, j) * b(i, j))
-//                        * mask(i_swap, j_swap);
-          real_t logb = b(i, j);
-          //if(b(i, j) > 1e-30) logb = log(b(i, j));
-					real_t temp = fabs(a(i_swap, j_swap) * a(i_swap, j_swap) - logb * logb)
-                        * mask(i_swap, j_swap);
-					chi2 += temp;
+          real_t aval = a(i_swap, j_swap);
+          real_t bval = b(i, j);
+          //real_t bval = 0.0;
+          //if(b(i, j) > 1e-30) bval = log(b(i, j));
+					//real_t temp = fabs(aval * aval - bval * bval) * mask(i_swap, j_swap);
+					//chi2 += temp;
+					real_t temp = fabs(aval - bval) * mask(i_swap, j_swap);
+					chi2 += temp * temp;
 				} // for
 			} // for
 		#endif // USE_GPU

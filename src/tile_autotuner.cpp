@@ -95,8 +95,11 @@ namespace hir {
 									) {
 		std::cout << "++ Autotuning temperature ..." << std::endl;
 		std::map <const real_t, real_t> acceptance_map;
-		real_t tmin = 0.0, tstep = 0.05, tmax = 2.1, tstar = tmin;
-		unsigned int tstar_tune_steps = 100;		// input parameter TODO ...
+
+    // first do a rough sampling
+
+		real_t tmin = 0.0, tstep = 0.01, tmax = MAX_TEMPERATURE, tstar = tmin;
+		unsigned int tstar_tune_steps = 200;		// input parameter TODO ...
 		for(int i = 0; tstar < tmax + tstep; ++ i, tstar += tstep) {
 			// simulate few steps with current tstar and obtain the acceptance rate
 			if(!init_autotune(pattern, mask, tstar, base_norm
@@ -121,7 +124,7 @@ namespace hir {
       //acceptance_map[tstar] = ((real_t) autotuner_.accepted_moves_) / tstar_tune_steps;
 			//std::cout << "@@\t" << tstar << "\t" << acceptance_map[tstar] << std::endl;
 		} // for
-    //save_acceptance_map(acceptance_map);
+    save_acceptance_map(acceptance_map, "1");
 
 		LWSolver lw;
 		real_t a = 0.25, b = 0.25;	// initial parameter choices
@@ -134,7 +137,9 @@ namespace hir {
     // now use temp_tstar to do fine sampling around it
 
     acceptance_map.clear();
-		tmin = std::max(0.0, temp_tstar - 0.2), tstep = 0.005, tmax = std::min(2.0, temp_tstar + 0.2);
+		tmin = std::max(0.0, temp_tstar - 0.2);
+    tstep = 0.001;
+    tmax = std::min(MAX_TEMPERATURE, temp_tstar + 0.2);
     tstar = tmin;
 		for(int i = 0; tstar < tmax + tstep; ++ i, tstar += tstep) {
 			// simulate few steps with current tstar and obtain the acceptance rate
@@ -161,7 +166,7 @@ namespace hir {
 			//std::cout << "@@\t" << tstar << "\t" << acceptance_map[tstar] << std::endl;
 		} // for
 
-    save_acceptance_map(acceptance_map);
+    save_acceptance_map(acceptance_map, "2");
 
 		a = 0.25, b = 0.25;	// initial parameter choices
 		lw.solve_sigmoid(acceptance_map, a, b);
@@ -185,7 +190,7 @@ namespace hir {
     // sanitize the found temp
 
 		//temp_tstar = std::max(1e-2, std::min(temp_tstar, 1.0));
-		temp_tstar = std::max(1e-30, std::min(temp_tstar, 2.0));
+		temp_tstar = std::max(1e-30, std::min(temp_tstar, MAX_TEMPERATURE));
 		if(tstar_set_) {
 			// make sure it is lower or equal to previous tstar_:
 			temp_tstar = std::min(tstar_, temp_tstar);
@@ -299,13 +304,13 @@ namespace hir {
 	} // Tile::virtual_move_random_particle()
 
 
-  bool Tile::save_acceptance_map(const map_real_t& acc_map) {
+  bool Tile::save_acceptance_map(const map_real_t& acc_map, const char* level) {
     std::stringstream szss;
     szss << std::setfill('0') << std::setw(4) << size_;
     char sz[5];
     szss >> sz;
     std::string filename = HipRMCInput::instance().label() + "/" + prefix_ + "_"
-                           + std::string(sz) + "_acceptance.dat";
+                           + std::string(sz) + "_acceptance_" + std::string(level) + ".dat";
     std::ofstream acc(filename, std::ios::out);
     acc << "temperature\tacceptance" << std::endl;
     for(map_real_t::const_iterator i = acc_map.begin(); i != acc_map.end(); ++ i) {

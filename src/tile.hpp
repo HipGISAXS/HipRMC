@@ -169,7 +169,7 @@ namespace hir {
 			bool autotune_move_random_particle_restricted(unsigned int, unsigned int&, unsigned int&,
 									unsigned int&, unsigned int&, unsigned int&, unsigned int&,
 									unsigned int&, unsigned int&);
-      bool save_acceptance_map(const std::map<const real_t, real_t>&);
+      bool save_acceptance_map(const std::map<const real_t, real_t>&i, const char*);
 			#ifndef USE_GPU
 				bool compute_fft(const mat_real_t&, mat_complex_t&);
 				bool compute_mod(const mat_complex_t&, mat_real_t&);

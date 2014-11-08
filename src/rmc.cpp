@@ -1001,7 +1001,7 @@ namespace hir {
 		//	//tiles_[i].save_fmat_image(i);
 		//	tiles_[i].save_mat_image_direct(i);
 		//} // for
-		unsigned int ten_percent = floor(num_steps / 10);
+/*		unsigned int ten_percent = floor(num_steps / 10);
 		unsigned int curr_percent = 10;
 		std::cout << "++ Performing simulation on " << num_tiles_ << " tiles ... ";
 		#ifdef USE_MPI
@@ -1032,7 +1032,7 @@ namespace hir {
 											multi_node_
 										#endif
 										);
-				/*if(step % 100 == 0) {
+*/				/*if(step % 100 == 0) {
 					tiles_[i].update_model();
 					#ifdef USE_GPU
 						tiles_[i].update_f_mats();
@@ -1040,7 +1040,7 @@ namespace hir {
 					tiles_[i].save_mat_image((step / 100 + 1));
 					tiles_[i].save_mat_image_direct(step / 100 + 1);	// save a_mat
 				} // if*/
-			} // for
+/*			} // for
 		} // for
 		sim_timer.stop();
 		#ifdef USE_MPI
@@ -1106,7 +1106,7 @@ namespace hir {
 		multi_node_.barrier("world");
     #endif
 		//std::cout << "P" << multi_node_.rank() << ": SIM SIM SIM!!!!" << std::endl;
-		destroy_simulation_tiles();
+*/  destroy_simulation_tiles();
 
 		return true;
 	} // RMC::simulate()
