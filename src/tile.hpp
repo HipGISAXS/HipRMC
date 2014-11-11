@@ -42,6 +42,7 @@ namespace hir {
 
 		private:
 			// following define a tile
+      unsigned int index_;          // index of the tile (useful when multiple tiles)
 			unsigned int size_;						// current global tile size
 			unsigned int rows_;						// number of local rows
 			unsigned int cols_;						// number of local cols
@@ -258,6 +259,12 @@ namespace hir {
 			// accessors
 			real_t loading() const { return loading_factor_; }
 			unsigned int size() const { return size_; }
+      real_t temperature() const { if(tstar_set_) return tstar_; else return -1.0; }
+      real_t cooling() const { return cooling_factor_; }
+
+      // setters
+      void temperature(real_t t) { tstar_ = t; tstar_set_ = true; }
+      void cooling(real_t c) { cooling_factor_ = c; }
 
 			// return a random number in (0,1)
 			//real_t mt_rand_01() {

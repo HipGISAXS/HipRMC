@@ -26,6 +26,7 @@ namespace hir {
 	// constructor
 	Tile::Tile(unsigned int rows, unsigned int cols, const std::vector<unsigned int>& indices,
 				unsigned int final_size, unsigned int index) :
+    index_(index),
 		a_mat_(std::max(rows, cols), std::max(rows, cols)),
 		#ifndef USE_DFT
 			virtual_a_mat_(rows, cols),
@@ -80,6 +81,7 @@ namespace hir {
 
 	// copy constructor
 	Tile::Tile(const Tile& tile):
+    index_(tile.index_),
 		size_(tile.size_),
 		rows_(tile.rows_),
 		cols_(tile.cols_),
@@ -227,22 +229,25 @@ namespace hir {
 
 		// autotune temperature (tstar)
 		#ifndef USE_GPU		// currently gpu version does not have autotuning
-			mytimer.start();
-			if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps
-					#ifdef USE_MPI
-						, multi_node
-					#endif
-					)) {
-				std::cerr << "error: failed to autotune temperature" << std::endl;
-				return false;
-			} // if
-			mytimer.stop();
-//			tstar_ = 1.0;
-//			cooling_factor_ = 1.0;
-			//std::cout << "TEMPERATURE = " << tstar_ << std::endl;
-			//std::cout << "COOLING = " << cooling_factor_ << std::endl;
-			std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
-						<< " ms." << std::endl;
+      // if tiles are indepdent, do autotuning separately
+      if(HipRMCInput::instance().independent() ||
+          ((!HipRMCInput::instance().independent()) && (index_ == 0))) {
+  			mytimer.start();
+	  		if(!autotune_temperature(pattern, vandermonde, mask, base_norm, num_steps
+		  			#ifdef USE_MPI
+			  			, multi_node
+				  	#endif
+					  )) {
+  				std::cerr << "error: failed to autotune temperature" << std::endl;
+	  			return false;
+		  	} // if
+			  mytimer.stop();
+  			std::cout << "**      Temperature autotuning time: " << mytimer.elapsed_msec()
+	  					<< " ms." << std::endl;
+      } else {
+        // tiles are not indepdent and I am not index 0, so I need to get the values from tile 0
+        // dont do anything here. this is taken care in RMC
+      } // if-else
 			tstar_set_ = true;
 			misc_time_ += mytimer.elapsed_msec();
 		#endif // USE_GPU

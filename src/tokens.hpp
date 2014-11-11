@@ -73,6 +73,7 @@ namespace hir {
 		instrument_tstar_token,			/* temperature array token */
 		instrument_cooling_factor_token,	/* cooling factors array token */
     instrument_init_model_token,  /* model to start with instead of random */
+    instrument_independent_token,       /* tile independence for individual autotuning */
 
 		compute_token,					/* computation object token */
 		compute_model_start_size_token,	/* size of the starting model token */

@@ -373,6 +373,7 @@ namespace hir {
 			case instrument_tstar_token:
 			case instrument_cooling_factor_token:
       case instrument_init_model_token:
+      case instrument_independent_token:
 			case compute_token:
 			case compute_model_start_size_token:
 			case compute_num_steps_factor_token:
@@ -440,6 +441,10 @@ namespace hir {
 			case instrument_cooling_factor_token:
 				curr_vector_.push_back(num);
 				break;
+
+      case instrument_independent_token:
+        independent_ = (num == 1);
+        break;
 
 			case compute_model_start_size_token:
 				curr_vector_.push_back(num);
@@ -514,6 +519,7 @@ namespace hir {
 		std::cout << "              Mask image = " << mask_image_ << std::endl;
 		std::cout << "              Image size = " << image_size_[0] << " x " << image_size_[1] << std::endl;
 		std::cout << "         Number of tiles = " << num_tiles_ << std::endl;
+		std::cout << "             Independent = " << independent_ << std::endl;
 		std::cout << "         Loading factors = ";
 		for(vec_real_t::iterator i = loading_factors_.begin(); i != loading_factors_.end(); ++ i)
 			std::cout << *i << " ";

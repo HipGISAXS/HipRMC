@@ -56,24 +56,25 @@ namespace hir {
 
 				/* language keywords */
 
-				KeyWords_[std::string("hipRMCInput")]		= hiprmc_token;
-				KeyWords_[std::string("hiprmcinput")]		= hiprmc_token;
-				KeyWords_[std::string("instrumentation")]	= instrument_token;
-				KeyWords_[std::string("computation")]		= compute_token;
-				KeyWords_[std::string("inputimage")]		= instrument_input_image_token;
-				KeyWords_[std::string("maskimage")]			= instrument_mask_image_token;
-				KeyWords_[std::string("imagesize")]			= instrument_image_size_token;
-				KeyWords_[std::string("numtiles")]			= instrument_num_tiles_token;
+				KeyWords_[std::string("hipRMCInput")]     = hiprmc_token;
+				KeyWords_[std::string("hiprmcinput")]     = hiprmc_token;
+				KeyWords_[std::string("instrumentation")] = instrument_token;
+				KeyWords_[std::string("computation")]     = compute_token;
+				KeyWords_[std::string("inputimage")]      = instrument_input_image_token;
+				KeyWords_[std::string("maskimage")]       = instrument_mask_image_token;
+				KeyWords_[std::string("imagesize")]       = instrument_image_size_token;
+				KeyWords_[std::string("numtiles")]        = instrument_num_tiles_token;
 				KeyWords_[std::string("loadingfactors")]	= instrument_loading_token;
 				KeyWords_[std::string("temperatures")]		= instrument_tstar_token;
 				KeyWords_[std::string("coolingfactors")]	= instrument_cooling_factor_token;
 				KeyWords_[std::string("initmodel")]	      = instrument_init_model_token;
+				KeyWords_[std::string("independent")]	    = instrument_independent_token;
 
 				KeyWords_[std::string("modelstartsize")]	= compute_model_start_size_token;
 				KeyWords_[std::string("numstepsfactor")]	= compute_num_steps_factor_token;
-				KeyWords_[std::string("scalefactor")]		= compute_scale_factor_token;
-				KeyWords_[std::string("maxmovedistance")]	= compute_max_move_distance_token;
-				KeyWords_[std::string("runname")]			= compute_label_token;
+				KeyWords_[std::string("scalefactor")]     = compute_scale_factor_token;
+				KeyWords_[std::string("maxmovedistance")] = compute_max_move_distance_token;
+				KeyWords_[std::string("runname")]         = compute_label_token;
 			
 		} // TokenMapper()
 

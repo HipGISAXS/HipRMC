@@ -37,6 +37,7 @@ namespace hir {
 			bool mask_set_;					// if the mask image filename is provided
 			vec2_int_t image_size_;			// target image size
 			unsigned int num_tiles_;		// this can be removed ...
+      bool independent_;            // specifies if autotuning is done for all tiles or just once
 			vec_real_t loading_factors_;	// loading factor of each tile
 			vec_real_t tstar_;				// temperature for each tile
 			vec_real_t cooling_factors_;	// cooling factor with iteration number for each tile
@@ -120,6 +121,7 @@ namespace hir {
 			unsigned int scale_factor() const { return scale_factor_; }
 			unsigned int max_move_distance() const { return max_move_distance_; }
 			std::string label() const { return label_; }
+      bool independent() const { return independent_; }
 
 			/* printing for testing */
 			void print_all();
