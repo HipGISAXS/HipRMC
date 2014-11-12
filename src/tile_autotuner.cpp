@@ -93,6 +93,20 @@ namespace hir {
 										, woo::MultiNode& multi_node
 									#endif
 									) {
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////  TEMPORARY... PLEASE REMOVE ////////////////////////////////////
+    ///////////////////////////////////////////////////////////////////////////////////////
+    if(HipRMCInput::instance().tstar().size() > 0) {
+      std::cout << "++ WARNING: USING SET TEMPERATURE!!!" << std::endl;
+      tstar_ = HipRMCInput::instance().tstar()[0];
+  		cooling_factor_ = std::max(1e-30, tstar_ / num_steps);
+	  	tstar_set_ = true;
+      return true;
+    } // if
+
+    ///////////////////////////////////////////////////////////////////////////////////////
+
 		std::cout << "++ Autotuning temperature ..." << std::endl;
 		std::map <const real_t, real_t> acceptance_map;
 

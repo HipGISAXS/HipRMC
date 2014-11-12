@@ -73,7 +73,7 @@ namespace hir {
 			return false;
 		} // if
 		if(tstar_.size() == 0) {
-			for(int i = 0; i < num_tiles_; ++ i) tstar_.push_back(0.0);
+			//for(int i = 0; i < num_tiles_; ++ i) tstar_.push_back(0.0);
 		} else if(tstar_.size() == 1) {
 			std::cout << "warning: a temperature value is given. setting it for all tiles. "
 						<< "it may not be actually used due to temperature autotuning." << std::endl;
