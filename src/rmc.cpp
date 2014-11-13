@@ -478,7 +478,11 @@ namespace hir {
 		  vec_uint_t indices;
       if(HipRMCInput::instance().init_model().empty()) initialize_particles_random(i, indices);
       else initialize_particles_image(i, indices);
-			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_, i));
+			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_, i
+                            #ifdef USE_MPI
+                              , multi_node_.rank("world")
+                            #endif
+                            ));
 		} // for
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			// construct prefix
@@ -600,7 +604,11 @@ namespace hir {
     #endif
         // using mersenne-twister
         // TODO: use woo library instead ... 
-				std::mt19937_64 gen(time(NULL) * (index + 1));
+				std::mt19937_64 gen(time(NULL) * (index + 1)
+                            #ifdef USE_MPI
+                              + multi_node_.rank("world")
+                            #endif
+                           );
 				std::shuffle(indices.begin(), indices.end(), gen);
     #ifdef USE_MPI
 			} // if
