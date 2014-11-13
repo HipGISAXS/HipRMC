@@ -325,7 +325,7 @@ namespace hir {
 			multi_node_.broadcast("real_world_masters", img_data, rows_ * cols_);
 			multi_node_.broadcast("real_world_masters", mask_data, rows_ * cols_);
 
-			std::cout << "++      Processor " << multi_node_.rank("real_world")
+			std::cout << "++      Processor " << multi_node_.rank("world")
 						<< " number of tiles: " << num_tiles_ << std::endl;
 
 			// if a real_world master, distribute the matrices among all processors in real_world
