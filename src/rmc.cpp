@@ -328,7 +328,7 @@ namespace hir {
 			std::cout << "++      Processor " << multi_node_.rank("real_world")
 						<< " number of tiles: " << num_tiles_ << std::endl;
 
-			// is a real_world master, distribute the matrices among all processors in real_world
+			// if a real_world master, distribute the matrices among all processors in real_world
 			// we can either do a 1D partition, or a 2D partition. their disadvantages are:
 			// 1D: less amount of parallelism, skinny matrices
 			// 2D: some processors may be idle!
@@ -418,9 +418,9 @@ namespace hir {
   		in_pattern_.resize(local_rows_, local_cols_);
 		  mask_mat_.resize(local_rows_, local_cols_);
 
-	  	cropped_pattern_.resize(local_rows_, local_cols_);
-  		cropped_mask_mat_.resize(local_rows_, local_cols_);
-	  	vandermonde_mat_.resize(local_rows_, local_cols_);
+	  	cropped_pattern_.resize(local_tile_rows_, local_tile_cols_);
+  		cropped_mask_mat_.resize(local_tile_rows_, local_tile_cols_);
+	  	vandermonde_mat_.resize(local_tile_rows_, local_tile_cols_);
 
 		  in_pattern_.populate(local_img_data);
   		mask_mat_.populate(local_mask_data);
@@ -460,9 +460,8 @@ namespace hir {
 //    else initialize_particles_image(indices);
 
 		initialize_tiles(&(HipRMCInput::instance().loading()[tile_num_offset]),
-							HipRMCInput::instance().max_move_distance());
+                     HipRMCInput::instance().max_move_distance());
 
-		//std::cout << "DONE INIT!" << std::endl;
 		std::cout << "++ Initialization done." << std::endl;
 
 		delete[] local_mask_data;
@@ -470,20 +469,6 @@ namespace hir {
 		return true;
 	} // RMC::init()
 
-
-/*	bool RMC::scale_image_colormap(cv::Mat& img, double min_val, double max_val) {
-		for(unsigned int i = 0; i < rows_; ++ i) {
-			for(unsigned int j = 0; j < cols_; ++ j) {
-				unsigned char temp = img.at<unsigned char>(i, j);
-				if(temp != 0) {
-					temp = (unsigned char) 255 * (temp - min_val) / (max_val - min_val);
-					img.at<unsigned char>(i, j) = temp;
-				} // if
-			} // for
-		} // for
-		return true;
-	} // RMC::scale_image_colormap()
-*/
 
 	// called once at RMC initialization
 	bool RMC::initialize_tiles(const real_t* loading, unsigned int max_dist) {
@@ -631,6 +616,7 @@ namespace hir {
   bool RMC::initialize_particles_image(unsigned int index, vec_uint_t &indices) {
     indices.clear();
     // read model image
+    // warning: all procs are doing this ... improve TODO
 		wil::Image model_img(0, 0, 30, 30, 30);
 		if(!model_img.read_tiff(HipRMCInput::instance().init_model().c_str(), rows_, cols_)) return false;
 		real_t *temp_model = new (std::nothrow) real_t[rows_ * cols_];
@@ -673,10 +659,12 @@ namespace hir {
 	bool RMC::crop_pattern_to_tile(unsigned int scale_factor) {
 		#ifdef USE_MPI
 			if(size_ == tile_size_) {	// this is the last step
-				if(local_tile_rows_ != local_rows_ || local_tile_cols_ != local_cols_) {
-					std::cerr << "error: something fishy with local tile sizes" << std::endl;
-					return false;
-				} // if
+        local_tile_rows_ = local_rows_;
+        local_tile_cols_ = local_cols_;
+				//if(local_tile_rows_ != local_rows_ || local_tile_cols_ != local_cols_) {
+				//	std::cerr << "error: something fishy with local tile sizes" << std::endl;
+				//	return false;
+				//} // if
 				cropped_pattern_ = in_pattern_;
 				cropped_mask_mat_ = mask_mat_;
 			} else {
@@ -686,8 +674,9 @@ namespace hir {
 				int pnum = multi_node_.size("real_world");
 				int prank = multi_node_.rank("real_world");
 				// find the processor rank which contains the start row (total_skip_rows)
-				unsigned int proc_row_offsets[pnum];
+				unsigned int proc_row_offsets[pnum + 1];
 				multi_node_.allgather("real_world", &tile_offset_rows_, 1, proc_row_offsets, 1);
+        proc_row_offsets[pnum] = proc_row_offsets[pnum - 1] + local_rows_;
 				int p1 = 0; while(total_skip_rows >= proc_row_offsets[p1]) ++ p1;
 				-- p1;	// one above
 				// find proc rank which contains the end row (total_skip_rows + tile_size)
@@ -717,7 +706,7 @@ namespace hir {
 				} // if
 
 				// DO NOT REDISTRIBUTE, JUST COMPUTE ON WHAT YOU ALREADY HAVE:
-				int skip_rows = local_rows_ - local_tile_rows_;
+				int skip_rows = (local_rows_ - local_tile_rows_) >> 1;
 				int skip_cols = (size_ - tile_size_) >> 1;
 				for(int i = 0; i < local_tile_rows_; ++ i) {
 					for(int j = 0; j < local_tile_cols_; ++ j) {
@@ -909,29 +898,9 @@ namespace hir {
 	} // RMC::preprocess_pattern_and_mask()
 
 	
-	// not used
-	/*bool RMC::normalize_cropped_pattern() {
-		//real_t sum = 0.0;
-		//for(int i = 0; i < tile_size_; ++ i) {
-		//	for(int j = 0; j < tile_size_; ++ j) {
-		//		sum += cropped_pattern_(i, j);
-		//	} // for j
-		//} // for i
-		//real_t avg = sum / (tile_size_ * tile_size_);
-		for(int i = 0; i < tile_size_; ++ i) {
-			for(int j = 0; j < tile_size_; ++ j) {
-				//cropped_pattern_(i, j) /= avg;
-				cropped_pattern_(i, j) /= 255.0;
-			} // for j
-		} // for i
-
-		return true;
-	} // RMC::normalize_cropped_pattern()*/
-
-
 	bool RMC::compute_base_norm() {
 		// compute base norm
-		double base_norm = 0.0;				// why till size/2 only ??? and what is Y ???
+		double base_norm = 0.0;
 		#ifdef USE_MPI
 			#pragma omp parallel shared(base_norm)
 			{
@@ -1122,37 +1091,6 @@ namespace hir {
 	} // RMC::simulate()
 
 
-	// not used
-	/*bool RMC::simulate_and_scale(int num_steps_fac, unsigned int scale_factor, unsigned int rate) {
-		std::cout << std::endl << "++ Performing simulation with scaling ..." << std::endl;
-		unsigned int num_steps = num_steps_fac * tile_size_;
-		unsigned int curr_scale_fac = scale_factor;
-		simulate(num_steps, rate, scale_factor);
-		for(unsigned int tsize = tile_size_, iter = 0; tsize < size_; tsize += curr_scale_fac, ++ iter) {
-			if(tile_size_ < size_) {
-				for(unsigned int i = 0; i < num_tiles_; ++ i) {
-					tiles_[i].update_model();
-					if(tile_size_ + scale_factor > size_) {
-						curr_scale_fac = size_ - tile_size_;
-					} // if
-					for(unsigned int s = 0; s < curr_scale_fac; ++ s) {
-						tiles_[i].scale_step();
-					} // for
-					if(tiles_[i].size() != tile_size_ + curr_scale_fac) {
-						std::cerr << "error: you are in graaaaaaave danger!" << std::endl;
-						return false;
-					} // if
-					//tiles_[i].save_mat_image_direct(i);
-				} // for
-				tile_size_ += curr_scale_fac;
-			} // if
-			num_steps = num_steps_fac * tile_size_;
-			simulate(num_steps, rate, curr_scale_fac);
-		} // for
-		return true;
-	} // RMC::simulate_and_scale()*/
-
-
 	bool RMC::simulate_and_scale() {
 		#ifdef USE_MPI
 			if(multi_node_.is_idle("world")) return true;
@@ -1170,10 +1108,11 @@ namespace hir {
 		woo::BoostChronoTimer sim_timer;
 		sim_timer.start();
 		simulate(num_steps, rate, scale_factor);
-		for(unsigned int tsize = tile_size_, iter = 0; tsize < size_; tsize += curr_scale_fac, ++ iter) {
+		for(int tsize = tile_size_, iter = 0; tsize < size_; tsize += scale_factor, ++ iter) {
 			if(tile_size_ < size_) {
 				// loop over the local tiles
-				for(unsigned int i = 0; i < num_tiles_; ++ i) {
+				for(int i = 0; i < num_tiles_; ++ i) {
+		      curr_scale_fac = scale_factor;
 					tiles_[i].update_model(
 										#ifdef USE_MPI
 											multi_node_
@@ -1182,7 +1121,7 @@ namespace hir {
 					if(tile_size_ + scale_factor > size_) {
 						curr_scale_fac = size_ - tile_size_;
 					} // if
-					for(unsigned int s = 0; s < curr_scale_fac; ++ s) {
+					for(int s = 0; s < curr_scale_fac; ++ s) {
 						tiles_[i].scale_step();
 					} // for
 					if(tiles_[i].size() != tile_size_ + curr_scale_fac) {
