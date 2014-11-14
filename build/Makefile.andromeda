@@ -41,7 +41,7 @@ endif
 
 
 ## compiler flags
-CXX_FLAGS = -std=c++0x -fopenmp -lgomp -lgsl -lgslcblas #-Wall -Wextra #-lgsl -lgslcblas -lm
+CXX_FLAGS = -std=c++11 -fopenmp -lgomp -lgsl -lgslcblas #-Wall -Wextra #-lgsl -lgslcblas -lm
 ## gnu c++ compilers >= 4.3 support -std=c++0x [requirement for hipgisaxs 4.3.x <= g++ <= 4.6.x]
 ## gnu c++ compilers >= 4.7 also support -std=c++11, but they are not supported by cuda
 
@@ -109,8 +109,8 @@ MISC_FLAGS += -DUSE_DFT				# enable use of quick DFT computation instead of full
 #MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
 
 ## choose optimization levels, debug flags, gprof flag, etc
-#OPT_FLAGS = -g -DDEBUG #-v #-pg
-OPT_FLAGS += -O3 -DNDEBUG #-v
+#OPT_FLAGS += -g -DDEBUG #-v #-pg
+OPT_FLAGS += -g -O3 -DNDEBUG #-v
 
 ## choose single or double precision here
 #PREC_FLAG =			# leave empty for single precision
