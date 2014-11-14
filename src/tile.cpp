@@ -40,17 +40,15 @@ namespace hir {
 		mod_f_mat_i_(0),
 		indices_(indices),
 		dft_mat_(rows, cols),
-//		mt_rand_gen_(time(NULL) * (index + 1)
-//                 #ifdef USE_MPI
-//                   * (rank + 1) % 984823
-//                 #endif
-//                ),
+		seed_(seed),
 		mt_rand_gen_(seed),
 		#ifndef USE_GPU
 			autotuner_(rows, cols, indices),
 		#endif
 		fft_update_time_(0.0), reduction_time_(0.0), misc_time_(0.0), mpi_time_(0.0)
 		{
+
+		std::cout << "++++++ I AM " << rank << " -> " << seed << " " << mt_rand_gen_.rand() << std::endl;
 
 		woo::BoostChronoTimer mytimer;
 
@@ -121,7 +119,8 @@ namespace hir {
 		new_pos_(tile.new_pos_),
 		old_index_(tile.old_index_),
 		new_index_(tile.new_index_),
-		mt_rand_gen_(time(NULL)),
+		seed_(tile.seed_),
+		mt_rand_gen_(tile.seed_),
 		#ifndef USE_GPU
 			autotuner_(tile.autotuner_),
 		#endif
@@ -151,6 +150,8 @@ namespace hir {
 			#endif
 			) {
 		woo::BoostChronoTimer mytimer;
+
+		std::cout << "++++++ NOW " << multi_node.rank("world") << " -> " << mt_rand_gen_.rand() << std::endl;
 
 		loading_factor_ = loading;
 		//tstar_ = tstar;
@@ -284,6 +285,7 @@ namespace hir {
 		//std::cout << "++         Initial chi2-error value: " << prev_chi2_ << std::endl;
 
 		accepted_moves_ = 0;
+		std::cout << "++++++ AND " << multi_node.rank("world") << " -> " << mt_rand_gen_.rand() << std::endl;
 
 		return true;
 	} // Tile::init_scale()
@@ -451,6 +453,7 @@ namespace hir {
 
 		// write current model at every "steps"
 		if(iter % 10000 == 0) {
+			std::cout << " ********** " << multi_node.rank("world") << " -> " << mt_rand_gen_.rand() << std::endl;
 			#ifdef USE_MPI
 				update_model(multi_node);
 				//std::cout << "SHITTY SHIT SHIT SHIT SHIT " << multi_node.rank("real_world") << std::endl;

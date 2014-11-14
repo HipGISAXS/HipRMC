@@ -43,6 +43,7 @@ namespace hir {
 		private:
 			// following define a tile
       unsigned int index_;          // index of the tile (useful when multiple tiles)
+	  unsigned int seed_;			// random number generator seed for this tile
 			unsigned int size_;						// current global tile size
 			unsigned int rows_;						// number of local rows
 			unsigned int cols_;						// number of local cols

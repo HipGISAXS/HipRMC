@@ -477,7 +477,7 @@ namespace hir {
 		woo::MTRandomNumberGenerator temp_rng;
 		if(multi_node_.is_master("world")) {
 			for(int i = 0; i < global_num_tiles_; ++ i)
-				seeds[i] = floor(temp_rng.rand() * 10000.0 * (i + 1.0));
+				seeds[i] = floor(temp_rng.rand() * 1000000.0 * (i + 1.0));
 		} // if
 		// scatter the seeds - for now simply broadcasting
 		multi_node_.broadcast("world", seeds, global_num_tiles_);

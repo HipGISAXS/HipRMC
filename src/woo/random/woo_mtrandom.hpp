@@ -3,7 +3,7 @@
   *
   *  File: woo_mtrandom.hpp
   *  Created: Aug 25, 2013
-  *  Modified: Thu 13 Nov 2014 07:20:39 PM EST
+  *  Modified: Fri 14 Nov 2014 10:10:40 AM EST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -29,7 +29,8 @@ namespace woo {
 
 		public:
 			// default is time as seed
-			MTRandomNumberGenerator() {
+			MTRandomNumberGenerator() :
+				mt_rand_gen_(time(NULL)) {
 				min_ = mt_rand_gen_.min();
 				max_ = mt_rand_gen_.max();
 				last_ = -1.0;	// nothing
