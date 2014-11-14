@@ -482,7 +482,6 @@ namespace hir {
 		// scatter the seeds - for now simply broadcasting
 		multi_node_.broadcast("world", seeds, global_num_tiles_);
 		unsigned int my_seed = seeds[multi_node_.rank("world")];
-		std::cout << "++++++++++++ I AM PROC " << multi_node_.rank("world") << " AND MY SEED IS " << my_seed << std::endl;
 		
 		// initialize tiles
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
@@ -490,7 +489,7 @@ namespace hir {
 			if(HipRMCInput::instance().init_model().empty()) initialize_particles_random(i, indices);
 			else initialize_particles_image(i, indices);
 			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_,
-								  my_seed, i
+								  i, my_seed
 								  #ifdef USE_MPI
 									, multi_node_.rank("world")
 								  #endif
