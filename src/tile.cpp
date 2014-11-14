@@ -48,8 +48,6 @@ namespace hir {
 		fft_update_time_(0.0), reduction_time_(0.0), misc_time_(0.0), mpi_time_(0.0)
 		{
 
-		std::cout << "++++++ I AM " << rank << " -> " << seed << " " << mt_rand_gen_.rand() << std::endl;
-
 		woo::BoostChronoTimer mytimer;
 
 		size_ = std::max(rows, cols);
@@ -150,8 +148,6 @@ namespace hir {
 			#endif
 			) {
 		woo::BoostChronoTimer mytimer;
-
-		std::cout << "++++++ NOW " << multi_node.rank("world") << " -> " << mt_rand_gen_.rand() << std::endl;
 
 		loading_factor_ = loading;
 		//tstar_ = tstar;
@@ -285,7 +281,6 @@ namespace hir {
 		//std::cout << "++         Initial chi2-error value: " << prev_chi2_ << std::endl;
 
 		accepted_moves_ = 0;
-		std::cout << "++++++ AND " << multi_node.rank("world") << " -> " << mt_rand_gen_.rand() << std::endl;
 
 		return true;
 	} // Tile::init_scale()
@@ -453,7 +448,6 @@ namespace hir {
 
 		// write current model at every "steps"
 		if(iter % 10000 == 0) {
-			std::cout << " ********** " << multi_node.rank("world") << " -> " << mt_rand_gen_.rand() << std::endl;
 			#ifdef USE_MPI
 				update_model(multi_node);
 				//std::cout << "SHITTY SHIT SHIT SHIT SHIT " << multi_node.rank("real_world") << std::endl;
