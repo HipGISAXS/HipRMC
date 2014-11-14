@@ -199,7 +199,8 @@ namespace hir {
 			bool save_chi2_list();
 
 		public:
-			Tile(unsigned int, unsigned int, const std::vector<unsigned int>&, unsigned int, unsigned int
+			Tile(unsigned int, unsigned int, const std::vector<unsigned int>&, unsigned int, unsigned int,
+				 unsigned int
            #ifdef USE_MPI
             , unsigned int
            #endif

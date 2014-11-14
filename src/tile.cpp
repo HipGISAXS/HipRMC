@@ -25,7 +25,7 @@ namespace hir {
 
 	// constructor
 	Tile::Tile(unsigned int rows, unsigned int cols, const std::vector<unsigned int>& indices,
-				unsigned int final_size, unsigned int index
+				unsigned int final_size, unsigned int index, unsigned int seed
         #ifdef USE_MPI
           , unsigned int rank
         #endif
@@ -40,11 +40,12 @@ namespace hir {
 		mod_f_mat_i_(0),
 		indices_(indices),
 		dft_mat_(rows, cols),
-		mt_rand_gen_(time(NULL) * (index + 1)
-                 #ifdef USE_MPI
-                   + (rank + 1)
-                 #endif
-                ),
+//		mt_rand_gen_(time(NULL) * (index + 1)
+//                 #ifdef USE_MPI
+//                   * (rank + 1) % 984823
+//                 #endif
+//                ),
+		mt_rand_gen_(seed),
 		#ifndef USE_GPU
 			autotuner_(rows, cols, indices),
 		#endif

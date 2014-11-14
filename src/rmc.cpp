@@ -473,16 +473,28 @@ namespace hir {
 	// called once at RMC initialization
 	bool RMC::initialize_tiles(const real_t* loading, unsigned int max_dist) {
 		std::cout << "++ Initializing " << num_tiles_ << " tiles ... " << std::endl;
+		unsigned int seeds[global_num_tiles_];
+		woo::MTRandomNumberGenerator temp_rng;
+		if(multi_node_.is_master("world")) {
+			for(int i = 0; i < global_num_tiles_; ++ i)
+				seeds[i] = floor(temp_rng.rand() * 10000.0 * (i + 1.0));
+		} // if
+		// scatter the seeds - for now simply broadcasting
+		multi_node_.broadcast("world", seeds, global_num_tiles_);
+		unsigned int my_seed = seeds[multi_node_.rank("world")];
+		std::cout << "++++++++++++ I AM PROC " << multi_node_.rank("world") << " AND MY SEED IS " << my_seed << std::endl;
+		
 		// initialize tiles
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
-		  vec_uint_t indices;
-      if(HipRMCInput::instance().init_model().empty()) initialize_particles_random(i, indices);
-      else initialize_particles_image(i, indices);
-			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_, i
-                            #ifdef USE_MPI
-                              , multi_node_.rank("world")
-                            #endif
-                            ));
+			vec_uint_t indices;
+			if(HipRMCInput::instance().init_model().empty()) initialize_particles_random(i, indices);
+			else initialize_particles_image(i, indices);
+			tiles_.push_back(Tile(local_tile_rows_, local_tile_cols_, indices, size_,
+								  my_seed, i
+								  #ifdef USE_MPI
+									, multi_node_.rank("world")
+								  #endif
+									));
 		} // for
 		for(unsigned int i = 0; i < num_tiles_; ++ i) {
 			// construct prefix

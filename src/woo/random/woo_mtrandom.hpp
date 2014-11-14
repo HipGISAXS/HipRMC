@@ -3,7 +3,7 @@
   *
   *  File: woo_mtrandom.hpp
   *  Created: Aug 25, 2013
-  *  Modified: Sun 25 Aug 2013 01:55:38 PM PDT
+  *  Modified: Thu 13 Nov 2014 07:20:39 PM EST
   *
   *  Author: Abhinav Sarje <asarje@lbl.gov>
   */
@@ -28,17 +28,16 @@ namespace woo {
 			} // mt_rand_01()
 
 		public:
-			// construct with 0 as seed
+			// default is time as seed
 			MTRandomNumberGenerator() {
-				mt_rand_gen_.seed(0);
 				min_ = mt_rand_gen_.min();
 				max_ = mt_rand_gen_.max();
 				last_ = -1.0;	// nothing
 			} // MTRandomNumberGenerator()
 
 			// construct with a given seed
-			MTRandomNumberGenerator(unsigned int seed) {
-				mt_rand_gen_.seed(seed);
+			MTRandomNumberGenerator(unsigned int seed):
+				mt_rand_gen_(seed) {
 				min_ = mt_rand_gen_.min();
 				max_ = mt_rand_gen_.max();
 				last_ = -1.0;	// nothing
@@ -47,7 +46,7 @@ namespace woo {
 			~MTRandomNumberGenerator() { }
 
 			void reset() {
-				mt_rand_gen_.seed(0);
+				mt_rand_gen_.seed(time(NULL));
 				last_ = -1.0;
 			} // reset()
 
