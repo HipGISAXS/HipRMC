@@ -598,6 +598,10 @@ namespace wil {
 		//std::cout << "   SPP = " << spp << std::endl;
 
 		nx_ = 1; ny_ = width; nz_ = length;
+    if(ny != ny_ || nz != nz_) {
+      std::cerr << "error: specified size and image size are not equal" << std::endl;
+      return false;
+    } // if
 
 		//unsigned int * buf = new (std::nothrow) unsigned int[ny * nz];
 		unsigned int * buf = (unsigned int *) _TIFFmalloc(sizeof(unsigned int) * ny * nz);
