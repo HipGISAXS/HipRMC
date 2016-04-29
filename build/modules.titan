@@ -2,4 +2,4 @@ module swap PrgEnv-pgi PrgEnv-gnu
 module swap gcc gcc/4.6.3
 module load cudatoolkit
 module load boost
-module load gsl
+module load gsl fftw

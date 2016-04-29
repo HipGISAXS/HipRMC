@@ -12,36 +12,36 @@ USE_GPU = n
 USE_MPI = y
 
 ## base directories
-BOOST_DIR = /usr/local/boost
-TIFF_LIB_DIR = /usr/local/lib
+#BOOST_DIR = /usr/local/boost
+TIFF_DIR = /lustre/atlas2/mat108/scratch/asarje/opt/tiff-4.0.2
 #OPENCV_DIR = /usr
-WOO_DIR = 
+WOO_DIR = /home/asarje
 ifeq ($(USE_MPI), y)
-MPI_DIR = /usr/local/openmpi
+#MPI_DIR = /usr/local/openmpi
 endif
 ifeq ($(USE_GPU), y)
-CUDA_DIR = /usr/local/cuda
+CUDA_DIR = $(CRAY_CUDATOOLKIT_DIR)
 FFTW_DIR =
 else
 CUDA_DIR =
-FFTW_DIR = /usr
+FFTW_DIR = $(CRAY_FFTW_DIR)/interlagos
 endif
 
 ## compilers
 ifeq ($(USE_MPI), y)
-CXX = $(MPI_DIR)/bin/mpicxx
+CXX = CC
 else
-CXX = g++
+CXX = CC
 endif
 ifeq ($(USE_GPU), y)
-NVCC = $(CUDA_DIR)/bin/nvcc
+NVCC = nvcc
 else
 NVCC =
 endif
 
 
 ## compiler flags
-CXX_FLAGS = -std=c++11 -fopenmp -lgomp -lgsl -lgslcblas #-Wall -Wextra #-lgsl -lgslcblas -lm
+CXX_FLAGS = -std=c++0x -fopenmp -lgomp -lgsl -lgslcblas #-Wall -Wextra #-lgsl -lgslcblas -lm
 ## gnu c++ compilers >= 4.3 support -std=c++0x [requirement for hipgisaxs 4.3.x <= g++ <= 4.6.x]
 ## gnu c++ compilers >= 4.7 also support -std=c++11, but they are not supported by cuda
 
@@ -51,8 +51,8 @@ BOOST_LIBS = -L $(BOOST_DIR)/lib -lboost_system -lboost_filesystem -lboost_timer
 
 ## mpi (openmpi)
 ifeq ($(USE_MPI), y)
-MPI_INCL = -I $(MPI_DIR)/include
-MPI_LIBS = -L $(MPI_DIR)/lib -lmpi_cxx -lmpi
+#MPI_INCL = -I $(MPI_DIR)/include
+#MPI_LIBS = -L $(MPI_DIR)/lib -lmpi_cxx -lmpi
 endif
 
 ## cuda
@@ -75,14 +75,14 @@ NVCC_FLAGS =
 endif
 
 ## libtiff
-TIFF_LIBS = -L $(TIFF_LIB_DIR) -ltiff
+TIFF_LIBS = -L $(TIFF_DIR) -ltiff
 
 ## opencv
 #OPENCV_INCL = -I $(OPENCV_DIR)/include
 #OPENCV_LIBS = -L $(OPENCV_DIR)/lib -lopencv_core -lopencv_highgui -lopencv_imgproc
 
 ## woo
-#WOO_INCL = -I $(WOO_DIR)
+WOO_INCL = -I $(WOO_DIR)
 
 ## fftw
 ifeq ($(USE_GPU), y)
@@ -94,8 +94,8 @@ FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3
 endif
 
 ## gsl
-GSL_INCL =
-GSL_LIBS = -Wl,--no-as-needed -lgsl -lgslcblas -lm
+GSL_INCL = -I $(GSL_DIR)/include
+GSL_LIBS = -L $(GSL_DIR)/lib -Wl,--no-as-needed -lgsl -lgslcblas -lm
 
 ## miscellaneous
 MISC_INCL =
@@ -109,7 +109,7 @@ MISC_FLAGS += -DUSE_DFT				# enable use of quick DFT computation instead of full
 #MISC_FLAGS += -DUSE_MODEL_INPUT		# this enables input to be model and computes fft -- for debug/testing
 
 ## choose optimization levels, debug flags, gprof flag, etc
-#OPT_FLAGS += -g -DDEBUG #-v #-pg
+#OPT_FLAGS = -g -DDEBUG #-v #-pg
 OPT_FLAGS += -O3 -DNDEBUG #-v
 
 ## choose single or double precision here

@@ -94,8 +94,8 @@ FFTW_LIBS = -L $(FFTW_DIR)/lib -lfftw3
 endif
 
 ## gsl
-GSL_INCL =
-GSL_LIBS = -Wl,--no-as-needed -lgsl -lgslcblas -lm
+GSL_INCL = -I $(GSL_DIR)/include
+GSL_LIBS = -L $(GSL_DIR)/lib -Wl,--no-as-needed -lgsl -lgslcblas -lm
 
 ## miscellaneous
 MISC_INCL =
